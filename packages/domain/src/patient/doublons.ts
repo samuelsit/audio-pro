@@ -1,3 +1,4 @@
+import type { Qualite } from './patient';
 import { normaliserPourRecherche } from './recherche';
 
 /**
@@ -49,4 +50,28 @@ export function motifsDoublon(
     motifs.push('MEME_IDENTITE');
   }
   return motifs;
+}
+
+/** Doublon dans un centre accessible à l'utilisateur : identité affichée, fiche ouvrable. */
+export interface DoublonVisible {
+  readonly id: string;
+  readonly nomNaissance: string;
+  readonly nomUsage: string | null;
+  readonly prenoms: string;
+  readonly dateNaissance: string;
+  readonly centreNom: string;
+  readonly motifs: readonly MotifDoublon[];
+  readonly qualite: Qualite | null;
+  readonly rangNaissance: number | null;
+}
+
+/** Doublon hors du périmètre de l'utilisateur : seul le centre est révélé, jamais l'identité. */
+export interface DoublonHorsPerimetre {
+  readonly centreNom: string;
+  readonly motifs: readonly MotifDoublon[];
+}
+
+export interface DoublonsPossibles {
+  readonly visibles: readonly DoublonVisible[];
+  readonly horsPerimetre: readonly DoublonHorsPerimetre[];
 }

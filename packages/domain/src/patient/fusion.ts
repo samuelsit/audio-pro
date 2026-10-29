@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 /**
  * Champs que l'utilisateur arbitre lors d'une fusion. L'adresse et chaque couverture sont des blocs
  * indivisibles (on ne mélange pas deux adresses ni deux contrats). Les notes sont toujours concaténées.
@@ -41,8 +43,15 @@ export const LIBELLES_CHAMPS_FUSION: Readonly<Record<ChampFusion, string>> = {
   amc: 'Couverture AMC',
 };
 
-export type SourceFusion = 'conservee' | 'doublon';
+export const SOURCES_FUSION = ['conservee', 'doublon'] as const;
+export type SourceFusion = (typeof SOURCES_FUSION)[number];
 export type ChoixFusion = Partial<Readonly<Record<ChampFusion, SourceFusion>>>;
+
+/** Choix saisis à l'écran de fusion (un bouton radio par champ différent). */
+export const choixFusionSchema = z.partialRecord(
+  z.enum(CHAMPS_FUSION),
+  z.enum(SOURCES_FUSION, { error: 'Choix de fusion invalide.' }),
+);
 export type FicheFusion = Readonly<Record<ChampFusion, unknown>> & {
   readonly notes: string | null;
 };

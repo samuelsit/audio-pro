@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { champsDifferents, fusionnerFiches, sourceParDefaut, type FicheFusion } from './fusion';
+import {
+  champsDifferents,
+  choixFusionSchema,
+  fusionnerFiches,
+  sourceParDefaut,
+  type FicheFusion,
+} from './fusion';
 
 const conservee: FicheFusion = {
   centreId: 'a',
@@ -105,5 +111,18 @@ describe('fusionnerFiches', () => {
     expect(fusionnerFiches({ ...conservee, notes: a }, { ...doublon, notes: b }, {}).notes).toBe(
       attendu,
     );
+  });
+});
+
+describe('choixFusionSchema', () => {
+  it('accepte des choix partiels', () => {
+    expect(choixFusionSchema.parse({ email: 'doublon', amo: 'conservee' })).toEqual({
+      email: 'doublon',
+      amo: 'conservee',
+    });
+  });
+
+  it.each([{ email: 'les-deux' }, { inconnu: 'doublon' }])('refuse %o', (choix) => {
+    expect(choixFusionSchema.safeParse(choix).success).toBe(false);
   });
 });
