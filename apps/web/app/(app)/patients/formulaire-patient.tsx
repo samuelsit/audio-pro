@@ -9,6 +9,7 @@ import {
   QUALITES,
   SEXES,
   type DoublonsPossibles,
+  type PreRemplissagePatient,
 } from '@ha/domain';
 import Link from 'next/link';
 import { useActionState, type ReactNode } from 'react';
@@ -85,15 +86,19 @@ export function FormulairePatient({
   centres,
   centreParDefaut,
   patient,
+  preRempli,
 }: {
   action: (etat: EtatFormulaire, formData: FormData) => Promise<EtatFormulaire>;
   centres: readonly { id: string; nom: string }[];
   centreParDefaut?: string | undefined;
   patient?: PatientDetail | undefined;
+  /** Création : valeurs lues sur la carte Vitale. */
+  preRempli?: PreRemplissagePatient | undefined;
 }) {
   const [etat, envoyer] = useActionState(action, ETAT_INITIAL);
   const amo = patient?.amo;
   const amc = patient?.amc;
+  const p = preRempli;
   return (
     <form action={envoyer} className="grid max-w-3xl gap-6">
       <MessageFormulaire etat={etat} />
@@ -130,7 +135,7 @@ export function FormulairePatient({
             etat={etat}
             nom="nomNaissance"
             libelle="Nom de naissance"
-            defaut={patient?.nomNaissance}
+            defaut={patient?.nomNaissance ?? p?.nomNaissance}
             requis
           />
           <ChampTexte etat={etat} nom="nomUsage" libelle="Nom d’usage" defaut={patient?.nomUsage} />
@@ -140,7 +145,7 @@ export function FormulairePatient({
             etat={etat}
             nom="prenoms"
             libelle="Prénoms"
-            defaut={patient?.prenoms}
+            defaut={patient?.prenoms ?? p?.prenoms}
             requis
           />
           <ChampTexte
@@ -148,7 +153,7 @@ export function FormulairePatient({
             nom="dateNaissance"
             libelle="Date de naissance"
             type="date"
-            defaut={patient?.dateNaissance}
+            defaut={patient?.dateNaissance ?? p?.dateNaissance}
             requis
           />
         </div>
@@ -225,6 +230,12 @@ export function FormulairePatient({
       </Section>
 
       <Section titre="Couverture AMO (assurance maladie obligatoire)">
+        {p ? (
+          <p className="text-sm text-muted-foreground">
+            Données lues sur la carte Vitale : si vous les modifiez, la couverture sera enregistrée
+            en « saisie manuelle ».
+          </p>
+        ) : null}
         {amo?.origine === 'VITALE' ? (
           <p className="text-sm text-muted-foreground">
             Données lues sur la carte Vitale : une modification manuelle les fera passer en « saisie
@@ -235,7 +246,7 @@ export function FormulairePatient({
           etat={etat}
           nom="amoNir"
           libelle="NIR (clé comprise)"
-          defaut={amo?.nir}
+          defaut={amo?.nir ?? p?.amoNir}
           autoComplete="off"
           aide="Laisser vide s’il n’y a pas de couverture AMO à enregistrer."
         />
@@ -245,13 +256,13 @@ export function FormulairePatient({
             nom="amoQualite"
             libelle="Qualité"
             options={QUALITES.map((q) => ({ valeur: q, libelle: LIBELLES_QUALITE[q] }))}
-            defaut={amo?.qualite ?? 'ASSURE'}
+            defaut={amo?.qualite ?? p?.amoQualite ?? 'ASSURE'}
           />
           <ChampTexte
             etat={etat}
             nom="amoRangNaissance"
             libelle="Rang de naissance"
-            defaut={String(amo?.rangNaissance ?? 1)}
+            defaut={amo ? String(amo.rangNaissance) : (p?.amoRangNaissance ?? '1')}
             inputMode="numeric"
           />
         </div>
@@ -260,21 +271,21 @@ export function FormulairePatient({
             etat={etat}
             nom="amoRegime"
             libelle="Régime"
-            defaut={amo?.regime}
+            defaut={amo?.regime ?? p?.amoRegime}
             inputMode="numeric"
           />
           <ChampTexte
             etat={etat}
             nom="amoCaisse"
             libelle="Caisse"
-            defaut={amo?.caisse}
+            defaut={amo?.caisse ?? p?.amoCaisse}
             inputMode="numeric"
           />
           <ChampTexte
             etat={etat}
             nom="amoCentreGestionnaire"
             libelle="Centre gestionnaire"
-            defaut={amo?.centreGestionnaire}
+            defaut={amo?.centreGestionnaire ?? p?.amoCentreGestionnaire}
             inputMode="numeric"
           />
         </div>
@@ -283,16 +294,21 @@ export function FormulairePatient({
           nom="amoFinDroits"
           libelle="Fin de droits"
           type="date"
-          defaut={amo?.finDroits}
+          defaut={amo?.finDroits ?? p?.amoFinDroits}
         />
         <div className="flex flex-wrap gap-6">
           <CaseACocher
             etat={etat}
             nom="amoC2s"
             libelle="Bénéficiaire de la C2S"
-            defaut={amo?.c2s ?? false}
+            defaut={amo?.c2s ?? p?.amoC2s ?? false}
           />
-          <CaseACocher etat={etat} nom="amoAld" libelle="ALD" defaut={amo?.ald ?? false} />
+          <CaseACocher
+            etat={etat}
+            nom="amoAld"
+            libelle="ALD"
+            defaut={amo?.ald ?? p?.amoAld ?? false}
+          />
         </div>
       </Section>
 
@@ -302,14 +318,14 @@ export function FormulairePatient({
             etat={etat}
             nom="amcOrganismeNom"
             libelle="Organisme"
-            defaut={amc?.organismeNom}
+            defaut={amc?.organismeNom ?? p?.amcOrganismeNom}
             aide="Laisser vide s’il n’y a pas de complémentaire à enregistrer."
           />
           <ChampTexte
             etat={etat}
             nom="amcOrganismeIdentifiant"
             libelle="Identifiant de l’organisme"
-            defaut={amc?.organismeIdentifiant}
+            defaut={amc?.organismeIdentifiant ?? p?.amcOrganismeIdentifiant}
           />
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -317,13 +333,13 @@ export function FormulairePatient({
             etat={etat}
             nom="amcNumeroAdherent"
             libelle="N° d’adhérent"
-            defaut={amc?.numeroAdherent}
+            defaut={amc?.numeroAdherent ?? p?.amcNumeroAdherent}
           />
           <ChampTexte
             etat={etat}
             nom="amcTypeContrat"
             libelle="Type de contrat"
-            defaut={amc?.typeContrat}
+            defaut={amc?.typeContrat ?? p?.amcTypeContrat}
           />
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -332,14 +348,14 @@ export function FormulairePatient({
             nom="amcDebutValidite"
             libelle="Début de validité"
             type="date"
-            defaut={amc?.debutValidite}
+            defaut={amc?.debutValidite ?? p?.amcDebutValidite}
           />
           <ChampTexte
             etat={etat}
             nom="amcFinValidite"
             libelle="Fin de validité"
             type="date"
-            defaut={amc?.finValidite}
+            defaut={amc?.finValidite ?? p?.amcFinValidite}
           />
         </div>
       </Section>

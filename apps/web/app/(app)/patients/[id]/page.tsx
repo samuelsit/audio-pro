@@ -12,7 +12,9 @@ import { formaterDate, formaterDateHeure } from '@/lib/format';
 import { ouIntrouvable, requireSession } from '@/server/auth/gardes';
 import { doublonsDeLaFiche, obtenirPatient } from '@/server/services/patients';
 
-import { adresseSurUneLigne, dateEtAge, identiteComplete, libelleMotifs } from '../affichage';
+import { adresseSurUneLigne, dateEtAge, libelleMotifs } from '../affichage';
+import { AlerteDroits, BadgeC2s, EntetePatient } from '../entete-patient';
+import { LectureVitale } from '../lecture-vitale';
 
 export const metadata: Metadata = { title: 'Fiche patient – HA-Gestion' };
 
@@ -57,17 +59,14 @@ export default async function PageFichePatient({ params }: PageProps<'/patients/
 
   return (
     <div className="grid gap-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="grid gap-1">
-          <h1 className="text-2xl font-semibold tracking-tight">{identiteComplete(fiche)}</h1>
-          <p className="text-sm text-muted-foreground">
-            {dateEtAge(fiche)} — {fiche.centre.nom}
-          </p>
-        </div>
+      <EntetePatient fiche={fiche}>
+        <LectureVitale patientId={fiche.id} />
         <Button asChild>
           <Link href={`/patients/${fiche.id}/modifier`}>Modifier</Link>
         </Button>
-      </div>
+      </EntetePatient>
+
+      {amo ? <AlerteDroits etat={amo.etatDroits} fin={amo.finDroits} /> : null}
 
       {doublons.visibles.length > 0 || doublons.horsPerimetre.length > 0 ? (
         <Alert>
@@ -150,7 +149,7 @@ export default async function PageFichePatient({ params }: PageProps<'/patients/
               <Ligne libelle="Fin de droits">{formaterDate(amo.finDroits)}</Ligne>
               <Ligne libelle="Indicateurs">
                 <span className="flex flex-wrap gap-2">
-                  {amo.c2s ? <Badge>C2S</Badge> : null}
+                  {amo.c2s ? <BadgeC2s /> : null}
                   {amo.ald ? <Badge>ALD</Badge> : null}
                   {!amo.c2s && !amo.ald ? '—' : null}
                 </span>

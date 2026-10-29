@@ -16,51 +16,7 @@ import {
   rechercherParNir,
 } from '@/server/services/patients';
 
-const CHAMPS_TEXTE = [
-  'centreId',
-  'civilite',
-  'nomNaissance',
-  'nomUsage',
-  'prenoms',
-  'dateNaissance',
-  'sexe',
-  'adresseLigne1',
-  'adresseLigne2',
-  'codePostal',
-  'ville',
-  'telephone',
-  'email',
-  'medecinTraitant',
-  'notes',
-  'amoNir',
-  'amoRangNaissance',
-  'amoQualite',
-  'amoRegime',
-  'amoCaisse',
-  'amoCentreGestionnaire',
-  'amoFinDroits',
-  'amcOrganismeNom',
-  'amcOrganismeIdentifiant',
-  'amcNumeroAdherent',
-  'amcTypeContrat',
-  'amcDebutValidite',
-  'amcFinValidite',
-] as const;
-
-const CHAMPS_COCHES = [
-  'consentementSms',
-  'consentementEmail',
-  'consentementCourrier',
-  'amoC2s',
-  'amoAld',
-] as const;
-
-function saisie(formData: FormData): Record<string, string | boolean> {
-  return Object.fromEntries([
-    ...CHAMPS_TEXTE.map((champ) => [champ, texte(formData, champ)]),
-    ...CHAMPS_COCHES.map((champ) => [champ, coche(formData, champ)]),
-  ]);
-}
+import { saisie } from './saisie';
 
 export async function creerPatientAction(
   _: EtatFormulaire,

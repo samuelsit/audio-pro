@@ -23,6 +23,11 @@ export default defineConfig({
     url: `${baseURL}/connexion`,
     // Toujours un serveur dédié, branché sur la base E2E (jamais la base de dev).
     reuseExistingServer: false,
-    env: { DATABASE_URL: databaseUrl, BETTER_AUTH_URL: baseURL, ...CHIFFREMENT_TEST },
+    env: {
+      DATABASE_URL: databaseUrl,
+      BETTER_AUTH_URL: baseURL,
+      VITALE_LECTEUR: 'simulation',
+      ...CHIFFREMENT_TEST,
+    },
   },
 });

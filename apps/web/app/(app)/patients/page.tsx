@@ -12,6 +12,8 @@ import { perimetreCourant } from '@/server/auth/gardes';
 import { listerPatients, type PatientResume } from '@/server/services/patients';
 
 import { dateEtAge, nomAffiche } from './affichage';
+import { BadgeC2s } from './entete-patient';
+import { LectureVitale } from './lecture-vitale';
 import { RechercheNir } from './recherche-nir';
 
 export const metadata: Metadata = { title: 'Patients – HA-Gestion' };
@@ -23,9 +25,12 @@ const COLONNES: readonly Colonne<PatientResume>[] = [
   {
     libelle: 'Nom',
     rendu: (p) => (
-      <Link href={`/patients/${p.id}`} className="font-medium underline-offset-4 hover:underline">
-        {nomAffiche(p)}
-      </Link>
+      <span className="flex flex-wrap items-center gap-2">
+        <Link href={`/patients/${p.id}`} className="font-medium underline-offset-4 hover:underline">
+          {nomAffiche(p)}
+        </Link>
+        {p.c2s ? <BadgeC2s /> : null}
+      </span>
     ),
   },
   { libelle: 'Prénoms', rendu: (p) => p.prenoms },
@@ -69,6 +74,10 @@ export default async function PagePatients({
           mentionFacultatif={false}
         />
       </FormulaireFiltres>
+
+      <div className="flex justify-end">
+        <LectureVitale />
+      </div>
 
       <RechercheNir />
 

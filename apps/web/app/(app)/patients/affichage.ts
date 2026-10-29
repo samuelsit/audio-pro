@@ -1,6 +1,10 @@
 import {
   formaterNir,
   LIBELLES_CIVILITE,
+  type AmcSaisie,
+  type AmoSaisie,
+  type ChampCarte,
+  type ValeurComparee,
   LIBELLES_MOTIF_DOUBLON,
   LIBELLES_QUALITE,
   LIBELLES_SEXE,
@@ -48,7 +52,12 @@ export function adresseSurUneLigne(
   return [p.adresseLigne1, p.adresseLigne2, ville].filter(Boolean).join(', ') || '—';
 }
 
-export function resumeAmo(amo: CouvertureAmoDetail | null): string {
+export function resumeAmo(
+  amo: Pick<
+    CouvertureAmoDetail,
+    'nir' | 'qualite' | 'rangNaissance' | 'finDroits' | 'c2s' | 'ald'
+  > | null,
+): string {
   if (!amo) {
     return 'Aucune';
   }
@@ -63,7 +72,7 @@ export function resumeAmo(amo: CouvertureAmoDetail | null): string {
     .join(' — ');
 }
 
-export function resumeAmc(amc: CouvertureAmcDetail | null): string {
+export function resumeAmc(amc: CouvertureAmcDetail | AmcSaisie | null): string {
   if (!amc) {
     return 'Aucune';
   }
@@ -103,5 +112,27 @@ export function valeurChampFusion(fiche: PatientDetail, champ: ChampFusion): str
       return resumeAmc(fiche.amc);
     default:
       return fiche[champ] ?? '—';
+  }
+}
+
+/** Valeur d'un champ à l'écran de comparaison base / carte Vitale. */
+export function valeurChampCarte(champ: ChampCarte, valeur: ValeurComparee): string {
+  switch (champ) {
+    case 'amo':
+      return resumeAmo(valeur as AmoSaisie | null);
+    case 'amc':
+      return resumeAmc(valeur as AmcSaisie | null);
+    case 'dateNaissance':
+    case 'finDroits':
+      return valeur === null ? '—' : formaterDate(valeur as string);
+    case 'nir':
+      return valeur === null ? '—' : formaterNir(valeur as string);
+    case 'qualite':
+      return valeur === null ? '—' : LIBELLES_QUALITE[valeur as AmoSaisie['qualite']];
+    case 'c2s':
+    case 'ald':
+      return valeur === null ? '—' : ouiNon(valeur as boolean);
+    default:
+      return valeur === null ? '—' : String(valeur);
   }
 }

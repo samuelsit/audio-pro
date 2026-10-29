@@ -1,12 +1,12 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 
-import { EntetePage } from '@/components/entete-page';
 import { ouIntrouvable, perimetreCourant } from '@/server/auth/gardes';
 import { obtenirPatient } from '@/server/services/patients';
 
 import { modifierPatientAction } from '../../actions';
 import { identiteComplete } from '../../affichage';
+import { EntetePatient } from '../../entete-patient';
 import { FormulairePatient } from '../../formulaire-patient';
 
 export const metadata: Metadata = { title: 'Modifier un patient – HA-Gestion' };
@@ -27,7 +27,7 @@ export default async function PageModifierPatient({
     : [fiche.centre, ...centres];
   return (
     <div className="grid gap-6">
-      <EntetePage titre={`Modifier : ${identiteComplete(fiche)}`} />
+      <EntetePatient fiche={fiche} titre={`Modifier : ${identiteComplete(fiche)}`} />
       <FormulairePatient
         action={modifierPatientAction.bind(null, id)}
         centres={options}
