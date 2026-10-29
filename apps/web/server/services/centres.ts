@@ -1,5 +1,5 @@
 import { prisma } from '@ha/db';
-import { centreSaisieSchema, type Perimetre } from '@ha/domain';
+import { centreSaisieSchema, differencesAuditees, type Perimetre } from '@ha/domain';
 
 import {
   AccesRefuseError,
@@ -8,6 +8,7 @@ import {
   verifierRole,
   type UtilisateurConnecte,
 } from '../auth/acces';
+import { withAudit } from '../audit/journal';
 import { traduireDoublon, valider } from '../erreurs';
 import { centresDuPerimetre } from '../perimetre';
 
@@ -85,11 +86,23 @@ export async function creerCentre(acteur: UtilisateurConnecte, saisie: unknown):
   verifierRole(acteur, 'ADMIN');
   const donnees = valider(centreSaisieSchema, saisie);
   try {
-    const centre = await prisma().centre.create({
-      data: { ...donnees, organisationId: acteur.organisationId },
-      select: { id: true },
-    });
-    return centre.id;
+    return await withAudit(
+      acteur,
+      async (tx) => {
+        const centre = await tx.centre.create({
+          data: { ...donnees, organisationId: acteur.organisationId },
+          select: { id: true },
+        });
+        return centre.id;
+      },
+      (id) => ({
+        action: 'CREATE',
+        entiteType: 'CENTRE',
+        entiteId: id,
+        centreId: id,
+        champs: differencesAuditees('CENTRE', null, donnees),
+      }),
+    );
   } catch (erreur) {
     traduireDoublon(erreur, MESSAGES_DOUBLON, 'Ce centre existe déjà.');
   }
@@ -101,10 +114,16 @@ export async function modifierCentre(
   saisie: unknown,
 ): Promise<void> {
   verifierRole(acteur, 'ADMIN');
-  await obtenirCentre(acteur, centreId);
+  const { id, ...avant } = await obtenirCentre(acteur, centreId);
   const donnees = valider(centreSaisieSchema, saisie);
   try {
-    await prisma().centre.update({ where: { id: centreId }, data: donnees });
+    await withAudit(acteur, (tx) => tx.centre.update({ where: { id }, data: donnees }), {
+      action: 'UPDATE',
+      entiteType: 'CENTRE',
+      entiteId: id,
+      centreId: id,
+      champs: differencesAuditees('CENTRE', avant, donnees),
+    });
   } catch (erreur) {
     traduireDoublon(erreur, MESSAGES_DOUBLON, 'Ce centre existe déjà.');
   }

@@ -1,3 +1,4 @@
+import { prisma } from '@ha/db';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { creerJeuDeDonnees, viderBase, type JeuDeDonnees } from '@/test/donnees';
@@ -83,5 +84,29 @@ describe('creerCentre / modifierCentre', () => {
     await expect(obtenirCentre(d.acteurs.admin, d.centres.ferme.id)).resolves.toBeDefined();
     const assistant = { ...d.acteurs.assistantA, centreIds: [d.centres.ferme.id] };
     await expect(obtenirCentre(assistant, d.centres.ferme.id)).rejects.toThrow(AccesRefuseError);
+  });
+});
+
+describe('journal d’audit', () => {
+  it('journalise la création et la modification avec les champs changés', async () => {
+    const id = await creerCentre(d.acteurs.admin, saisie());
+    await modifierCentre(d.acteurs.admin, id, saisie({ ville: 'Villeurbanne', actif: false }));
+
+    const lignes = await prisma().journalAudit.findMany({ orderBy: { horodatage: 'asc' } });
+    expect(lignes.map((l) => [l.action, l.entiteType, l.entiteId, l.centreId])).toEqual([
+      ['CREATE', 'CENTRE', id, id],
+      ['UPDATE', 'CENTRE', id, id],
+    ]);
+    expect(lignes[0]?.utilisateurId).toBe(d.utilisateurs.admin.id);
+    expect(lignes[0]?.champs).toContainEqual({ champ: 'nom', masque: false, apres: 'Centre D' });
+    expect(lignes[1]?.champs).toEqual([
+      { champ: 'ville', masque: false, avant: 'Lyon', apres: 'Villeurbanne' },
+      { champ: 'actif', masque: false, avant: true, apres: false },
+    ]);
+  });
+
+  it('n’écrit rien quand la création échoue', async () => {
+    await creerCentre(d.acteurs.admin, saisie({ nom: 'Centre A' })).catch(() => undefined);
+    expect(await prisma().journalAudit.count()).toBe(0);
   });
 });

@@ -1,6 +1,7 @@
 import { prisma, type Prisma } from '@ha/db';
 import {
   centresExerciceHorsRattachement,
+  differencesAuditees,
   motDePasseSchema,
   nomAffiche,
   peutAccederAuCentre,
@@ -17,6 +18,7 @@ import {
   verifierRole,
   type UtilisateurConnecte,
 } from '../auth/acces';
+import { withAudit } from '../audit/journal';
 import { ErreurSaisie, traduireDoublon, valider } from '../erreurs';
 import { filtreParCentre } from '../perimetre';
 
@@ -139,26 +141,38 @@ export async function creerUtilisateur(
   await verifierCentresDeLOrganisation(acteur, donnees.centreIds);
   const hash = await hashPassword(resultatMdp.data);
   try {
-    const cree = await prisma().$transaction(async (tx) => {
-      const u = await tx.utilisateur.create({
-        data: {
-          organisationId: acteur.organisationId,
-          prenom: donnees.prenom,
-          nom: donnees.nom,
-          name: nomAffiche(donnees.prenom, donnees.nom),
-          email: donnees.email,
-          role: donnees.role,
-          actif: donnees.actif,
+    const cree = await withAudit(
+      acteur,
+      async (tx) => {
+        const u = await tx.utilisateur.create({
+          data: {
+            organisationId: acteur.organisationId,
+            prenom: donnees.prenom,
+            nom: donnees.nom,
+            name: nomAffiche(donnees.prenom, donnees.nom),
+            email: donnees.email,
+            role: donnees.role,
+            actif: donnees.actif,
+            doitChangerMotDePasse: true,
+            centres: { create: donnees.centreIds.map((centreId) => ({ centreId })) },
+          },
+          select: { id: true },
+        });
+        await tx.compte.create({
+          data: { accountId: u.id, providerId: 'credential', userId: u.id, password: hash },
+        });
+        return u;
+      },
+      (u) => ({
+        action: 'CREATE',
+        entiteType: 'UTILISATEUR',
+        entiteId: u.id,
+        champs: differencesAuditees('UTILISATEUR', null, {
+          ...donnees,
           doitChangerMotDePasse: true,
-          centres: { create: donnees.centreIds.map((centreId) => ({ centreId })) },
-        },
-        select: { id: true },
-      });
-      await tx.compte.create({
-        data: { accountId: u.id, providerId: 'credential', userId: u.id, password: hash },
-      });
-      return u;
-    });
+        }),
+      }),
+    );
     return cree.id;
   } catch (erreur) {
     traduireDoublon(erreur, MESSAGES_DOUBLON, 'Ce compte existe déjà.');
@@ -205,29 +219,49 @@ export async function modifierUtilisateur(
   }
 
   try {
-    await prisma().$transaction(async (tx) => {
-      await tx.utilisateur.update({
-        where: { id: utilisateurId },
-        data: {
-          prenom: donnees.prenom,
-          nom: donnees.nom,
-          name: nomAffiche(donnees.prenom, donnees.nom),
-          email: donnees.email,
-          role: donnees.role,
-          actif: donnees.actif,
-        },
-      });
-      await tx.utilisateurCentre.deleteMany({
-        where: { utilisateurId, centreId: { notIn: donnees.centreIds } },
-      });
-      await tx.utilisateurCentre.createMany({
-        data: donnees.centreIds.map((centreId) => ({ utilisateurId, centreId })),
-        skipDuplicates: true,
-      });
-      if (!donnees.actif) {
-        await tx.session.deleteMany({ where: { userId: utilisateurId } });
-      }
-    });
+    await withAudit(
+      acteur,
+      async (tx) => {
+        await tx.utilisateur.update({
+          where: { id: utilisateurId },
+          data: {
+            prenom: donnees.prenom,
+            nom: donnees.nom,
+            name: nomAffiche(donnees.prenom, donnees.nom),
+            email: donnees.email,
+            role: donnees.role,
+            actif: donnees.actif,
+          },
+        });
+        await tx.utilisateurCentre.deleteMany({
+          where: { utilisateurId, centreId: { notIn: donnees.centreIds } },
+        });
+        await tx.utilisateurCentre.createMany({
+          data: donnees.centreIds.map((centreId) => ({ utilisateurId, centreId })),
+          skipDuplicates: true,
+        });
+        if (!donnees.actif) {
+          await tx.session.deleteMany({ where: { userId: utilisateurId } });
+        }
+      },
+      {
+        action: 'UPDATE',
+        entiteType: 'UTILISATEUR',
+        entiteId: utilisateurId,
+        champs: differencesAuditees(
+          'UTILISATEUR',
+          {
+            prenom: actuel.prenom,
+            nom: actuel.nom,
+            email: actuel.email,
+            role: actuel.role,
+            actif: actuel.actif,
+            centreIds: actuel.centreIds,
+          },
+          donnees,
+        ),
+      },
+    );
   } catch (erreur) {
     traduireDoublon(erreur, MESSAGES_DOUBLON, 'Ce compte existe déjà.');
   }
@@ -246,15 +280,25 @@ export async function reinitialiserMotDePasse(
     throw ErreurSaisie.surChamp('motDePasse', resultat.error.issues[0]?.message ?? '');
   }
   const hash = await hashPassword(resultat.data);
-  await prisma().$transaction([
-    prisma().compte.updateMany({
-      where: { userId: utilisateurId, providerId: 'credential' },
-      data: { password: hash },
-    }),
-    prisma().utilisateur.update({
-      where: { id: utilisateurId },
-      data: { doitChangerMotDePasse: true },
-    }),
-    prisma().session.deleteMany({ where: { userId: utilisateurId } }),
-  ]);
+  await withAudit(
+    acteur,
+    async (tx) => {
+      await tx.compte.updateMany({
+        where: { userId: utilisateurId, providerId: 'credential' },
+        data: { password: hash },
+      });
+      await tx.utilisateur.update({
+        where: { id: utilisateurId },
+        data: { doitChangerMotDePasse: true },
+      });
+      await tx.session.deleteMany({ where: { userId: utilisateurId } });
+    },
+    {
+      action: 'UPDATE',
+      entiteType: 'UTILISATEUR',
+      entiteId: utilisateurId,
+      champs: [{ champ: 'motDePasse', masque: true }],
+      details: { motif: 'Mot de passe provisoire fixé par un administrateur, sessions fermées' },
+    },
+  );
 }

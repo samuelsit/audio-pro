@@ -9,8 +9,9 @@ import { encode } from 'uqr';
 import { texte, type EtatFormulaire } from '@/lib/formulaire';
 import { auth } from '@/server/auth/auth';
 import { CHEMIN_CONNEXION } from '@/server/auth/constantes';
-import { requireSession } from '@/server/auth/gardes';
-import { marquerMotDePasseChange } from '@/server/services/compte';
+import { requireSession, utilisateurConnecte } from '@/server/auth/gardes';
+import { journaliserDeuxFacteurs, marquerMotDePasseChange } from '@/server/services/compte';
+import { journaliserDeconnexion } from '@/server/services/connexions';
 
 export async function changerMotDePasse(
   _: EtatFormulaire,
@@ -99,7 +100,7 @@ export async function confirmerActivation(
   _: EtatFormulaire,
   formData: FormData,
 ): Promise<EtatFormulaire> {
-  await requireSession({ etapesObligatoires: false });
+  const acteur = await requireSession({ etapesObligatoires: false });
   const code = texte(formData, 'code').replace(/\s+/g, '');
   try {
     await auth().api.verifyTOTP({ body: { code }, headers: await headers() });
@@ -111,6 +112,7 @@ export async function confirmerActivation(
     }
     throw erreur;
   }
+  await journaliserDeuxFacteurs(acteur, true);
   redirect('/');
 }
 
@@ -134,10 +136,15 @@ export async function desactiverDeuxFacteurs(
     }
     throw erreur;
   }
+  await journaliserDeuxFacteurs(acteur, false);
   redirect('/compte/2fa');
 }
 
 export async function seDeconnecter(): Promise<void> {
+  const acteur = await utilisateurConnecte();
   await auth().api.signOut({ headers: await headers() });
+  if (acteur) {
+    await journaliserDeconnexion(acteur);
+  }
   redirect(CHEMIN_CONNEXION);
 }

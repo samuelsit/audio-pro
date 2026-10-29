@@ -177,3 +177,39 @@ describe('modifierPraticien', () => {
     await expect(obtenirPraticien(d.acteurs.admin, 'inconnu')).rejects.toThrow(AccesRefuseError);
   });
 });
+
+describe('journal d’audit', () => {
+  it('journalise la création et la modification d’une fiche', async () => {
+    const utilisateurId = await nouvelAudio([d.centres.a.id, d.centres.c.id]);
+    const id = await creerPraticien(d.acteurs.admin, {
+      utilisateurId,
+      rpps: '100 000 000 01',
+      adeli: '',
+      centreIds: [d.centres.c.id],
+    });
+    await modifierPraticien(d.acteurs.admin, id, {
+      rpps: '10000000001',
+      adeli: '',
+      centreIds: [d.centres.a.id, d.centres.c.id],
+    });
+
+    const lignes = await prisma().journalAudit.findMany({ orderBy: { horodatage: 'asc' } });
+    expect(lignes.map((l) => [l.action, l.entiteType, l.entiteId])).toEqual([
+      ['CREATE', 'PRATICIEN', id],
+      ['UPDATE', 'PRATICIEN', id],
+    ]);
+    expect(lignes[0]?.champs).toContainEqual({
+      champ: 'rpps',
+      masque: false,
+      apres: '10000000001',
+    });
+    expect(lignes[1]?.champs).toEqual([
+      {
+        champ: 'centreIds',
+        masque: false,
+        avant: [d.centres.c.id],
+        apres: [d.centres.a.id, d.centres.c.id],
+      },
+    ]);
+  });
+});

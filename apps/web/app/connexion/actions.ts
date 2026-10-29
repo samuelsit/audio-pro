@@ -6,6 +6,7 @@ import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 
 import { texte, type EtatFormulaire } from '@/lib/formulaire';
+import { chargerUtilisateurConnecte } from '@/server/auth/acces';
 import { auth } from '@/server/auth/auth';
 import {
   enregistrerTentative,
@@ -13,6 +14,15 @@ import {
   LIMITE_CONNEXION_IP,
   reinitialiserTentatives,
 } from '@/server/auth/limitation';
+import { journaliserConnexion, journaliserEchecConnexion } from '@/server/services/connexions';
+
+/** Journalise une connexion complète (mot de passe, puis second facteur s'il est exigé). */
+async function journaliserConnexionDe(utilisateurId: string): Promise<void> {
+  const acteur = await chargerUtilisateurConnecte(utilisateurId);
+  if (acteur) {
+    await journaliserConnexion(acteur);
+  }
+}
 
 const ECHEC_CONNEXION = 'E-mail ou mot de passe incorrect, ou compte désactivé.';
 
@@ -38,9 +48,14 @@ export async function seConnecter(_: EtatFormulaire, formData: FormData): Promis
       body: { email: email.data, password: motDePasse },
       headers: entetes,
     });
-    defiDeuxFacteurs = 'twoFactorRedirect' in resultat && resultat.twoFactorRedirect === true;
+    if ('twoFactorRedirect' in resultat && resultat.twoFactorRedirect === true) {
+      defiDeuxFacteurs = true;
+    } else if ('user' in resultat) {
+      await journaliserConnexionDe(resultat.user.id);
+    }
   } catch (erreur) {
     if (erreur instanceof APIError) {
+      await journaliserEchecConnexion(email.data, 'IDENTIFIANTS');
       return { message: ECHEC_CONNEXION, valeurs: { email: email.data } };
     }
     throw erreur;
@@ -57,13 +72,13 @@ export async function verifierCodeConnexion(
   const code = texte(formData, 'code').replace(/\s+/g, '');
   const entetes = await headers();
   try {
-    if (/^\d{6}$/.test(code)) {
-      await auth().api.verifyTOTP({ body: { code, trustDevice: false }, headers: entetes });
-    } else {
-      await auth().api.verifyBackupCode({ body: { code }, headers: entetes });
-    }
+    const resultat = /^\d{6}$/.test(code)
+      ? await auth().api.verifyTOTP({ body: { code, trustDevice: false }, headers: entetes })
+      : await auth().api.verifyBackupCode({ body: { code }, headers: entetes });
+    await journaliserConnexionDe(resultat.user.id);
   } catch (erreur) {
     if (erreur instanceof APIError) {
+      await journaliserEchecConnexion(null, 'CODE_2FA');
       return { message: 'Code invalide ou expiré. Si le problème persiste, reconnectez-vous.' };
     }
     throw erreur;

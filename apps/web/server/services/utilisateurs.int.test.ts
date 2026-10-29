@@ -199,3 +199,40 @@ describe('reinitialiserMotDePasse', () => {
     ).toBe(true);
   });
 });
+
+describe('journal d’audit', () => {
+  it('journalise création, modification et réinitialisation sans jamais le mot de passe', async () => {
+    const mdp = 'provisoire-tres-long-1';
+    const id = await creerUtilisateur(
+      d.acteurs.admin,
+      saisie({ centreIds: [d.centres.a.id] }),
+      mdp,
+    );
+    await modifierUtilisateur(
+      d.acteurs.admin,
+      id,
+      saisie({ nom: 'Renommée', centreIds: [d.centres.a.id, d.centres.b.id] }),
+    );
+    await reinitialiserMotDePasse(d.acteurs.admin, id, 'autre-provisoire-long-2');
+
+    const lignes = await prisma().journalAudit.findMany({ orderBy: { horodatage: 'asc' } });
+    expect(lignes.map((l) => [l.action, l.entiteType, l.entiteId])).toEqual([
+      ['CREATE', 'UTILISATEUR', id],
+      ['UPDATE', 'UTILISATEUR', id],
+      ['UPDATE', 'UTILISATEUR', id],
+    ]);
+    expect(lignes[1]?.champs).toEqual([
+      { champ: 'nom', masque: false, avant: 'Nouvelle', apres: 'Renommée' },
+      {
+        champ: 'centreIds',
+        masque: false,
+        avant: [d.centres.a.id],
+        apres: [d.centres.a.id, d.centres.b.id],
+      },
+    ]);
+    expect(lignes[2]?.champs).toEqual([{ champ: 'motDePasse', masque: true }]);
+    const contenu = JSON.stringify(lignes);
+    expect(contenu).not.toContain(mdp);
+    expect(contenu).not.toContain('autre-provisoire-long-2');
+  });
+});

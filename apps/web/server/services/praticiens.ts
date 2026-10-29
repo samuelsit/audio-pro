@@ -1,6 +1,7 @@
 import { prisma, type Prisma } from '@ha/db';
 import {
   centresExerciceHorsRattachement,
+  differencesAuditees,
   peutAccederAuCentre,
   peutEtrePraticien,
   praticienSaisieSchema,
@@ -13,6 +14,7 @@ import {
   verifierRole,
   type UtilisateurConnecte,
 } from '../auth/acces';
+import { withAudit } from '../audit/journal';
 import { ErreurSaisie, traduireDoublon, valider } from '../erreurs';
 import { filtreParCentre } from '../perimetre';
 
@@ -149,15 +151,25 @@ export async function creerPraticien(
   verifierRole(acteur, 'ADMIN');
   const donnees = await validerSaisie(acteur, saisie);
   try {
-    const p = await prisma().praticien.create({
-      data: {
-        utilisateurId: donnees.utilisateurId,
-        rpps: donnees.rpps,
-        adeli: donnees.adeli,
-        centres: { create: donnees.centreIds.map((centreId) => ({ centreId })) },
-      },
-      select: { id: true },
-    });
+    const p = await withAudit(
+      acteur,
+      (tx) =>
+        tx.praticien.create({
+          data: {
+            utilisateurId: donnees.utilisateurId,
+            rpps: donnees.rpps,
+            adeli: donnees.adeli,
+            centres: { create: donnees.centreIds.map((centreId) => ({ centreId })) },
+          },
+          select: { id: true },
+        }),
+      (cree) => ({
+        action: 'CREATE',
+        entiteType: 'PRATICIEN',
+        entiteId: cree.id,
+        champs: differencesAuditees('PRATICIEN', null, donnees),
+      }),
+    );
     return p.id;
   } catch (erreur) {
     traduireDoublon(erreur, MESSAGES_DOUBLON, 'Ce praticien existe déjà.');
@@ -177,19 +189,32 @@ export async function modifierPraticien(
     utilisateurId: actuel.utilisateurId,
   });
   try {
-    await prisma().$transaction([
-      prisma().praticien.update({
-        where: { id: praticienId },
-        data: { rpps: donnees.rpps, adeli: donnees.adeli },
-      }),
-      prisma().praticienCentre.deleteMany({
-        where: { praticienId, centreId: { notIn: donnees.centreIds } },
-      }),
-      prisma().praticienCentre.createMany({
-        data: donnees.centreIds.map((centreId) => ({ praticienId, centreId })),
-        skipDuplicates: true,
-      }),
-    ]);
+    await withAudit(
+      acteur,
+      async (tx) => {
+        await tx.praticien.update({
+          where: { id: praticienId },
+          data: { rpps: donnees.rpps, adeli: donnees.adeli },
+        });
+        await tx.praticienCentre.deleteMany({
+          where: { praticienId, centreId: { notIn: donnees.centreIds } },
+        });
+        await tx.praticienCentre.createMany({
+          data: donnees.centreIds.map((centreId) => ({ praticienId, centreId })),
+          skipDuplicates: true,
+        });
+      },
+      {
+        action: 'UPDATE',
+        entiteType: 'PRATICIEN',
+        entiteId: praticienId,
+        champs: differencesAuditees(
+          'PRATICIEN',
+          { rpps: actuel.rpps, adeli: actuel.adeli, centreIds: actuel.centreIds },
+          { rpps: donnees.rpps, adeli: donnees.adeli, centreIds: donnees.centreIds },
+        ),
+      },
+    );
   } catch (erreur) {
     traduireDoublon(erreur, MESSAGES_DOUBLON, 'Ce praticien existe déjà.');
   }
