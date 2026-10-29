@@ -1,0 +1,34 @@
+# Dépendances et builds
+node_modules/
+.next/
+out/
+dist/
+*.tsbuildinfo
+next-env.d.ts
+
+# Client Prisma généré
+packages/db/src/generated/
+
+# Tests
+coverage/
+playwright-report/
+test-results/
+blob-report/
+
+# Environnement
+.env
+.env.*
+!.env.example
+
+# Système / éditeurs
+.DS_Store
+*.log
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# Exports Cosium : peuvent contenir des données patient réelles.
+# Seuls le README et le dossier demo/ (fichiers fictifs) sont versionnés.
+fixtures/import-cosium/*
+!fixtures/import-cosium/README.md
+!fixtures/import-cosium/demo/

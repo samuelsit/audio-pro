@@ -1,0 +1,37 @@
+{
+  "name": "ha-gestion",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.5.3",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @ha/web dev",
+    "build": "pnpm --filter @ha/web build",
+    "test": "vitest run --coverage",
+    "test:watch": "vitest",
+    "test:e2e": "pnpm --filter @ha/web test:e2e",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "db:migrate": "pnpm --filter @ha/db migrate",
+    "db:deploy": "pnpm --filter @ha/db deploy",
+    "db:seed": "pnpm --filter @ha/db seed",
+    "db:studio": "pnpm --filter @ha/db studio"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@vitest/coverage-v8": "^5.0.5",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "16.4.3",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^16.4.0",
+    "prettier": "^3.9.10",
+    "prettier-plugin-tailwindcss": "^0.8.1",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.72.1",
+    "vitest": "^5.0.5"
+  }
+}
