@@ -1,21 +1,23 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 
-/** Charge le .env racine (s'il existe) et renvoie l'URL de la base de test, après garde-fou. */
-export function urlBaseDeTest(): string {
+import { verifierBaseJetable } from '@ha/db';
+
+/** Charge le .env racine s'il existe (absent en CI, où les variables sont fournies). */
+export function chargerEnvRacine(): void {
   const fichier = path.join(import.meta.dirname, '../../../.env');
   if (existsSync(fichier)) {
     process.loadEnvFile(fichier);
   }
-  const url = process.env.DATABASE_URL_TEST;
+}
+
+/** URL d'une base jetable lue dans `variable`, après garde-fou sur son nom. */
+export function urlBaseJetable(variable: 'DATABASE_URL_TEST' | 'DATABASE_URL_E2E'): string {
+  chargerEnvRacine();
+  const url = process.env[variable];
   if (!url) {
-    throw new Error('DATABASE_URL_TEST n’est pas défini (voir .env.example).');
+    throw new Error(`${variable} n’est pas défini (voir .env.example).`);
   }
-  // Les tests vident les tables : on refuse toute base dont le nom ne finit pas par « _test ».
-  if (!/\/[\w-]+_test(\?|$)/.test(url)) {
-    throw new Error(
-      'DATABASE_URL_TEST doit désigner une base dont le nom se termine par « _test ».',
-    );
-  }
+  verifierBaseJetable(url);
   return url;
 }

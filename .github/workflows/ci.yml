@@ -14,9 +14,25 @@ jobs:
     name: Lint, typecheck, tests
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: ha
+          POSTGRES_PASSWORD: ha
+          POSTGRES_DB: ha_gestion
+          TZ: Europe/Paris
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ha -d ha_gestion"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
     env:
-      # Aucun accès base en CI pour l'instant : `prisma generate` n'en a pas besoin.
-      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+      DATABASE_URL: postgresql://ha:ha@localhost:5432/ha_gestion
+      # Tests d'intégration : base créée et migrée par le globalSetup de Vitest.
+      DATABASE_URL_TEST: postgresql://ha:ha@localhost:5432/ha_gestion_test
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6

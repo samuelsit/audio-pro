@@ -1,23 +1,9 @@
-import { prisma } from '@ha/db';
+import { prisma, viderBaseJetable } from '@ha/db';
 
 import { chargerUtilisateurConnecte, type UtilisateurConnecte } from '@/server/auth/acces';
 
-const TABLES = [
-  'praticien_centre',
-  'praticien',
-  'utilisateur_centre',
-  'deux_facteurs',
-  'session',
-  'compte',
-  'verification',
-  'limitation_debit',
-  'utilisateur',
-  'centre',
-  'organisation',
-];
-
 export async function viderBase(): Promise<void> {
-  await prisma().$executeRawUnsafe(`TRUNCATE ${TABLES.map((t) => `"${t}"`).join(', ')} CASCADE`);
+  await viderBaseJetable(process.env.DATABASE_URL ?? '');
 }
 
 function centre(organisationId: string, nom: string) {

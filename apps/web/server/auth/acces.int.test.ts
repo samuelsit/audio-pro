@@ -114,9 +114,7 @@ describe('profil chargé depuis la base', () => {
       throw new Error('profil attendu');
     }
     expect(u.centreIds).toEqual([]);
-    await expect(resoudrePerimetreActeur(u, undefined)).rejects.toThrow(
-      AucunCentreAccessibleError,
-    );
+    await expect(resoudrePerimetreActeur(u, undefined)).rejects.toThrow(AucunCentreAccessibleError);
   });
 
   it('renvoie null pour un compte désactivé ou inconnu', async () => {

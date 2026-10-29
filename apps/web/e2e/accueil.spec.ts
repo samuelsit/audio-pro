@@ -1,7 +1,38 @@
 import { expect, test } from '@playwright/test';
 
-test('la page d’accueil affiche HA-Gestion', async ({ page }) => {
-  await page.goto('/');
-  await expect(page).toHaveTitle(/HA-Gestion/);
-  await expect(page.getByRole('heading', { level: 1, name: 'HA-Gestion' })).toBeVisible();
+import { COMPTES, ouvrirSelecteurCentre, seConnecter } from './outils';
+
+test('un visiteur non connecté est renvoyé vers la connexion', async ({ page }) => {
+  await page.goto('/equipe');
+  await expect(page).toHaveURL(/\/connexion$/);
+  await expect(page).toHaveTitle(/Connexion – HA-Gestion/);
+});
+
+test('un mauvais mot de passe est refusé sans détail', async ({ page }) => {
+  await page.goto('/connexion');
+  await page.getByLabel('Adresse e-mail').fill(COMPTES.assistanteNord);
+  await page.getByLabel('Mot de passe').fill('mauvais-mot-de-passe');
+  await page.getByRole('button', { name: 'Se connecter' }).click();
+  // Filtré : l'annonceur de route de Next porte aussi role="alert".
+  await expect(
+    page.getByRole('alert').filter({ hasText: 'E-mail ou mot de passe incorrect' }),
+  ).toHaveText('E-mail ou mot de passe incorrect, ou compte désactivé.');
+});
+
+test('une assistante du centre Nord ne voit que le centre Nord', async ({ page }) => {
+  await seConnecter(page, COMPTES.assistanteNord);
+  await expect(page.getByRole('heading', { name: 'Bonjour Sacha' })).toBeVisible();
+  await expect(page.getByTestId('centre-courant')).toHaveText('Centre Démo Nord');
+  expect(await ouvrirSelecteurCentre(page)).toEqual(['Centre Démo Nord']);
+
+  await page.getByRole('link', { name: 'Équipe' }).click();
+  // Camille apparaît comme audioprothésiste et comme membre.
+  await expect(page.getByRole('cell', { name: 'Camille Audio' })).toHaveCount(2);
+  await expect(page.getByRole('cell', { name: 'Sacha Assistante' })).toBeVisible();
+  await expect(page.getByText('Lou Assistante')).toHaveCount(0);
+  await expect(page.getByText('Centre Démo Centre')).toHaveCount(0);
+
+  await expect(page.getByRole('link', { name: 'Centres' })).toHaveCount(0);
+  const reponse = await page.goto('/admin/centres');
+  expect(reponse?.status()).toBe(404);
 });

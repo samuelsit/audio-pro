@@ -1,4 +1,13 @@
+import { existsSync } from 'node:fs';
+import path from 'node:path';
+
 import type { NextConfig } from 'next';
+
+// Un seul fichier .env, à la racine du monorepo (développement). En production, variables d'environnement.
+const envRacine = path.join(import.meta.dirname, '../../.env');
+if (existsSync(envRacine)) {
+  process.loadEnvFile(envRacine);
+}
 
 const nextConfig: NextConfig = {
   // Les règles pour les agents sont dans CLAUDE.md à la racine.

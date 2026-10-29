@@ -48,8 +48,13 @@ export default tseslint.config(
     },
   },
   {
-    // Services serveur et outillage des tests d'intégration.
-    files: ['apps/web/server/**/*.ts', 'apps/web/test/**/*.ts'],
+    // Services serveur et outillage des tests (intégration, E2E).
+    files: [
+      'apps/web/server/**/*.ts',
+      'apps/web/test/**/*.ts',
+      'apps/web/e2e/**/*.ts',
+      'apps/web/playwright.config.ts',
+    ],
     rules: { 'no-restricted-imports': 'off' },
   },
 
