@@ -6,7 +6,13 @@ import {
   ACTIONS_AUDIT,
   TYPES_ENTITE,
 } from './actions';
-import { assainirPourAudit, contientNir, differencesAuditees, VALEUR_MASQUEE } from './masquage';
+import {
+  assainirPourAudit,
+  contientNir,
+  differencesAuditees,
+  resumerChampsModifies,
+  VALEUR_MASQUEE,
+} from './masquage';
 
 // NIR fictifs (forme seulement) : aucune donnée réelle.
 describe('contientNir', () => {
@@ -130,5 +136,42 @@ describe('libellés', () => {
     for (const type of TYPES_ENTITE) {
       expect(LIBELLES_TYPES_ENTITE[type]).not.toBe('');
     }
+  });
+});
+
+describe('resumerChampsModifies', () => {
+  it.each([
+    { cas: 'aucun champ', champs: [], attendu: '' },
+    {
+      cas: 'création',
+      champs: [
+        { champ: 'nom', masque: false, apres: 'Centre A' },
+        { champ: 'actif', masque: false, apres: true },
+        { champ: 'centreIds', masque: false, apres: ['a', 'b'] },
+      ],
+      attendu: 'nom : Centre A ; actif : oui ; centreIds : a, b',
+    },
+    {
+      cas: 'modification et masquage',
+      champs: [
+        { champ: 'adresseLigne2', masque: false, avant: null, apres: '2e étage' },
+        { champ: 'actif', masque: false, avant: true, apres: false },
+        { champ: 'centreIds', masque: false, avant: [], apres: ['a'] },
+        { champ: 'motDePasse', masque: true },
+      ],
+      attendu:
+        'adresseLigne2 : (vide) → 2e étage ; actif : oui → non ; centreIds : (vide) → a ; motDePasse : modifié',
+    },
+    {
+      cas: 'suppression, nombre et objet',
+      champs: [
+        { champ: 'nom', masque: false, avant: '' },
+        { champ: 'quantite', masque: false, avant: 1, apres: 2 },
+        { champ: 'meta', masque: false, avant: { a: 1 }, apres: null },
+      ],
+      attendu: 'nom : (vide) → (supprimé) ; quantite : 1 → 2 ; meta : {"a":1} → (vide)',
+    },
+  ])('$cas', ({ champs, attendu }) => {
+    expect(resumerChampsModifies(champs)).toBe(attendu);
   });
 });

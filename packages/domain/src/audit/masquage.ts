@@ -59,7 +59,16 @@ export const CHAMPS_VISIBLES_AUDIT: Readonly<Record<TypeEntite, readonly string[
     'telephone',
     'actif',
   ],
-  UTILISATEUR: ['prenom', 'nom', 'email', 'role', 'actif', 'centreIds', 'doitChangerMotDePasse'],
+  UTILISATEUR: [
+    'prenom',
+    'nom',
+    'email',
+    'role',
+    'actif',
+    'centreIds',
+    'doitChangerMotDePasse',
+    'deuxFacteursActif',
+  ],
   PRATICIEN: ['utilisateurId', 'rpps', 'adeli', 'centreIds'],
   SESSION: [],
   JOURNAL_AUDIT: [],
@@ -113,4 +122,35 @@ export function differencesAuditees(
     });
   }
   return differences;
+}
+
+function valeurLisible(valeur: ValeurJson | undefined): string {
+  if (valeur === undefined || valeur === null || valeur === '') {
+    return '(vide)';
+  }
+  if (typeof valeur === 'boolean') {
+    return valeur ? 'oui' : 'non';
+  }
+  if (Array.isArray(valeur)) {
+    return valeur.length === 0 ? '(vide)' : valeur.map(valeurLisible).join(', ');
+  }
+  return typeof valeur === 'object' ? JSON.stringify(valeur) : String(valeur);
+}
+
+/** Résumé d'une ligne pour l'écran et l'export : « nom : A → B ; motDePasse : modifié ». */
+export function resumerChampsModifies(champs: readonly ChampModifie[]): string {
+  return champs
+    .map((c) => {
+      if (c.masque) {
+        return `${c.champ} : modifié`;
+      }
+      if (!('avant' in c)) {
+        return `${c.champ} : ${valeurLisible(c.apres)}`;
+      }
+      if (!('apres' in c)) {
+        return `${c.champ} : ${valeurLisible(c.avant)} → (supprimé)`;
+      }
+      return `${c.champ} : ${valeurLisible(c.avant)} → ${valeurLisible(c.apres)}`;
+    })
+    .join(' ; ');
 }
