@@ -48,7 +48,8 @@ export default tseslint.config(
     },
   },
   {
-    files: ['apps/web/server/**/*.ts'],
+    // Services serveur et outillage des tests d'intégration.
+    files: ['apps/web/server/**/*.ts', 'apps/web/test/**/*.ts'],
     rules: { 'no-restricted-imports': 'off' },
   },
 
