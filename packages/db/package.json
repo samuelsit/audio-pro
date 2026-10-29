@@ -21,6 +21,7 @@
   },
   "devDependencies": {
     "@types/node": "^24.19.2",
+    "better-auth": "1.7.14",
     "dotenv": "^17.2.3",
     "prisma": "7.10.1",
     "tsx": "^4.23.15"

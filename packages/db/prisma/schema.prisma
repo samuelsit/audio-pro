@@ -15,3 +15,199 @@ model AppMeta {
 
   @@map("app_meta")
 }
+
+// ---------------------------------------------------------------------------
+// Réseau, centres, utilisateurs, praticiens
+// ---------------------------------------------------------------------------
+
+enum Role {
+  ADMIN
+  AUDIO
+  ASSISTANT
+}
+
+/// Le réseau de centres (une seule ligne en pratique).
+model Organisation {
+  id           String        @id @default(uuid(7))
+  nom          String
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+  centres      Centre[]
+  utilisateurs Utilisateur[]
+
+  @@map("organisation")
+}
+
+/// Centre (établissement). On ne supprime pas un centre : on le désactive.
+model Centre {
+  id                  String              @id @default(uuid(7))
+  organisationId      String              @map("organisation_id")
+  nom                 String
+  adresseLigne1       String              @map("adresse_ligne1")
+  adresseLigne2       String?             @map("adresse_ligne2")
+  codePostal          String              @map("code_postal")
+  ville               String
+  finess              String?             @unique
+  /// Identifiant de facturation Assurance Maladie, attribué par établissement.
+  numeroFacturationAm String?             @unique @map("numero_facturation_am")
+  email               String
+  telephone           String
+  actif               Boolean             @default(true)
+  createdAt           DateTime            @default(now()) @map("created_at")
+  updatedAt           DateTime            @updatedAt @map("updated_at")
+  organisation        Organisation        @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  utilisateurs        UtilisateurCentre[]
+  praticiens          PraticienCentre[]
+
+  @@unique([organisationId, nom])
+  @@map("centre")
+}
+
+/// Compte utilisateur. Table « user » de Better Auth (noms de champs imposés : name, email,
+/// emailVerified, image, twoFactorEnabled), complétée par nos champs métier.
+model Utilisateur {
+  id                    String              @id @default(uuid(7))
+  organisationId        String              @map("organisation_id")
+  prenom                String
+  nom                   String
+  /// Nom affiché exigé par Better Auth (« Prénom Nom »), maintenu par le service.
+  name                  String              @map("nom_affiche")
+  /// Toujours en minuscules.
+  email                 String              @unique
+  emailVerified         Boolean             @default(false) @map("email_verifie")
+  image                 String?
+  role                  Role
+  actif                 Boolean             @default(true)
+  doitChangerMotDePasse Boolean             @default(true) @map("doit_changer_mot_de_passe")
+  /// 2FA TOTP : obligatoire pour ADMIN, facultative pour les autres rôles.
+  twoFactorEnabled      Boolean             @default(false) @map("deux_facteurs_actif")
+  createdAt             DateTime            @default(now()) @map("created_at")
+  updatedAt             DateTime            @updatedAt @map("updated_at")
+  organisation          Organisation        @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  centres               UtilisateurCentre[]
+  praticien             Praticien?
+  sessions              Session[]
+  comptes               Compte[]
+  deuxFacteurs          DeuxFacteurs[]
+
+  @@index([organisationId])
+  @@map("utilisateur")
+}
+
+/// Rattachement d'un utilisateur à un centre. Un ADMIN accède à tous les centres sans rattachement.
+model UtilisateurCentre {
+  utilisateurId String      @map("utilisateur_id")
+  centreId      String      @map("centre_id")
+  createdAt     DateTime    @default(now()) @map("created_at")
+  utilisateur   Utilisateur @relation(fields: [utilisateurId], references: [id], onDelete: Cascade)
+  centre        Centre      @relation(fields: [centreId], references: [id], onDelete: Restrict)
+
+  @@id([utilisateurId, centreId])
+  @@index([centreId])
+  @@map("utilisateur_centre")
+}
+
+/// Audioprothésiste : fiche liée à un utilisateur de rôle AUDIO (contrôlé par le service).
+model Praticien {
+  id            String            @id @default(uuid(7))
+  utilisateurId String            @unique @map("utilisateur_id")
+  rpps          String            @unique @db.Char(11)
+  adeli         String?           @unique @db.Char(9)
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
+  utilisateur   Utilisateur       @relation(fields: [utilisateurId], references: [id], onDelete: Restrict)
+  centres       PraticienCentre[]
+
+  @@map("praticien")
+}
+
+/// Centre d'exercice d'un praticien (sous-ensemble des rattachements de son utilisateur).
+model PraticienCentre {
+  praticienId String    @map("praticien_id")
+  centreId    String    @map("centre_id")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  praticien   Praticien @relation(fields: [praticienId], references: [id], onDelete: Cascade)
+  centre      Centre    @relation(fields: [centreId], references: [id], onDelete: Restrict)
+
+  @@id([praticienId, centreId])
+  @@index([centreId])
+  @@map("praticien_centre")
+}
+
+// ---------------------------------------------------------------------------
+// Tables techniques de Better Auth (noms de champs imposés par la bibliothèque)
+// ---------------------------------------------------------------------------
+
+model Session {
+  id          String      @id @default(uuid(7))
+  token       String      @unique
+  expiresAt   DateTime    @map("expires_at")
+  ipAddress   String?     @map("ip_address")
+  userAgent   String?     @map("user_agent")
+  userId      String      @map("utilisateur_id")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+  utilisateur Utilisateur @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("session")
+}
+
+/// Identifiants de connexion (ici uniquement « credential » : hash du mot de passe).
+model Compte {
+  id                    String      @id @default(uuid(7))
+  accountId             String      @map("account_id")
+  providerId            String      @map("provider_id")
+  userId                String      @map("utilisateur_id")
+  password              String?     @map("mot_de_passe_hash")
+  accessToken           String?     @map("access_token")
+  refreshToken          String?     @map("refresh_token")
+  idToken               String?     @map("id_token")
+  accessTokenExpiresAt  DateTime?   @map("access_token_expires_at")
+  refreshTokenExpiresAt DateTime?   @map("refresh_token_expires_at")
+  scope                 String?
+  createdAt             DateTime    @default(now()) @map("created_at")
+  updatedAt             DateTime    @updatedAt @map("updated_at")
+  utilisateur           Utilisateur @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("compte")
+}
+
+model Verification {
+  id         String   @id @default(uuid(7))
+  identifier String
+  value      String
+  expiresAt  DateTime @map("expires_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+/// Secret TOTP et codes de secours, chiffrés par Better Auth.
+model DeuxFacteurs {
+  id                      String      @id @default(uuid(7))
+  secret                  String
+  backupCodes             String      @map("codes_secours")
+  userId                  String      @map("utilisateur_id")
+  verified                Boolean     @default(true) @map("verifie")
+  failedVerificationCount Int         @default(0) @map("echecs_verification")
+  lockedUntil             DateTime?   @map("bloque_jusqu_a")
+  utilisateur             Utilisateur @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([secret])
+  @@index([userId])
+  @@map("deux_facteurs")
+}
+
+/// Compteurs de limitation de débit (connexion, 2FA).
+model LimitationDebit {
+  id          String @id @default(uuid(7))
+  key         String @unique
+  count       Int
+  lastRequest BigInt @map("derniere_requete")
+
+  @@map("limitation_debit")
+}
