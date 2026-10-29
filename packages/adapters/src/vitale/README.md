@@ -1,3 +1,7 @@
 # Adaptateurs vitale
 
-Port : `VitaleReader`. Implémentation (réelle + Fake) prévue à l'étape 4 (lecture Vitale simulée), voir docs/PLAN.md.
+Port : `VitaleReader` (packages/domain/src/ports/vitale-reader.ts).
+
+- `FakeVitaleReader` : lecteur simulé, lit les cartes fictives de `fixtures/vitale/` (voir son README). La carte « insérée » ou l'incident simulé (aucun lecteur, lecteur sans carte, carte illisible, panne) est choisi en développement par un sélecteur. Jamais utilisé en production.
+- `LecteurVitaleAbsent` : utilisé hors simulation tant qu'aucun lecteur réel n'est branché ; toute lecture échoue avec `AUCUN_LECTEUR`.
+- Lecteur réel : AreaFSE (Area Santé) en mode masqué, à l'étape 17, d'après docs/vendor/areafse.

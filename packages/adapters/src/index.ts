@@ -13,3 +13,12 @@ export {
 } from './crypto/prisma';
 export { chargerCleEmpreinte, EmpreinteHmac } from './crypto/empreinte';
 export { chargerTrousseau, type Trousseau } from './crypto/trousseau';
+export {
+  cartesSimulees,
+  decoderSimulation,
+  encoderSimulation,
+  FakeVitaleReader,
+  INCIDENTS_SIMULES,
+  LecteurVitaleAbsent,
+  type SimulationVitale,
+} from './vitale/fake-vitale-reader';

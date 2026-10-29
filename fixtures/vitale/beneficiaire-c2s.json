@@ -1,0 +1,22 @@
+{
+  "libelle": "Bénéficiaire C2S (Odile Lambert)",
+  "etat": "VALIDE",
+  "source": "APCV",
+  "beneficiaires": [
+    {
+      "nom": "LAMBERT",
+      "prenom": "ODILE",
+      "dateNaissance": "1958-07-21",
+      "rang": 1,
+      "nir": "258079399960175",
+      "qualite": "ASSURE",
+      "regime": "01",
+      "caisse": "931",
+      "centreGestionnaire": "9999",
+      "droitsAmo": { "debut": "2026-01-01", "fin": "2027-12-31" },
+      "c2s": true,
+      "ald": false,
+      "amc": null
+    }
+  ]
+}

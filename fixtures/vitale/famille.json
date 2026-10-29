@@ -1,0 +1,66 @@
+{
+  "libelle": "Famille Durand (3 bénéficiaires)",
+  "etat": "VALIDE",
+  "source": "CARTE",
+  "beneficiaires": [
+    {
+      "nom": "DURAND",
+      "prenom": "CLAIRE",
+      "dateNaissance": "1981-04-12",
+      "rang": 1,
+      "nir": "281045999910127",
+      "qualite": "ASSURE",
+      "regime": "01",
+      "caisse": "999",
+      "centreGestionnaire": "9999",
+      "droitsAmo": { "debut": "2026-01-01", "fin": "2027-03-31" },
+      "c2s": false,
+      "ald": false,
+      "amc": {
+        "organismeNom": "Mutuelle Démo Avenir",
+        "organismeIdentifiant": "99999991",
+        "numeroAdherent": "AV-0001",
+        "typeContrat": "Contrat responsable",
+        "debutValidite": "2026-01-01",
+        "finValidite": "2027-12-31"
+      }
+    },
+    {
+      "nom": "DURAND",
+      "prenom": "HUGO",
+      "dateNaissance": "2012-06-20",
+      "rang": 1,
+      "nir": "281045999910127",
+      "qualite": "AYANT_DROIT",
+      "regime": "01",
+      "caisse": "999",
+      "centreGestionnaire": "9999",
+      "droitsAmo": { "debut": "2026-01-01", "fin": "2027-03-31" },
+      "c2s": false,
+      "ald": false,
+      "amc": {
+        "organismeNom": "Mutuelle Démo Avenir",
+        "organismeIdentifiant": "99999991",
+        "numeroAdherent": "AV-0001",
+        "typeContrat": "Contrat responsable",
+        "debutValidite": "2026-01-01",
+        "finValidite": "2027-12-31"
+      }
+    },
+    {
+      "nom": "DURAND",
+      "prenom": "JULES",
+      "dateNaissance": "2023-03-15",
+      "rang": 1,
+      "nir": "281045999910127",
+      "qualite": "AYANT_DROIT",
+      "regime": "01",
+      "caisse": "999",
+      "centreGestionnaire": "9999",
+      "droitsAmo": { "debut": "2026-01-01", "fin": "2027-03-31" },
+      "c2s": false,
+      "ald": false,
+      "amc": null
+    }
+  ]
+}

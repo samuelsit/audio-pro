@@ -1,0 +1,22 @@
+{
+  "libelle": "Droits expirés (Bernard Petit)",
+  "etat": "VALIDE",
+  "source": "CARTE",
+  "beneficiaires": [
+    {
+      "nom": "PETIT",
+      "prenom": "BERNARD",
+      "dateNaissance": "1944-02-03",
+      "rang": 1,
+      "nir": "144027599960252",
+      "qualite": "ASSURE",
+      "regime": "01",
+      "caisse": "751",
+      "centreGestionnaire": "9999",
+      "droitsAmo": { "debut": "2025-01-01", "fin": "2025-12-31" },
+      "c2s": false,
+      "ald": true,
+      "amc": null
+    }
+  ]
+}

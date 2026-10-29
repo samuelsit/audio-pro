@@ -1,0 +1,22 @@
+{
+  "libelle": "Carte bloquée (Paul Moreau)",
+  "etat": "BLOQUEE",
+  "source": "CARTE",
+  "beneficiaires": [
+    {
+      "nom": "MOREAU",
+      "prenom": "PAUL",
+      "dateNaissance": "1970-11-05",
+      "rang": 1,
+      "nir": "170113399960355",
+      "qualite": "ASSURE",
+      "regime": "01",
+      "caisse": "331",
+      "centreGestionnaire": "9999",
+      "droitsAmo": { "debut": "2026-01-01", "fin": "2027-12-31" },
+      "c2s": false,
+      "ald": false,
+      "amc": null
+    }
+  ]
+}

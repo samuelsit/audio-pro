@@ -1,0 +1,29 @@
+{
+  "libelle": "Assuré seul (Michel Lefebvre)",
+  "etat": "VALIDE",
+  "source": "CARTE",
+  "beneficiaires": [
+    {
+      "nom": "LEFEBVRE",
+      "prenom": "MICHEL",
+      "dateNaissance": "1952-01-09",
+      "rang": 1,
+      "nir": "152015999920387",
+      "qualite": "ASSURE",
+      "regime": "01",
+      "caisse": "591",
+      "centreGestionnaire": "9999",
+      "droitsAmo": { "debut": "2026-01-01", "fin": "2027-06-30" },
+      "c2s": false,
+      "ald": false,
+      "amc": {
+        "organismeNom": "Mutuelle Démo Avenir",
+        "organismeIdentifiant": "99999991",
+        "numeroAdherent": "AV-0206",
+        "typeContrat": "Contrat responsable",
+        "debutValidite": "2026-01-01",
+        "finValidite": "2026-12-31"
+      }
+    }
+  ]
+}
