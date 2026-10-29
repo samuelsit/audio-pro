@@ -11,8 +11,16 @@ Une étape est cochée quand ses tests sont verts, le typecheck OK et la CI vert
   - [x] Écrans admin : centres, utilisateurs, praticiens ; page Équipe
   - [x] Seed : 3 centres, 1 admin, 2 audioprothésistes, 2 assistantes (fictifs)
   - [x] Tests : domaine 100 %, intégration (cloisonnement A/B, RPPS, unicités), E2E (assistante, ADMIN + 2FA, formulaires admin)
-- [ ] **2** – Journal d'audit, chiffrement applicatif, layout
-  - reporté de l'étape 1 : journaliser les actions d'administration (comptes, centres, praticiens) et les connexions
+- [ ] **2** – Journal d'audit, chiffrement applicatif, layout — terminée en local le 2026-10-29 (tests, typecheck, E2E verts), à cocher quand la CI est verte
+  - [x] Table `journal_audit` en ajout seul (trigger), actions READ/CREATE/UPDATE/DELETE/EXPORT/PRINT + connexions ; migration `journal_audit`
+  - [x] Domaine : liste blanche des champs journalisés, masquage du NIR, filtres, pagination, CSV
+  - [x] `withAudit()` : opération et journal dans la même transaction ; actions d'administration et connexions journalisées (reporté de l'étape 1)
+  - [x] Écran admin « Journal d'audit » filtrable (utilisateur, patient, période) et export CSV journalisé
+  - [x] Chiffrement AES-256-GCM, trousseau en variables d'environnement avec rotation, extension Prisma des champs chiffrés
+  - [x] Layout : menu latéral (mobile compris), tableaux paginés, filtres, notifications, confirmations, pages vides par entrée
+  - [x] Tests : domaine 100 %, adaptateurs (chiffrement, extension Prisma), intégration (journal, services, connexions), E2E (menu, journal, export)
+  - reporté à l'étape 3 : empreinte HMAC du NIR, premier modèle chiffré et test d'intégration de l'extension sur ce modèle
+  - reporté à l'étape 15 : adresse IP et agent utilisateur dans le journal, durée de conservation et purge, script de rechiffrement en masse
 - [ ] **3** – Patients
 - [ ] **4** – Lecture Vitale simulée
 - [ ] **5** – Référentiels : LPP, catalogue, prescripteurs
