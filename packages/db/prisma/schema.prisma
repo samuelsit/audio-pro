@@ -211,3 +211,50 @@ model LimitationDebit {
 
   @@map("limitation_debit")
 }
+
+// ---------------------------------------------------------------------------
+// Journal d'audit
+// ---------------------------------------------------------------------------
+
+enum ActionAudit {
+  READ
+  CREATE
+  UPDATE
+  DELETE
+  EXPORT
+  PRINT
+  CONNEXION
+  ECHEC_CONNEXION
+  DECONNEXION
+}
+
+/// Journal d'audit, en ajout seul : UPDATE et DELETE sont refusés par un trigger (voir la migration).
+/// Aucune clé étrangère : une ligne survit à l'entité ou au compte qu'elle décrit.
+/// Valeurs déjà masquées par le serveur (jamais de NIR ni de donnée de santé en clair).
+model JournalAudit {
+  id                 String      @id @default(uuid(7))
+  horodatage         DateTime    @default(now())
+  organisationId     String?     @map("organisation_id")
+  /// Null pour un échec de connexion sur un compte inconnu.
+  utilisateurId      String?     @map("utilisateur_id")
+  /// Instantané « Prénom Nom <e-mail> » au moment de l'action, ou e-mail tenté à la connexion.
+  utilisateurLibelle String      @map("utilisateur_libelle")
+  role               Role?
+  centreId           String?     @map("centre_id")
+  action             ActionAudit
+  /// Type d'entité (liste dans le domaine : TYPES_ENTITE).
+  entiteType         String      @map("entite_type")
+  entiteId           String?     @map("entite_id")
+  /// Patient concerné (dossiers, devis… compris), pour le filtre « patient ».
+  patientId          String?     @map("patient_id")
+  /// Champs modifiés (valeurs hors liste blanche omises).
+  champs             Json?
+  /// Contexte : filtres d'un export, motif d'un échec de connexion…
+  details            Json?
+
+  @@index([organisationId, horodatage])
+  @@index([utilisateurId, horodatage])
+  @@index([patientId, horodatage])
+  @@index([entiteType, entiteId])
+  @@map("journal_audit")
+}
