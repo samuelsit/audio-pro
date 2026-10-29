@@ -8,3 +8,12 @@ const formatDateHeure = new Intl.DateTimeFormat('fr-FR', {
 export function formaterDateHeure(instant: Date): string {
   return formatDateHeure.format(instant);
 }
+
+/** Date calendaire ISO (AAAA-MM-JJ) en « JJ/MM/AAAA », sans passer par un fuseau. */
+export function formaterDate(iso: string | null | undefined): string {
+  if (!iso) {
+    return '—';
+  }
+  const [annee, mois, jour] = iso.split('-');
+  return `${jour}/${mois}/${annee}`;
+}

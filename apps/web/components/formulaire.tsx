@@ -255,14 +255,26 @@ export function BoutonEnvoi({
   children,
   className,
   variant,
+  nom,
+  valeur,
 }: {
   children: ReactNode;
   className?: string | undefined;
   variant?: 'default' | 'outline' | 'destructive' | undefined;
+  /** Nom et valeur envoyés avec le formulaire quand c'est ce bouton qui le soumet. */
+  nom?: string | undefined;
+  valeur?: string | undefined;
 }) {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" disabled={pending} className={cn(className)} variant={variant}>
+    <Button
+      type="submit"
+      disabled={pending}
+      className={cn(className)}
+      variant={variant}
+      name={nom}
+      value={valeur}
+    >
       {pending ? 'Enregistrement…' : children}
     </Button>
   );
