@@ -192,14 +192,10 @@ describe('creerPatient et obtenirPatient', () => {
 });
 
 describe('doublons', () => {
-  it('même NIR : création suspendue, puis confirmée', async () => {
+  it('même NIR (deux assurés) : création suspendue, puis confirmée', async () => {
     const premier = await creerPatient(d.acteurs.assistantA, saisie(d.centres.a.id));
-    const autre = saisie(d.centres.a.id, {
-      nomNaissance: 'Lefèvre',
-      prenoms: 'Paul',
-      dateNaissance: '2015-06-01',
-      amoQualite: 'AYANT_DROIT',
-    });
+    // Même NIR saisi pour un assuré au nom et à la date différents (erreur de saisie probable).
+    const autre = saisie(d.centres.a.id, { nomNaissance: 'Lefebvre', dateNaissance: '03/05/1950' });
 
     const erreur = await rejet(creerPatient(d.acteurs.assistantA, autre), ErreurDoublonPossible);
     expect(erreur.doublons).toEqual({
@@ -225,6 +221,20 @@ describe('doublons', () => {
       doublonsVisibles: [premier],
       doublonsHorsPerimetre: 0,
     });
+  });
+
+  it('ayant droit sur le NIR de l’assuré : pas un doublon', async () => {
+    await creerPatient(d.acteurs.assistantA, saisie(d.centres.a.id));
+    await expect(
+      creerPatient(
+        d.acteurs.assistantA,
+        saisie(d.centres.a.id, {
+          prenoms: 'Paul',
+          dateNaissance: '2015-06-01',
+          amoQualite: 'AYANT_DROIT',
+        }),
+      ),
+    ).resolves.toEqual(expect.any(String));
   });
 
   it('même nom (sans accent, nom d’usage croisé) et même date de naissance, sans NIR', async () => {

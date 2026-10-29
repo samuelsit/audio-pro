@@ -394,6 +394,8 @@ async function chercherDoublons(
       nomUsage: l.nomUsage,
       dateNaissance,
       nirEmpreinte: l.couvertureAmo?.nirEmpreinte ?? null,
+      qualite: l.couvertureAmo?.qualite ?? null,
+      rangNaissance: l.couvertureAmo?.rangNaissance ?? null,
     });
     if (motifs.length === 0) {
       continue;
@@ -433,6 +435,8 @@ export async function doublonsDeLaFiche(
       nomUsage: fiche.nomUsage,
       dateNaissance: fiche.dateNaissance,
       nirEmpreinte: fiche.amo ? empreinteNir(nirSchema.parse(fiche.amo.nir)) : null,
+      qualite: fiche.amo?.qualite ?? null,
+      rangNaissance: fiche.amo?.rangNaissance ?? null,
     },
     fiche.id,
   );
@@ -619,6 +623,8 @@ export async function creerPatient(
       nomUsage: donnees.nomUsage,
       dateNaissance: donnees.dateNaissance,
       nirEmpreinte: donnees.amo ? empreinteNir(donnees.amo.nir) : null,
+      qualite: donnees.amo?.qualite ?? null,
+      rangNaissance: donnees.amo?.rangNaissance ?? null,
     },
     null,
   );

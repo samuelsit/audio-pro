@@ -20,6 +20,8 @@
     "@prisma/client": "7.10.1"
   },
   "devDependencies": {
+    "@ha/adapters": "workspace:*",
+    "@ha/domain": "workspace:*",
     "@types/node": "^24.19.2",
     "better-auth": "1.7.14",
     "dotenv": "^17.2.3",

@@ -3,10 +3,11 @@ import { hashPassword } from 'better-auth/crypto';
 import { creerPrismaClient } from '../src/client';
 import type { PrismaClient } from '../src/generated/prisma/client';
 import type { Role } from '../src/generated/prisma/enums';
+import { NOMBRE_PATIENTS_DEMO, seedPatients } from './seed-patients';
 
 // Seed idempotent de démonstration. Toutes les données sont fictives (domaine exemple.test,
-// RPPS inventés). Aucune donnée patient.
-const SCHEMA_VERSION = '1';
+// RPPS et NIR inventés). Les patients de démonstration sont dans seed-patients.ts.
+const SCHEMA_VERSION = '2';
 
 const ORGANISATION_ID = '019a3000-0000-7000-8000-000000000001';
 
@@ -181,6 +182,7 @@ async function main(): Promise<void> {
     for (const utilisateur of UTILISATEURS) {
       await seedUtilisateur(db, utilisateur, motDePasseHash);
     }
+    await seedPatients(db, ORGANISATION_ID, { nord: NORD, centre: CENTRE, sud: SUD });
 
     const seededAt = new Date().toISOString();
     for (const [key, value] of [
@@ -190,7 +192,7 @@ async function main(): Promise<void> {
       await db.appMeta.upsert({ where: { key }, create: { key, value }, update: { value } });
     }
     console.log(
-      `Seed terminé (schema_version=${SCHEMA_VERSION}) : ${CENTRES.length} centres, ${UTILISATEURS.length} utilisateurs.`,
+      `Seed terminé (schema_version=${SCHEMA_VERSION}) : ${CENTRES.length} centres, ${UTILISATEURS.length} utilisateurs, ${NOMBRE_PATIENTS_DEMO} patients.`,
     );
   } finally {
     await db.$disconnect();

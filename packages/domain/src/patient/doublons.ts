@@ -3,8 +3,7 @@ import { normaliserPourRecherche } from './recherche';
 
 /**
  * Motifs de doublon possible. Un doublon possible ne bloque jamais la création : l'utilisateur
- * confirme ou ouvre la fiche existante. Des ayants droit partagent le NIR de l'assuré : un même NIR
- * peut donc désigner deux personnes différentes (la qualité et le rang aident à trancher).
+ * confirme ou ouvre la fiche existante.
  */
 export const MOTIFS_DOUBLON = ['MEME_NIR', 'MEME_IDENTITE'] as const;
 export type MotifDoublon = (typeof MOTIFS_DOUBLON)[number];
@@ -20,6 +19,9 @@ export interface IdentiteComparable {
   readonly dateNaissance: string;
   /** Empreinte HMAC du NIR, `null` sans couverture AMO. */
   readonly nirEmpreinte: string | null;
+  /** Qualité et rang de naissance de la couverture AMO, `null` sans couverture. */
+  readonly qualite: Qualite | null;
+  readonly rangNaissance: number | null;
 }
 
 function noms(identite: IdentiteComparable): string[] {
@@ -30,16 +32,40 @@ function noms(identite: IdentiteComparable): string[] {
 }
 
 /**
+ * Même NIR et même bénéficiaire. Un ayant droit porte le NIR de l'assuré ouvrant droit : deux fiches de
+ * même NIR désignent la même personne si ce sont deux assurés, ou deux ayants droit nés le même jour
+ * avec le même rang de naissance (les jumeaux ont des rangs différents). Un assuré et un ayant droit de
+ * même NIR sont deux personnes d'une même famille.
+ * Source : spécification de l'étape 3 (« même NIR » ; NIR, rang de naissance et qualité de la couverture AMO).
+ * À VÉRIFIER : l'usage du NIR de l'ouvrant droit pour les ayants droit n'est pas décrit dans docs/ref.
+ */
+function memeBeneficiaire(a: IdentiteComparable, b: IdentiteComparable): boolean {
+  if (a.nirEmpreinte === null || a.nirEmpreinte !== b.nirEmpreinte) {
+    return false;
+  }
+  if (a.qualite === 'ASSURE' && b.qualite === 'ASSURE') {
+    return true;
+  }
+  return (
+    a.qualite === 'AYANT_DROIT' &&
+    b.qualite === 'AYANT_DROIT' &&
+    a.dateNaissance === b.dateNaissance &&
+    a.rangNaissance === b.rangNaissance
+  );
+}
+
+/**
  * Motifs pour lesquels `existant` peut être la même personne que `candidat` :
- * même empreinte de NIR, ou même date de naissance avec un nom (de naissance ou d'usage) en commun,
- * comparé sans accents ni casse. Le nom d'usage de l'un peut correspondre au nom de naissance de l'autre.
+ * même NIR pour le même bénéficiaire (voir `memeBeneficiaire`), ou même date de naissance avec un nom
+ * (de naissance ou d'usage) en commun, comparé sans accents ni casse. Le nom d'usage de l'un peut
+ * correspondre au nom de naissance de l'autre.
  */
 export function motifsDoublon(
   candidat: IdentiteComparable,
   existant: IdentiteComparable,
 ): MotifDoublon[] {
   const motifs: MotifDoublon[] = [];
-  if (candidat.nirEmpreinte !== null && candidat.nirEmpreinte === existant.nirEmpreinte) {
+  if (memeBeneficiaire(candidat, existant)) {
     motifs.push('MEME_NIR');
   }
   const nomsExistant = noms(existant);
