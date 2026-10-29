@@ -30,7 +30,15 @@ Une étape est cochée quand ses tests sont verts, le typecheck OK et la CI vert
   - [x] Seed : 30 patients fictifs (ayants droit, jumeaux, Corse, origine Vitale, paire de doublons)
   - [x] Tests : domaine 100 %, adaptateur d'empreinte, intégration (chiffrement en base, doublons, cloisonnement, fusion, audit), E2E (création, recherche, doublons, fusion)
   - reporté : recherche par nom de patient dans le filtre du journal d'audit, contrôle de cohérence entre le NIR et le sexe ou la date de naissance, historique des couvertures
-- [ ] **4** – Lecture Vitale simulée
+- [ ] **4** – Lecture Vitale simulée — terminée en local le 2026-10-29 (tests, typecheck, E2E verts), à cocher quand la CI est verte
+  - [x] Port `VitaleReader` (structure provisoire, à aligner sur AreaFSE) : bénéficiaires, source CARTE/APCV, date de lecture ; erreurs typées AUCUN_LECTEUR, CARTE_ABSENTE, CARTE_INVALIDE, CARTE_BLOQUEE, ERREUR_TECHNIQUE
+  - [x] Domaine : correspondance bénéficiaire/fiche (règle « même bénéficiaire » de l'ADR-006), état des droits AMO, comparaison champ par champ et application des mises à jour, origine après lecture, pré-remplissage
+  - [x] `FakeVitaleReader` et 5 cartes fictives (`fixtures/vitale` : assuré seul, famille de 3, C2S, droits expirés, carte bloquée), incidents simulés ; sélecteur de la carte insérée en développement (`VITALE_LECTEUR=simulation`)
+  - [x] Modèle : `LectureVitale` en ajout seul (qui, quand, centre, résultat, source, nombre de bénéficiaires, jamais le contenu) ; migration `lecture_vitale`
+  - [x] Lecture en cours dans un cookie chiffré de 15 min lié à l'utilisateur, rien en base
+  - [x] Écrans : bouton « Lire la carte Vitale » sur la liste et la fiche, choix du bénéficiaire, comparaison base/carte avec acceptation ou refus de chaque mise à jour, création pré-remplie ; bandeau des droits expirés ; badge C2S sur la liste, la fiche, la modification et la comparaison
+  - [x] Tests : domaine 100 %, adaptateur, intégration (historique de chaque résultat, jeton, correspondance, cloisonnement, comparaison, mises à jour, création, audit), E2E (famille, assuré seul, erreurs, droits expirés, C2S)
+  - reporté : écran de consultation de l'historique des lectures (ADMIN), date de début des droits AMO en base, droits appréciés à la date de délivrance (étape 11), lecteur réel AreaFSE (étape 17)
 - [ ] **5** – Référentiels : LPP, catalogue, prescripteurs
 - [ ] **6** – Moteur de règles audio
 - [ ] **7** – Stock

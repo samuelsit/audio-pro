@@ -196,3 +196,37 @@ L'étape 3 introduit la fiche patient et ses couvertures AMO et AMC : le premier
 - Les jumeaux de même nom sont signalés comme doublons possibles (même nom et même date de naissance). La règle de la spécification le veut ; l'utilisateur confirme la création.
 - Une couverture par type et par patient pendant le MVP. Pas d'historique des couvertures.
 - La durée de conservation d'une fiche fusionnée et la purge relèvent de l'étape 15 (RGPD).
+
+---
+
+## ADR-007 – Lecture de la carte Vitale simulée
+
+- **Date** : 2026-10-29
+- **Statut** : acceptée
+
+### Contexte
+
+L'étape 4 branche la lecture de la carte Vitale derrière le port `VitaleReader`, avant l'intégration réelle par AreaFSE (étape 17). La documentation AreaFSE (docs/vendor/areafse) n'est pas encore déposée. La lecture doit mener à une fiche patient (mise à jour ou création) et être historisée sans conserver le contenu de la carte. Sources dans docs/ref : convention-audioprothesistes.pdf, art. 27 (p. 27) et art. 35 § 1 (p. 32) pour la vérification des droits sur la carte (physique ou application), art. 29 (p. 27) pour les bénéficiaires de la C2S.
+
+### Décision
+
+- **Port provisoire** : `readCard(): Promise<VitaleReadResult>`. Bénéficiaires (nom, prénom, date de naissance, rang, NIR, qualité, régime, caisse, centre gestionnaire, période de droits AMO, C2S, ALD, AMC éventuelle), source `CARTE` ou `APCV`, instant de lecture fourni par le `Clock`. Les échecs lèvent `ErreurLectureVitale` avec un code typé. La structure sera alignée sur AreaFSE (À VÉRIFIER). Le service revalide tout résultat par Zod, quel que soit l'adaptateur ; un résultat hors contrat donne `CARTE_INVALIDE`, une erreur imprévue `ERREUR_TECHNIQUE`.
+- **Lecteur simulé** : `FakeVitaleReader` lit `fixtures/vitale/*.json` (format propre, validé par Zod). La carte insérée ou l'incident simulé est choisi par un sélecteur, mémorisé dans le cookie `ha_vitale_simulation`. Il n'est actif qu'avec `VITALE_LECTEUR=simulation` et hors production. Le nom de fichier est contrôlé (pas de traversée de chemin). Sinon, `LecteurVitaleAbsent` répond `AUCUN_LECTEUR`.
+- **Historique** : table `lecture_vitale`, en ajout seul (trigger), une ligne par lecture, réussie ou non : utilisateur, horodatage, centre courant s'il est unique, résultat (`SUCCES` ou code d'erreur), source, nombre de bénéficiaires. Aucun nom, NIR ni droit. Le lien avec un dossier passe par le journal d'audit : `details.lectureVitale` sur les lignes READ (comparaison), UPDATE et CREATE.
+- **Lecture en cours** : le résultat n'est jamais écrit en base. Il est compressé, chiffré en AES-256-GCM (contexte `vitale.lecture.<id utilisateur>` : un jeton ne s'ouvre pas pour un autre compte), puis placé dans le cookie `ha_vitale_lecture`. Ce cookie est HttpOnly, SameSite=Strict, Secure en production, limité au chemin `/patients/vitale` et valable 15 minutes. Il est effacé après une mise à jour, une création ou « Terminer la lecture ». Le NIR ne figure jamais dans une URL : seuls l'index du bénéficiaire et l'identifiant de la fiche y passent.
+- **Correspondance** : une fiche désigne le bénéficiaire selon la règle « même bénéficiaire » de l'ADR-006 (même empreinte de NIR, et soit deux assurés, soit deux ayants droit de même date de naissance et de même rang). L'empreinte et le rang seuls confondraient les enfants d'une même famille (choix validé à l'étape 4). La recherche porte sur toute l'organisation ; hors périmètre, seul le centre est révélé, comme pour les doublons.
+- **Comparaison** : champ par champ (nom, prénoms, date de naissance, puis chaque champ AMO). La couverture AMO forme un bloc si la fiche n'en a pas, et l'AMC est toujours un bloc indivisible.
+  - Les noms et prénoms se comparent sans accents ni casse, et le prénom de la carte peut n'être que le premier de la fiche.
+  - Le nom de la carte met à jour le nom d'usage s'il est renseigné, sinon le nom de naissance.
+  - « Mettre à jour » est proposé par défaut ; chaque champ peut être refusé.
+  - Toute fiche accessible peut être comparée (ex. fiche créée sans NIR, ouverte depuis la fiche d'origine). L'écran avertit quand la fiche ne porte pas le NIR du bénéficiaire.
+- **Origine AMO après lecture** : `VITALE` si la couverture enregistrée est identique à celle de la carte, `SAISIE` sinon (mise à jour refusée en partie, formulaire de création retouché). La date de dernière lecture prend l'instant de la lecture.
+- **Création pré-remplie** : formulaire patient habituel (doublons compris). Civilité et sexe restent à choisir : le lien entre NIR et sexe n'est pas dans docs/ref, et un ayant droit porte le NIR de l'assuré.
+- **Droits et C2S** : `etatDroitsAmo` compare la période de droits au jour de la lecture ou de la consultation. Un bandeau s'affiche si les droits sont expirés ou pas encore ouverts. Le badge C2S figure dans l'en-tête commun du dossier (`EntetePatient`) et dans la liste.
+
+### Conséquences
+
+- Remplacer la simulation par AreaFSE ne touche que l'adaptateur et, si besoin, le schéma du résultat. Les fixtures et les tests d'intégration resteront la référence du comportement attendu.
+- Une carte familiale nombreuse doit tenir dans un cookie (4 Ko) : la compression suffit pour les cartes fictives, à vérifier avec des cartes réelles et AreaFSE.
+- L'historique des lectures n'a pas encore d'écran de consultation.
+- La date de début des droits AMO n'est pas stockée. Les droits sont vérifiés au jour de la lecture ; la convention les apprécie à la date de délivrance (art. 27), ce qui sera contrôlé avec la facture (étape 11).
