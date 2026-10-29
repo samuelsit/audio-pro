@@ -3,7 +3,8 @@
 import { LONGUEUR_MIN_MOT_DE_PASSE } from '@ha/domain';
 import { useActionState } from 'react';
 
-import { BoutonEnvoi, ChampTexte, MessageFormulaire } from '@/components/formulaire';
+import { BoutonConfirmation } from '@/components/confirmation';
+import { ChampTexte, MessageFormulaire } from '@/components/formulaire';
 import { ETAT_INITIAL, type EtatFormulaire } from '@/lib/formulaire';
 
 export function FormulaireReinitialisation({
@@ -25,7 +26,13 @@ export function FormulaireReinitialisation({
         requis
       />
       <div>
-        <BoutonEnvoi variant="outline">Réinitialiser le mot de passe</BoutonEnvoi>
+        <BoutonConfirmation
+          libelle="Réinitialiser le mot de passe"
+          titre="Réinitialiser le mot de passe ?"
+          description="Le mot de passe provisoire remplace l’actuel et toutes les sessions ouvertes de l’utilisateur sont fermées."
+          confirmer="Réinitialiser"
+          variant="outline"
+        />
       </div>
     </form>
   );

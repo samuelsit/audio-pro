@@ -35,4 +35,32 @@ test('une assistante du centre Nord ne voit que le centre Nord', async ({ page }
   await expect(page.getByRole('link', { name: 'Centres' })).toHaveCount(0);
   const reponse = await page.goto('/admin/centres');
   expect(reponse?.status()).toBe(404);
+  const exportJournal = await page.request.get('/admin/journal/export');
+  expect(exportJournal.status()).toBe(404);
+});
+
+test('le menu latéral mène aux écrans métier, sans la section Admin pour une assistante', async ({
+  page,
+}) => {
+  await seConnecter(page, COMPTES.assistanteNord);
+  const menu = page.getByRole('navigation', { name: 'Navigation principale' });
+  await expect(menu.getByRole('link')).toHaveText([
+    'Patients',
+    'Dossiers',
+    'Stock',
+    'À facturer',
+    'Renouvellements',
+    'Tableau de bord',
+    'Équipe',
+  ]);
+  await expect(menu.getByText('Admin', { exact: true })).toHaveCount(0);
+
+  await menu.getByRole('link', { name: 'Patients' }).click();
+  await expect(page).toHaveURL(/\/patients$/);
+  await expect(page.getByRole('heading', { name: 'Patients' })).toBeVisible();
+  await expect(page.getByText('Écran en préparation')).toBeVisible();
+  await expect(menu.getByRole('link', { name: 'Patients' })).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
 });

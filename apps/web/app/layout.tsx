@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 
 import { Geist } from 'next/font/google';
 
+import { Notifications } from '@/components/notifications';
 import { cn } from '@/lib/utils';
 
 import './globals.css';
@@ -19,6 +20,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="fr" className={cn('font-sans', geist.variable)}>
       <body className="min-h-screen bg-background font-sans text-foreground antialiased">
         {children}
+        <Notifications />
       </body>
     </html>
   );

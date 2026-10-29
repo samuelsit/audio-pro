@@ -36,6 +36,7 @@ export function ChampTexte({
   defaut,
   type = 'text',
   requis = false,
+  mentionFacultatif = true,
   autoComplete,
   aide,
   inputMode,
@@ -44,8 +45,10 @@ export function ChampTexte({
   nom: string;
   libelle: string;
   defaut?: string | null | undefined;
-  type?: 'text' | 'email' | 'tel' | 'password' | undefined;
+  type?: 'text' | 'email' | 'tel' | 'password' | 'date' | undefined;
   requis?: boolean | undefined;
+  /** « (facultatif) » après le libellé d'un champ non requis ; inutile dans un formulaire de filtres. */
+  mentionFacultatif?: boolean | undefined;
   autoComplete?: string | undefined;
   aide?: string | undefined;
   inputMode?: 'numeric' | 'text' | undefined;
@@ -56,7 +59,9 @@ export function ChampTexte({
     <div className="grid gap-1.5">
       <Label htmlFor={nom}>
         {libelle}
-        {requis ? null : <span className="font-normal text-muted-foreground"> (facultatif)</span>}
+        {requis || !mentionFacultatif ? null : (
+          <span className="font-normal text-muted-foreground"> (facultatif)</span>
+        )}
       </Label>
       <Input
         id={nom}
@@ -82,13 +87,16 @@ export function ListeDeroulante({
   options,
   defaut,
   vide,
+  requis = true,
 }: {
   etat: EtatFormulaire;
   nom: string;
   libelle: string;
   options: readonly { valeur: string; libelle: string }[];
   defaut?: string | undefined;
+  /** Libellé de l'option vide (ex. « Tous », « Choisir… »). */
   vide?: string | undefined;
+  requis?: boolean | undefined;
 }) {
   const erreurs = etat.erreurs?.[nom];
   const valeur = valeurTexte(etat, nom, defaut);
@@ -100,7 +108,7 @@ export function ListeDeroulante({
         key={valeur}
         id={nom}
         name={nom}
-        required
+        required={requis}
         defaultValue={valeur}
         aria-invalid={erreurs ? true : undefined}
         className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive"
@@ -113,6 +121,47 @@ export function ListeDeroulante({
         ))}
       </select>
       <Erreurs id={`${nom}-erreur`} messages={erreurs} />
+    </div>
+  );
+}
+
+export function ZoneDeTexte({
+  etat,
+  nom,
+  libelle,
+  defaut,
+  requis = false,
+  lignes = 4,
+  aide,
+}: {
+  etat: EtatFormulaire;
+  nom: string;
+  libelle: string;
+  defaut?: string | null | undefined;
+  requis?: boolean | undefined;
+  lignes?: number | undefined;
+  aide?: string | undefined;
+}) {
+  const erreurs = etat.erreurs?.[nom];
+  const idErreur = `${nom}-erreur`;
+  return (
+    <div className="grid gap-1.5">
+      <Label htmlFor={nom}>
+        {libelle}
+        {requis ? null : <span className="font-normal text-muted-foreground"> (facultatif)</span>}
+      </Label>
+      <textarea
+        id={nom}
+        name={nom}
+        rows={lignes}
+        required={requis}
+        defaultValue={valeurTexte(etat, nom, defaut)}
+        aria-invalid={erreurs ? true : undefined}
+        aria-describedby={erreurs ? idErreur : undefined}
+        className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive"
+      />
+      {aide ? <p className="text-sm text-muted-foreground">{aide}</p> : null}
+      <Erreurs id={idErreur} messages={erreurs} />
     </div>
   );
 }

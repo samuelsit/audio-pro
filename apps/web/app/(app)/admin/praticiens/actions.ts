@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation';
 import { liste, texte, type EtatFormulaire } from '@/lib/formulaire';
 import { executer } from '@/server/actions';
 import { requireRole } from '@/server/auth/gardes';
+import { notifier } from '@/server/notifications';
 import { creerPraticien, modifierPraticien } from '@/server/services/praticiens';
 
 function saisie(formData: FormData) {
@@ -28,6 +29,7 @@ export async function creerPraticienAction(
     return erreur;
   }
   revalidatePath('/admin/praticiens');
+  await notifier('Fiche praticien enregistrée.');
   redirect('/admin/praticiens');
 }
 
@@ -43,5 +45,6 @@ export async function modifierPraticienAction(
     return erreur;
   }
   revalidatePath('/admin/praticiens');
+  await notifier('Fiche praticien enregistrée.');
   redirect('/admin/praticiens');
 }

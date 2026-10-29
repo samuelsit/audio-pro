@@ -1,3 +1,5 @@
+import { readFile } from 'node:fs/promises';
+
 import { expect, test } from '@playwright/test';
 
 import { codeTotp, COMPTES, motDePasseDemo, ouvrirSelecteurCentre, seConnecter } from './outils';
@@ -54,6 +56,7 @@ test('l’ADMIN doit activer la 2FA, puis la saisir à chaque connexion', async 
   await page.getByLabel('Mot de passe provisoire').fill('provisoire-demo-2026');
   await page.getByRole('button', { name: 'Créer le compte' }).click();
   await expect(page.getByRole('link', { name: 'Morgan Démo' })).toBeVisible();
+  await expect(page.getByText('Utilisateur enregistré.')).toBeVisible();
 
   await page.getByRole('link', { name: 'Praticiens' }).click();
   await page.getByRole('link', { name: 'Nouvelle fiche praticien' }).click();
@@ -71,4 +74,39 @@ test('l’ADMIN doit activer la 2FA, puis la saisir à chaque connexion', async 
   await page.getByLabel('N° RPPS').fill('100 000 000 01');
   await page.getByRole('button', { name: 'Créer la fiche' }).click();
   await expect(page.getByRole('row', { name: /Morgan Démo 10000000001/ })).toBeVisible();
+
+  // Journal d'audit : les actions ci-dessus sont tracées, filtrables et exportables.
+  await page.getByRole('link', { name: 'Journal d’audit' }).click();
+  await expect(page.getByRole('heading', { name: 'Journal d’audit' })).toBeVisible();
+  await expect(page.getByRole('cell', { name: /prenom : Morgan/ })).toBeVisible();
+  await expect(page.getByRole('cell', { name: /rpps : 10000000001/ })).toBeVisible();
+  await expect(page.getByText('Connexion', { exact: true }).first()).toBeVisible();
+
+  await page
+    .getByLabel('Utilisateur', { exact: true })
+    .selectOption({ label: 'Audio Camille (camille.audio@exemple.test)' });
+  await page.getByRole('button', { name: 'Filtrer' }).click();
+  await expect(page).toHaveURL(/utilisateurId=/);
+  await expect(page.getByText('Aucune action ne correspond à ces filtres.')).toBeVisible();
+
+  await page.getByRole('link', { name: 'Réinitialiser' }).click();
+  await page.getByLabel('Du', { exact: true }).fill('2026-10-31');
+  await page.getByLabel('Au', { exact: true }).fill('2026-10-01');
+  await page.getByRole('button', { name: 'Filtrer' }).click();
+  await expect(
+    page.getByText('La date de fin doit être postérieure ou égale à la date de début.'),
+  ).toBeVisible();
+
+  await expect(page.getByRole('link', { name: 'Exporter en CSV' })).toHaveCount(0);
+  await page.getByRole('link', { name: 'Réinitialiser' }).click();
+  await expect(page).toHaveURL(/\/admin\/journal$/);
+  const [telechargement] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('link', { name: 'Exporter en CSV' }).click(),
+  ]);
+  expect(telechargement.suggestedFilename()).toMatch(/^journal-audit-\d{4}-\d{2}-\d{2}\.csv$/);
+  const csv = await readFile((await telechargement.path()) ?? '', 'utf8');
+  expect(csv.startsWith('\uFEFFDate et heure;Utilisateur;')).toBe(true);
+  expect(csv).toContain('Création;Praticien');
+  expect(csv).toContain('Export;Journal d’audit');
 });

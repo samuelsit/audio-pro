@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation';
 import { coche, liste, texte, type EtatFormulaire } from '@/lib/formulaire';
 import { executer } from '@/server/actions';
 import { requireRole } from '@/server/auth/gardes';
+import { notifier } from '@/server/notifications';
 import {
   creerUtilisateur,
   modifierUtilisateur,
@@ -37,6 +38,7 @@ export async function creerUtilisateurAction(
     return erreur;
   }
   revalidatePath('/admin/utilisateurs');
+  await notifier('Utilisateur enregistré.');
   redirect('/admin/utilisateurs');
 }
 
@@ -52,6 +54,7 @@ export async function modifierUtilisateurAction(
     return erreur;
   }
   revalidatePath('/admin/utilisateurs');
+  await notifier('Utilisateur enregistré.');
   redirect('/admin/utilisateurs');
 }
 

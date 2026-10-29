@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation';
 import { coche, texte, type EtatFormulaire } from '@/lib/formulaire';
 import { executer } from '@/server/actions';
 import { requireRole } from '@/server/auth/gardes';
+import { notifier } from '@/server/notifications';
 import { creerCentre, modifierCentre } from '@/server/services/centres';
 
 function saisie(formData: FormData) {
@@ -34,6 +35,7 @@ export async function creerCentreAction(
     return erreur;
   }
   revalidatePath('/', 'layout');
+  await notifier('Centre enregistré.');
   redirect('/admin/centres');
 }
 
@@ -49,5 +51,6 @@ export async function modifierCentreAction(
     return erreur;
   }
   revalidatePath('/', 'layout');
+  await notifier('Centre enregistré.');
   redirect('/admin/centres');
 }
