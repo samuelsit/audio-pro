@@ -9,3 +9,4 @@ export * from './money';
 export * from './patient';
 export * from './ports';
 export * from './praticien';
+export * from './vitale';

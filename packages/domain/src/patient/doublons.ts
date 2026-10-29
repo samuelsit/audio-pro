@@ -39,7 +39,7 @@ function noms(identite: IdentiteComparable): string[] {
  * Source : spécification de l'étape 3 (« même NIR » ; NIR, rang de naissance et qualité de la couverture AMO).
  * À VÉRIFIER : l'usage du NIR de l'ouvrant droit pour les ayants droit n'est pas décrit dans docs/ref.
  */
-function memeBeneficiaire(a: IdentiteComparable, b: IdentiteComparable): boolean {
+export function memeBeneficiaire(a: IdentiteComparable, b: IdentiteComparable): boolean {
   if (a.nirEmpreinte === null || a.nirEmpreinte !== b.nirEmpreinte) {
     return false;
   }
