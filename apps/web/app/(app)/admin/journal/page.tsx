@@ -134,7 +134,7 @@ export default async function PageJournal({
           etat={etat}
           nom="patientId"
           libelle="Patient (identifiant)"
-          aide="La recherche par nom arrivera avec les fiches patients."
+          aide="Identifiant visible dans l’adresse de la fiche patient (recherche par nom à venir)."
           mentionFacultatif={false}
         />
         <ChampTexte etat={etat} nom="du" libelle="Du" type="date" mentionFacultatif={false} />

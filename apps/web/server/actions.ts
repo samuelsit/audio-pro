@@ -19,7 +19,8 @@ export async function executer(
       return { message: erreur.message, erreurs: erreur.erreurs, valeurs };
     }
     if (erreur instanceof ErreurDoublonPossible) {
-      return { message: erreur.message, doublons: erreur.doublons, valeurs };
+      // Pas de `message` : le formulaire affiche les doublons dans leur propre encadré.
+      return { doublons: erreur.doublons, valeurs };
     }
     if (erreur instanceof AccesRefuseError) {
       return { message: erreur.message, valeurs };

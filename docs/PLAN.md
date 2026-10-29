@@ -21,7 +21,15 @@ Une étape est cochée quand ses tests sont verts, le typecheck OK et la CI vert
   - [x] Tests : domaine 100 %, adaptateurs (chiffrement, extension Prisma), intégration (journal, services, connexions), E2E (menu, journal, export)
   - reporté à l'étape 3 : empreinte HMAC du NIR, premier modèle chiffré et test d'intégration de l'extension sur ce modèle
   - reporté à l'étape 15 : adresse IP et agent utilisateur dans le journal, durée de conservation et purge, script de rechiffrement en masse
-- [ ] **3** – Patients
+- [ ] **3** – Patients — terminée en local le 2026-10-29 (tests, typecheck, E2E verts), à cocher quand la CI est verte
+  - [x] Domaine : NIR (format, clé, Corse 2A/2B), `ageAt`, saisie patient avec couvertures AMO/AMC, normalisation de recherche, motifs de doublon, fusion champ par champ
+  - [x] Modèle : `Patient`, `CouvertureAmo`, `CouvertureAmc` ; NIR, ALD et notes chiffrés (contraintes CHECK) ; migration `patients`
+  - [x] Empreinte HMAC-SHA256 du NIR (clé `EMPREINTE_CLE` distincte), branchée sur `CHAMPS_CHIFFRES` (reporté de l'étape 2)
+  - [x] Service : liste paginée et recherche (nom, prénom, date de naissance, NIR exact en POST), fiche avec audit READ, création avec détection des doublons dans toute l'organisation (sans identité hors périmètre), modification, fusion logique (ADMIN et AUDIO)
+  - [x] Écrans : liste, recherche par NIR, fiche, création, modification, fusion
+  - [x] Seed : 30 patients fictifs (ayants droit, jumeaux, Corse, origine Vitale, paire de doublons)
+  - [x] Tests : domaine 100 %, adaptateur d'empreinte, intégration (chiffrement en base, doublons, cloisonnement, fusion, audit), E2E (création, recherche, doublons, fusion)
+  - reporté : recherche par nom de patient dans le filtre du journal d'audit, contrôle de cohérence entre le NIR et le sexe ou la date de naissance, historique des couvertures
 - [ ] **4** – Lecture Vitale simulée
 - [ ] **5** – Référentiels : LPP, catalogue, prescripteurs
 - [ ] **6** – Moteur de règles audio

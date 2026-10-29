@@ -16,5 +16,9 @@ Chiffrement des champs sensibles (NIR, données de santé) avant leur écriture 
   et on écrit le modèle chiffré directement. Défense en profondeur : chaque colonne chiffrée porte en base une
   contrainte `CHECK (colonne LIKE 'v1.%')`, qui refuse une valeur écrite en clair par erreur.
 
+- `empreinte.ts` : `EmpreinteHmac`, HMAC-SHA256 déterministe (hexadécimal) pour chercher ou dédoublonner une
+  valeur chiffrée (NIR). Clé `EMPREINTE_CLE` (base64, 32 octets), distincte des clés AES ; le contexte sépare
+  les usages. Changer la clé impose de recalculer toutes les empreintes depuis les valeurs déchiffrées (ADR-006).
+
 Pas de port dans le domaine (il ne chiffre jamais) ni d'adaptateur Fake : les tests utilisent le vrai
 chiffrement avec une clé de test, pour qu'aucun environnement n'écrive de valeur en clair.

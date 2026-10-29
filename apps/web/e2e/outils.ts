@@ -6,6 +6,7 @@ import { expect, type Page } from '@playwright/test';
 export const COMPTES = {
   admin: 'admin@exemple.test',
   assistanteNord: 'sacha.assistante@exemple.test',
+  audioNordCentre: 'camille.audio@exemple.test',
 } as const;
 
 export function motDePasseDemo(): string {

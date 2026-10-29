@@ -84,7 +84,8 @@ test('l’ADMIN doit activer la 2FA, puis la saisir à chaque connexion', async 
 
   await page
     .getByLabel('Utilisateur', { exact: true })
-    .selectOption({ label: 'Audio Camille (camille.audio@exemple.test)' });
+    // Compte qu'aucun test E2E n'utilise : les tests tournent en parallèle sur la même base.
+    .selectOption({ label: 'Assistante Lou (lou.assistante@exemple.test)' });
   await page.getByRole('button', { name: 'Filtrer' }).click();
   await expect(page).toHaveURL(/utilisateurId=/);
   await expect(page.getByText('Aucune action ne correspond à ces filtres.')).toBeVisible();

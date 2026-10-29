@@ -58,7 +58,7 @@ test('le menu latéral mène aux écrans métier, sans la section Admin pour une
   await menu.getByRole('link', { name: 'Patients' }).click();
   await expect(page).toHaveURL(/\/patients$/);
   await expect(page.getByRole('heading', { name: 'Patients' })).toBeVisible();
-  await expect(page.getByText('Écran en préparation')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Nouveau patient' })).toBeVisible();
   await expect(menu.getByRole('link', { name: 'Patients' })).toHaveAttribute(
     'aria-current',
     'page',

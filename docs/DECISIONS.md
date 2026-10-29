@@ -157,3 +157,42 @@ Le NIR et les données de santé doivent être chiffrés au repos par l'applicat
 - Un champ chiffré n'est ni cherchable ni unique en base : pour retrouver ou dédoublonner un patient par NIR, il faudra une empreinte (HMAC avec une clé distincte), à concevoir à l'étape 3.
 - La configuration est vide tant qu'aucun modèle n'a de champ chiffré ; le test d'intégration de l'extension sur un vrai modèle arrive avec les patients (étape 3).
 - Stockage des clés en production (hébergeur HDS, KMS) et script de rechiffrement en masse : étapes 15 et 16.
+
+---
+
+## ADR-006 – Patients : empreinte du NIR, recherche, doublons et fusion
+
+- **Date** : 2026-10-29
+- **Statut** : acceptée
+
+### Contexte
+
+L'étape 3 introduit la fiche patient et ses couvertures AMO et AMC : le premier modèle qui contient des données de santé. Le NIR est chiffré (ADR-005), donc ni cherchable ni unique en base. Il faut pourtant une recherche par NIR exact et une détection de doublons. Le réseau compte plusieurs centres cloisonnés, et un même patient peut avoir été créé dans deux centres.
+
+### Décision
+
+- **Champs chiffrés** : `couverture_amo.nir` (NIR complet, clé comprise), `couverture_amo.ald` (indicateur ALD, donnée de santé, stocké en texte `OUI`/`NON` car l'extension ne chiffre que du texte) et `patient.notes` (texte libre qui peut contenir des données de santé). Chaque colonne porte une contrainte `CHECK (… LIKE 'v1.%')`. Les noms, la date de naissance et les coordonnées restent en clair pour la recherche.
+- **Empreinte HMAC-SHA256** du NIR sans la clé (13 caractères normalisés), avec la clé `EMPREINTE_CLE`, **distincte** des clés AES, et le contexte `couverture_amo.nir`. Elle permet la recherche exacte et la détection des doublons. L'index n'est pas unique, car des ayants droit portent le NIR de l'assuré ouvrant droit. Rotation de la clé : recalcul de toutes les empreintes depuis les NIR déchiffrés (script prévu à l'étape 15).
+- **Recherche** :
+  - nom (de naissance ou d'usage), prénom, date de naissance : sur des colonnes normalisées (sans accents, majuscules, ponctuation retirée) calculées par le domaine (`normaliserPourRecherche`) ;
+  - NIR exact : le NIR ne figure **jamais dans une URL** (historique du navigateur, journaux du serveur). Le formulaire est en POST. Il redirige vers la fiche s'il n'y a qu'un résultat, sinon vers la liste filtrée par l'empreinte.
+  - Une liste n'ouvre aucune fiche : pas de ligne READ. Ouvrir une fiche écrit une ligne READ (`withAudit`).
+- **Doublons** (`motifsDoublon`, domaine) :
+  - même nom (de naissance ou d'usage, croisés) et même date de naissance ;
+  - ou même NIR pour le même bénéficiaire : deux assurés, ou deux ayants droit nés le même jour avec le même rang. Un assuré et un ayant droit de même NIR sont deux personnes d'une même famille (À VÉRIFIER : absent de docs/ref).
+  - Un doublon possible **ne bloque jamais** la création. L'utilisateur ouvre la fiche existante ou clique sur « Créer quand même ». Le bouton principal vient en premier : la touche Entrée ne confirme jamais un doublon. Une création confirmée malgré des doublons est notée dans le détail de la ligne CREATE.
+  - La recherche des doublons porte sur **toute l'organisation**. Un doublon d'un centre hors des droits de l'utilisateur ne révèle que le nom du centre (« contactez l'administrateur »), jamais l'identité ni un lien (choix validé à l'étape 3).
+- **Fusion** :
+  - réservée à l'**ADMIN et à l'AUDIO** ayant accès aux centres des deux fiches (choix validé à l'étape 3) ;
+  - choix champ par champ, l'adresse et chaque couverture formant des blocs indivisibles. Par défaut, on garde la valeur de la fiche conservée, ou celle du doublon si la conservée est vide. Les notes sont concaténées ;
+  - **fusion logique** : le doublon reçoit `fusionne_dans_id` et `fusionne_le` et n'est jamais supprimé. Il disparaît des listes, de la recherche et des doublons, et son URL renvoie vers la fiche conservée. Les fiches déjà fusionnées dans le doublon sont rattachées à la fiche conservée ;
+  - journal : deux lignes READ à l'ouverture de l'écran, deux lignes UPDATE avec `details.fusion`.
+- **Audit** : tous les champs patient sont journalisés « modifié » sans valeur, sauf `centreId` (identifiant technique).
+- **Origine AMO** : `SAISIE` ou `VITALE`. Une modification manuelle de la couverture la repasse en `SAISIE`, la date de dernière lecture Vitale restant affichée.
+
+### Conséquences
+
+- Recherche par nom en `contains` sur des colonnes indexées en B-tree : l'index ne sert pas pour une sous-chaîne. Suffisant pour quelques milliers de fiches par centre ; à revoir (pg_trgm) si la volumétrie l'exige.
+- Les jumeaux de même nom sont signalés comme doublons possibles (même nom et même date de naissance). La règle de la spécification le veut ; l'utilisateur confirme la création.
+- Une couverture par type et par patient pendant le MVP. Pas d'historique des couvertures.
+- La durée de conservation d'une fiche fusionnée et la purge relèvent de l'étape 15 (RGPD).
