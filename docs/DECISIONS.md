@@ -48,3 +48,60 @@ HA-Gestion est le logiciel de gestion interne d'un réseau d'une douzaine de cen
 - Un peu plus de code au départ (ports et Fakes), accepté pour la testabilité réglementaire.
 - Montées de version à surveiller : TS 7 dès que typescript-eslint le supporte, ESLint 10 dès que eslint-config-next suit, Prisma 8 en version stable.
 - Le stockage S3 local repose sur un fork communautaire de MinIO. Si ce fork n'est plus maintenu, on le remplace par un autre service compatible S3 (Garage, SeaweedFS) sans impact sur le code, qui passe par le port `DocumentStore`.
+
+---
+
+## ADR-002 – Authentification, rôles et cloisonnement par centre
+
+- **Date** : 2026-10-29
+- **Statut** : acceptée
+
+### Contexte
+
+L'étape 1 introduit les comptes (ADMIN, AUDIO, ASSISTANT), le rattachement aux centres et les praticiens. Il faut une connexion e-mail + mot de passe, des sessions révocables, une 2FA TOTP obligatoire pour l'ADMIN, et un cloisonnement strict : un utilisateur ne voit que les données de ses centres. Auth.js v5 impose des sessions JWT avec le provider Credentials (révocation difficile) et n'a pas de TOTP intégré ; son équipe de maintenance recommande Better Auth pour les nouveaux projets.
+
+### Décision
+
+- **Better Auth 1.7.14**, épinglé en version exacte, avec l'adaptateur Prisma et le plugin `twoFactor`. Télémétrie désactivée. Hachage des mots de passe : scrypt (défaut de Better Auth).
+- **Pas de handler HTTP `/api/auth/*`** : Better Auth n'est appelé que depuis des server actions (`auth().api.*`, plugin `nextCookies`). Moins de surface exposée (pas de `update-user`, `sign-up`, etc.). Conséquence : le limiteur de débit de Better Auth, qui ne s'applique qu'à son handler, est remplacé par le nôtre (`server/auth/limitation.ts`, table `limitation_debit`) : 10 tentatives de connexion par e-mail et 30 par IP sur 15 min. Le verrouillage après échecs TOTP reste celui du plugin.
+- **Instance paresseuse** (`auth()`), créée au premier appel : le build Next n'a besoin ni de base ni de secret.
+- **Sessions en base** : 12 h, prolongées toutes les heures, sans cache en cookie, pour qu'une désactivation ou une révocation soit immédiate. Cookies préfixés `ha`, `HttpOnly`, `SameSite=Lax`, `Secure` en production. Un hook refuse toute création de session pour un compte désactivé.
+- **Pas d'inscription publique** : l'ADMIN crée les comptes avec un mot de passe provisoire (≥ 12 caractères, règle interne), à changer à la première connexion (`doitChangerMotDePasse`). L'ADMIN peut réinitialiser un mot de passe, ce qui ferme les sessions de l'utilisateur.
+- **2FA TOTP** : champ prévu pour tous (`twoFactorEnabled`), obligatoire pour l'ADMIN. `requireSession()` impose, dans l'ordre, le changement du mot de passe provisoire puis l'activation de la 2FA. Pas d'option « appareil de confiance ». 10 codes de secours.
+- **Schéma** : les tables techniques de Better Auth gardent les noms de champs imposés (`name`, `emailVerified`, `userId`, etc.) mais sont renommées en français (`utilisateur`, `compte`, `deux_facteurs`…), avec des colonnes en snake_case. `Utilisateur` est la table « user » de Better Auth enrichie de nos champs (prénom, nom, rôle, organisation, actif).
+- **Cloisonnement** :
+  - Règles pures dans le domaine (`peutAccederAuCentre`, `resoudrePerimetre`) : un ADMIN accède à tous les centres de l'organisation sans rattachement, les autres seulement à leurs centres actifs.
+  - Le « centre courant » est un cookie `ha_centre` (id ou `tous`), jamais cru sur parole : il est résolu à chaque requête contre les droits, et un choix interdit retombe sur un centre autorisé.
+  - Les services reçoivent explicitement l'acteur et le périmètre, et revérifient les droits (`verifierRole`, `verifierPerimetre`) même quand la page l'a déjà fait.
+  - Un accès refusé à une page donne une 404, pour ne pas révéler qu'une ressource existe.
+- **Praticien** : fiche liée 1–1 à un utilisateur AUDIO ; ses centres d'exercice doivent faire partie de ses centres de rattachement (contrôle service). RPPS et ADELI uniques.
+
+### Conséquences
+
+- Le schéma suit les noms de champs de Better Auth : à chaque montée de version, comparer `@better-auth/core/dist/db/get-tables.mjs` et le schéma du plugin `twoFactor` avec `schema.prisma` (le CLI `@better-auth/cli` est resté en 1.4 et ne génère pas un schéma fiable pour la 1.7).
+- Le secret TOTP est chiffré par Better Auth avec `BETTER_AUTH_SECRET`, sans passer par notre futur chiffrement applicatif (étape 2). Changer ce secret invalide toutes les 2FA.
+- Pas encore de réinitialisation du mot de passe par e-mail (pas d'envoi d'e-mails) : l'ADMIN fixe un mot de passe provisoire.
+- Les actions d'administration ne sont pas encore journalisées : le journal d'audit arrive à l'étape 2.
+
+---
+
+## ADR-003 – Tests d'intégration et E2E sur PostgreSQL réel
+
+- **Date** : 2026-10-29
+- **Statut** : acceptée
+
+### Contexte
+
+Le cloisonnement par centre et les contraintes d'unicité se jouent dans les requêtes SQL. Les simuler (Fake, base en mémoire) laisserait passer les erreurs qui comptent. Prisma 7, avec le driver adapter PostgreSQL, signale par exemple une violation d'unicité par le nom de l'index, pas par la liste des champs.
+
+### Décision
+
+- **Tests d'intégration des services** (Vitest, projet `web`, fichiers `*.int.test.ts`) sur une base `ha_gestion_test` (`DATABASE_URL_TEST`). Le `globalSetup` crée la base si besoin et applique les migrations versionnées. Les tables sont vidées avant chaque test et les fichiers s'exécutent en série.
+- **E2E** (Playwright) sur une base `ha_gestion_e2e` (`DATABASE_URL_E2E`), vidée puis seedée à chaque exécution, avec un serveur Next dédié (jamais réutilisé).
+- **Garde-fou** : l'outillage (`preparerBaseJetable`, `viderBaseJetable` dans `@ha/db`) refuse toute base dont le nom ne se termine pas par `_test` ou `_e2e`.
+- **CI** : un service PostgreSQL 16 exécute les tests d'intégration dans `pnpm test`. L'E2E reste hors CI pour l'instant.
+
+### Conséquences
+
+- `pnpm test` exige PostgreSQL : `docker compose up -d postgres` en local.
+- La couverture à 100 % reste exigée sur le domaine seulement. Les services sont couverts par l'intégration, sans seuil.
