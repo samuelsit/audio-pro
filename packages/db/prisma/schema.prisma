@@ -34,6 +34,7 @@ model Organisation {
   updatedAt    DateTime      @updatedAt @map("updated_at")
   centres      Centre[]
   utilisateurs Utilisateur[]
+  patients     Patient[]
 
   @@map("organisation")
 }
@@ -58,6 +59,7 @@ model Centre {
   organisation        Organisation        @relation(fields: [organisationId], references: [id], onDelete: Restrict)
   utilisateurs        UtilisateurCentre[]
   praticiens          PraticienCentre[]
+  patients            Patient[]
 
   @@unique([organisationId, nom])
   @@map("centre")
@@ -132,6 +134,122 @@ model PraticienCentre {
   @@id([praticienId, centreId])
   @@index([centreId])
   @@map("praticien_centre")
+}
+
+// ---------------------------------------------------------------------------
+// Patients
+// ---------------------------------------------------------------------------
+
+enum Civilite {
+  M
+  MME
+}
+
+enum Sexe {
+  MASCULIN
+  FEMININ
+}
+
+enum QualiteBeneficiaire {
+  ASSURE
+  AYANT_DROIT
+}
+
+enum OrigineDonnee {
+  SAISIE
+  VITALE
+}
+
+/// Fiche patient, visible des utilisateurs qui ont accès à son centre de rattachement.
+/// Une fiche fusionnée n'est pas supprimée : elle pointe vers la fiche conservée (`fusionneDansId`).
+/// Les couvertures sont lues et écrites directement (jamais par relation imbriquée : champs chiffrés).
+model Patient {
+  id                    String         @id @default(uuid(7))
+  organisationId        String         @map("organisation_id")
+  centreId              String         @map("centre_id")
+  civilite              Civilite
+  nomNaissance          String         @map("nom_naissance")
+  nomUsage              String?        @map("nom_usage")
+  prenoms               String
+  dateNaissance         DateTime       @map("date_naissance") @db.Date
+  sexe                  Sexe
+  adresseLigne1         String?        @map("adresse_ligne1")
+  adresseLigne2         String?        @map("adresse_ligne2")
+  codePostal            String?        @map("code_postal")
+  ville                 String?
+  telephone             String?
+  email                 String?
+  /// Texte libre pendant le MVP.
+  medecinTraitant       String?        @map("medecin_traitant")
+  consentementSms       Boolean        @default(false) @map("consentement_sms")
+  consentementEmail     Boolean        @default(false) @map("consentement_email")
+  consentementCourrier  Boolean        @default(false) @map("consentement_courrier")
+  /// Chiffré (contexte « patient.notes ») : peut contenir des données de santé.
+  notes                 String?
+  /// Formes normalisées (sans accents, majuscules) pour la recherche et les doublons.
+  nomNaissanceRecherche String         @map("nom_naissance_recherche")
+  nomUsageRecherche     String?        @map("nom_usage_recherche")
+  prenomsRecherche      String         @map("prenoms_recherche")
+  fusionneDansId        String?        @map("fusionne_dans_id")
+  fusionneLe            DateTime?      @map("fusionne_le")
+  createdAt             DateTime       @default(now()) @map("created_at")
+  updatedAt             DateTime       @updatedAt @map("updated_at")
+  organisation          Organisation   @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  centre                Centre         @relation(fields: [centreId], references: [id], onDelete: Restrict)
+  fusionneDans          Patient?       @relation("FusionPatient", fields: [fusionneDansId], references: [id], onDelete: Restrict)
+  fusionnes             Patient[]      @relation("FusionPatient")
+  couvertureAmo         CouvertureAmo?
+  couvertureAmc         CouvertureAmc?
+
+  @@index([organisationId, nomNaissanceRecherche])
+  @@index([organisationId, nomUsageRecherche])
+  @@index([organisationId, dateNaissance])
+  @@index([centreId])
+  @@map("patient")
+}
+
+/// Couverture assurance maladie obligatoire (une par patient).
+model CouvertureAmo {
+  id                    String              @id @default(uuid(7))
+  patientId             String              @unique @map("patient_id")
+  /// NIR complet (15 caractères), chiffré (contexte « couverture_amo.nir »).
+  nir                   String
+  /// HMAC-SHA256 des 13 premiers caractères : recherche exacte et doublons. Non unique (ayants droit).
+  nirEmpreinte          String              @map("nir_empreinte") @db.Char(64)
+  rangNaissance         Int                 @map("rang_naissance")
+  qualite               QualiteBeneficiaire
+  regime                String?
+  caisse                String?
+  centreGestionnaire    String?             @map("centre_gestionnaire")
+  finDroits             DateTime?           @map("fin_droits") @db.Date
+  c2s                   Boolean             @default(false)
+  /// Indicateur ALD (donnée de santé), chiffré (contexte « couverture_amo.ald ») : « OUI » ou « NON ».
+  ald                   String
+  origine               OrigineDonnee
+  derniereLectureVitale DateTime?           @map("derniere_lecture_vitale")
+  createdAt             DateTime            @default(now()) @map("created_at")
+  updatedAt             DateTime            @updatedAt @map("updated_at")
+  patient               Patient             @relation(fields: [patientId], references: [id], onDelete: Restrict)
+
+  @@index([nirEmpreinte])
+  @@map("couverture_amo")
+}
+
+/// Couverture complémentaire (une par patient pendant le MVP).
+model CouvertureAmc {
+  id                   String    @id @default(uuid(7))
+  patientId            String    @unique @map("patient_id")
+  organismeNom         String    @map("organisme_nom")
+  organismeIdentifiant String?   @map("organisme_identifiant")
+  numeroAdherent       String?   @map("numero_adherent")
+  typeContrat          String?   @map("type_contrat")
+  debutValidite        DateTime? @map("debut_validite") @db.Date
+  finValidite          DateTime? @map("fin_validite") @db.Date
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+  patient              Patient   @relation(fields: [patientId], references: [id], onDelete: Restrict)
+
+  @@map("couverture_amc")
 }
 
 // ---------------------------------------------------------------------------

@@ -11,4 +11,5 @@ export {
   extensionChampsChiffres,
   type ConfigurationChampsChiffres,
 } from './crypto/prisma';
+export { chargerCleEmpreinte, EmpreinteHmac } from './crypto/empreinte';
 export { chargerTrousseau, type Trousseau } from './crypto/trousseau';

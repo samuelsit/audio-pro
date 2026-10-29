@@ -23,10 +23,11 @@ export function urlBaseJetable(variable: 'DATABASE_URL_TEST' | 'DATABASE_URL_E2E
 }
 
 /**
- * Trousseau de chiffrement des tests (intégration et E2E) : clé fixe, sans valeur réelle à protéger.
+ * Clés de chiffrement et d'empreinte des tests (intégration et E2E) : fixes, sans valeur réelle à protéger.
  * Toujours celle-ci, quel que soit le .env, pour que les bases jetables restent lisibles d'une exécution à l'autre.
  */
 export const CHIFFREMENT_TEST = {
   CHIFFREMENT_CLES: 'test:5eem5m5OZFBp6LOQOItOGaf7gSGaHT+HmpXzSV1M4vA=',
   CHIFFREMENT_CLE_ACTIVE: 'test',
+  EMPREINTE_CLE: '9PNvMc87U/83yMpLXmb6C5zDU0FrYrYAb4hLm6QDRNc=',
 } as const;
