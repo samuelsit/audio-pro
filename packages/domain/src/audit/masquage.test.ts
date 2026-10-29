@@ -97,13 +97,14 @@ describe('differencesAuditees', () => {
       attendu: [{ champ: 'motDePasse', masque: true }],
     },
     {
-      cas: 'patient : rien en clair',
+      cas: 'patient : rien en clair, sauf le centre de rattachement',
       type: 'PATIENT' as const,
       avant: null,
-      apres: { nom: 'Fictif', nir: '1850578006084' },
+      apres: { nom: 'Fictif', nir: '1850578006084', centreId: 'c1' },
       attendu: [
         { champ: 'nom', masque: true },
         { champ: 'nir', masque: true },
+        { champ: 'centreId', masque: false, apres: 'c1' },
       ],
     },
     {

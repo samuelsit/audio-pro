@@ -6,5 +6,6 @@ export * from './commun/date';
 export * from './commun/pagination';
 export * from './commun/texte';
 export * from './money';
+export * from './patient';
 export * from './ports';
 export * from './praticien';

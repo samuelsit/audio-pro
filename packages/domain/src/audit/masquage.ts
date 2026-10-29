@@ -44,7 +44,7 @@ export function assainirPourAudit(valeur: unknown): ValeurJson {
 /**
  * Champs dont la valeur peut figurer en clair dans le journal, par type d'entité (liste blanche).
  * Tout autre champ modifié est journalisé sans sa valeur. Patients et dossiers : rien en clair
- * par défaut (données de santé).
+ * (données de santé), sauf le centre de rattachement d'un patient (identifiant technique).
  */
 export const CHAMPS_VISIBLES_AUDIT: Readonly<Record<TypeEntite, readonly string[]>> = {
   CENTRE: [
@@ -72,7 +72,7 @@ export const CHAMPS_VISIBLES_AUDIT: Readonly<Record<TypeEntite, readonly string[
   PRATICIEN: ['utilisateurId', 'rpps', 'adeli', 'centreIds'],
   SESSION: [],
   JOURNAL_AUDIT: [],
-  PATIENT: [],
+  PATIENT: ['centreId'],
   DOSSIER: [],
 };
 

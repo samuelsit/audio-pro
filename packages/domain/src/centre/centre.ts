@@ -4,13 +4,13 @@ import { emailSchema } from '../acces/utilisateur';
 import { retirerEspaces, texteObligatoire, texteOptionnelSchema } from '../commun/texte';
 
 // Format postal (pas une règle réglementaire) : 5 chiffres.
-const codePostalSchema = z
+export const codePostalSchema = z
   .string({ error: 'Le code postal est obligatoire.' })
   .transform(retirerEspaces)
   .pipe(z.string().regex(/^\d{5}$/, 'Le code postal doit comporter 5 chiffres.'));
 
 // Numéro français, saisi avec ou sans séparateurs ; stocké sans séparateurs.
-const telephoneSchema = z
+export const telephoneSchema = z
   .string({ error: 'Le téléphone est obligatoire.' })
   .transform((valeur) => valeur.replace(/[\s.-]/g, ''))
   .pipe(
