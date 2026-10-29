@@ -28,13 +28,14 @@ enum Role {
 
 /// Le réseau de centres (une seule ligne en pratique).
 model Organisation {
-  id           String        @id @default(uuid(7))
-  nom          String
-  createdAt    DateTime      @default(now()) @map("created_at")
-  updatedAt    DateTime      @updatedAt @map("updated_at")
-  centres      Centre[]
-  utilisateurs Utilisateur[]
-  patients     Patient[]
+  id             String          @id @default(uuid(7))
+  nom            String
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+  centres        Centre[]
+  utilisateurs   Utilisateur[]
+  patients       Patient[]
+  lecturesVitale LectureVitale[]
 
   @@map("organisation")
 }
@@ -60,6 +61,7 @@ model Centre {
   utilisateurs        UtilisateurCentre[]
   praticiens          PraticienCentre[]
   patients            Patient[]
+  lecturesVitale      LectureVitale[]
 
   @@unique([organisationId, nom])
   @@map("centre")
@@ -91,6 +93,7 @@ model Utilisateur {
   sessions              Session[]
   comptes               Compte[]
   deuxFacteurs          DeuxFacteurs[]
+  lecturesVitale        LectureVitale[]
 
   @@index([organisationId])
   @@map("utilisateur")
@@ -250,6 +253,46 @@ model CouvertureAmc {
   patient              Patient   @relation(fields: [patientId], references: [id], onDelete: Restrict)
 
   @@map("couverture_amc")
+}
+
+// ---------------------------------------------------------------------------
+// Lectures de la carte Vitale
+// ---------------------------------------------------------------------------
+
+enum ResultatLectureVitale {
+  SUCCES
+  AUCUN_LECTEUR
+  CARTE_ABSENTE
+  CARTE_INVALIDE
+  CARTE_BLOQUEE
+  ERREUR_TECHNIQUE
+}
+
+enum SourceLectureVitale {
+  CARTE
+  APCV
+}
+
+/// Historique des lectures de la carte Vitale, en ajout seul (trigger, voir la migration).
+/// Aucun contenu de la carte (ni nom, ni NIR, ni droits) : seulement qui, quand, où et avec quel résultat.
+/// Le lien avec la fiche patient passe par le journal d'audit (`details.lectureVitale`).
+model LectureVitale {
+  id                  String                @id @default(uuid(7))
+  horodatage          DateTime              @default(now())
+  organisationId      String                @map("organisation_id")
+  utilisateurId       String                @map("utilisateur_id")
+  /// Centre courant au moment de la lecture, s'il est unique.
+  centreId            String?               @map("centre_id")
+  resultat            ResultatLectureVitale
+  source              SourceLectureVitale?
+  nombreBeneficiaires Int?                  @map("nombre_beneficiaires")
+  organisation        Organisation          @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  utilisateur         Utilisateur           @relation(fields: [utilisateurId], references: [id], onDelete: Restrict)
+  centre              Centre?               @relation(fields: [centreId], references: [id], onDelete: Restrict)
+
+  @@index([organisationId, horodatage])
+  @@index([utilisateurId, horodatage])
+  @@map("lecture_vitale")
 }
 
 // ---------------------------------------------------------------------------

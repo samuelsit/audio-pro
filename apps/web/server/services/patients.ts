@@ -8,6 +8,7 @@ import {
   criteresRecherchePatientSchema,
   differencesAuditees,
   erreurDateNaissance,
+  etatDroitsAmo,
   fusionnerFiches,
   motifsDoublon,
   nirSchema,
@@ -22,6 +23,7 @@ import {
   type Clock,
   type CriteresRecherchePatient,
   type DoublonsPossibles,
+  type EtatDroitsAmo,
   type FicheFusion,
   type IdentiteComparable,
   type OrigineDonnee,
@@ -50,7 +52,7 @@ export const PATIENTS_PAR_PAGE = 25;
 const horloge: Clock = new SystemClock();
 
 /** Date du jour à Paris (AAAA-MM-JJ) : `now()` est déjà exprimé dans ce fuseau. */
-function aujourdhui(): string {
+export function aujourdhui(): string {
   return horloge.now().slice(0, 10);
 }
 
@@ -81,6 +83,8 @@ export interface PatientResume {
   age: number;
   centre: { id: string; nom: string };
   telephone: string | null;
+  /** Bénéficiaire de la C2S : badge visible sur tout le dossier. */
+  c2s: boolean;
 }
 
 export interface CouvertureAmoDetail {
@@ -96,6 +100,8 @@ export interface CouvertureAmoDetail {
   origine: OrigineDonnee;
   /** Instant ISO de la dernière lecture de la carte Vitale. */
   derniereLectureVitale: string | null;
+  /** Ouverture des droits au jour de la consultation (bandeau si expirés). */
+  etatDroits: EtatDroitsAmo;
 }
 
 export type CouvertureAmcDetail = AmcSaisie;
@@ -146,13 +152,13 @@ const selectionPatient = {
 type LignePatient = Prisma.PatientGetPayload<{ select: typeof selectionPatient }>;
 
 /** Client qui chiffre et déchiffre : `base()` ou une transaction ouverte par `withAudit`. */
-type Client = ClientTransaction | ReturnType<typeof base>;
+export type Client = ClientTransaction | ReturnType<typeof base>;
 
 /**
  * Lit une fiche complète, couvertures comprises (lues directement : champs chiffrés).
  * Lève AccesRefuseError si la fiche n'existe pas dans l'organisation ou si son centre est hors des droits.
  */
-async function lireFiche(
+export async function lireFiche(
   client: Client,
   acteur: UtilisateurConnecte,
   patientId: string,
@@ -169,6 +175,7 @@ async function lireFiche(
     client.couvertureAmc.findUnique({ where: { patientId } }),
   ]);
   const dateNaissance = depuisDate(p.dateNaissance);
+  const jour = aujourdhui();
   return {
     id: p.id,
     civilite: p.civilite,
@@ -176,9 +183,10 @@ async function lireFiche(
     nomUsage: p.nomUsage,
     prenoms: p.prenoms,
     dateNaissance,
-    age: ageAt(dateNaissance, aujourdhui()),
+    age: ageAt(dateNaissance, jour),
     centre: p.centre,
     telephone: p.telephone,
+    c2s: amo?.c2s ?? false,
     sexe: p.sexe,
     adresseLigne1: p.adresseLigne1,
     adresseLigne2: p.adresseLigne2,
@@ -203,6 +211,7 @@ async function lireFiche(
       ald: amo.ald === 'OUI',
       origine: amo.origine,
       derniereLectureVitale: amo.derniereLectureVitale?.toISOString() ?? null,
+      etatDroits: etatDroitsAmo({ debut: null, fin: dateOuNull(amo.finDroits) }, jour),
     },
     amc: amc && {
       organismeNom: amc.organismeNom,
@@ -215,7 +224,7 @@ async function lireFiche(
   };
 }
 
-function evenementLecture(fiche: PatientDetail): EvenementAudit {
+export function evenementLecture(fiche: PatientDetail): EvenementAudit {
   return {
     action: 'READ',
     entiteType: 'PATIENT',
@@ -303,6 +312,8 @@ export async function listerPatients(
       dateNaissance: true,
       telephone: true,
       centre: { select: { id: true, nom: true } },
+      // Lecture imbriquée sans champ chiffré : indicateur C2S seulement.
+      couvertureAmo: { select: { c2s: true } },
     },
     orderBy: [{ nomNaissanceRecherche: 'asc' }, { prenomsRecherche: 'asc' }, { id: 'asc' }],
     skip: pagination.decalage,
@@ -310,9 +321,14 @@ export async function listerPatients(
   });
   const jour = aujourdhui();
   return {
-    patients: lignes.map((p) => {
+    patients: lignes.map(({ couvertureAmo, ...p }) => {
       const dateNaissance = depuisDate(p.dateNaissance);
-      return { ...p, dateNaissance, age: ageAt(dateNaissance, jour) };
+      return {
+        ...p,
+        dateNaissance,
+        age: ageAt(dateNaissance, jour),
+        c2s: couvertureAmo?.c2s ?? false,
+      };
     }),
     pagination,
     criteres,
@@ -477,7 +493,7 @@ function validerSaisie(saisie: unknown): PatientSaisie {
   return donnees;
 }
 
-function donneesPatient(d: PatientSaisie) {
+export function donneesPatient(d: PatientSaisie) {
   return {
     centreId: d.centreId,
     civilite: d.civilite,
@@ -503,7 +519,7 @@ function donneesPatient(d: PatientSaisie) {
   };
 }
 
-interface ProvenanceAmo {
+export interface ProvenanceAmo {
   origine: OrigineDonnee;
   derniereLectureVitale: string | null;
 }
@@ -538,7 +554,7 @@ function donneesAmc(amc: AmcSaisie) {
 }
 
 /** Écrit (ou retire) les couvertures d'un patient, directement sur leurs modèles (champs chiffrés). */
-async function ecrireCouvertures(
+export async function ecrireCouvertures(
   tx: ClientTransaction,
   patientId: string,
   amo: AmoSaisie | null,
@@ -567,8 +583,8 @@ async function ecrireCouvertures(
   }
 }
 
-/** Fiche lue ramenée à la forme d'une saisie (comparaisons, audit, fusion). */
-function versSaisie(fiche: PatientDetail): PatientSaisie {
+/** Fiche lue ramenée à la forme d'une saisie (comparaisons, audit, fusion, lecture Vitale). */
+export function versSaisie(fiche: PatientDetail): PatientSaisie {
   return {
     centreId: fiche.centre.id,
     civilite: fiche.civilite,
@@ -605,6 +621,15 @@ function versSaisie(fiche: PatientDetail): PatientSaisie {
 
 const SAISIE_MANUELLE: ProvenanceAmo = { origine: 'SAISIE', derniereLectureVitale: null };
 
+export interface OptionsCreation {
+  /** Création confirmée malgré des doublons possibles. */
+  confirmerDoublon?: boolean;
+  /** Provenance de la couverture AMO (lecture Vitale) ; saisie manuelle par défaut. */
+  provenanceAmo?: (donnees: PatientSaisie) => ProvenanceAmo;
+  /** Contexte ajouté à la ligne CREATE (ex. identifiant de la lecture Vitale). */
+  details?: Readonly<Record<string, unknown>>;
+}
+
 /**
  * Crée une fiche. Si des doublons possibles existent et que l'utilisateur n'a pas confirmé, rien n'est
  * écrit : ErreurDoublonPossible porte les candidats à afficher.
@@ -612,7 +637,7 @@ const SAISIE_MANUELLE: ProvenanceAmo = { origine: 'SAISIE', derniereLectureVital
 export async function creerPatient(
   acteur: UtilisateurConnecte,
   saisie: unknown,
-  { confirmerDoublon = false }: { confirmerDoublon?: boolean } = {},
+  { confirmerDoublon = false, provenanceAmo, details }: OptionsCreation = {},
 ): Promise<string> {
   const donnees = validerSaisie(saisie);
   await verifierCentreRattachement(acteur, donnees.centreId);
@@ -631,6 +656,7 @@ export async function creerPatient(
   if (aDesDoublons(doublons) && !confirmerDoublon) {
     throw new ErreurDoublonPossible(doublons);
   }
+  const provenance = provenanceAmo?.(donnees) ?? SAISIE_MANUELLE;
   const p = await withAudit(
     acteur,
     async (tx) => {
@@ -638,7 +664,7 @@ export async function creerPatient(
         data: { organisationId: acteur.organisationId, ...donneesPatient(donnees) },
         select: { id: true },
       });
-      await ecrireCouvertures(tx, cree.id, donnees.amo, SAISIE_MANUELLE, donnees.amc);
+      await ecrireCouvertures(tx, cree.id, donnees.amo, provenance, donnees.amc);
       return cree;
     },
     (cree) => ({
@@ -648,12 +674,17 @@ export async function creerPatient(
       patientId: cree.id,
       centreId: donnees.centreId,
       champs: differencesAuditees('PATIENT', null, donnees),
-      ...(aDesDoublons(doublons)
+      ...(aDesDoublons(doublons) || details
         ? {
             details: {
-              creationMalgreDoublon: true,
-              doublonsVisibles: doublons.visibles.map((d) => d.id),
-              doublonsHorsPerimetre: doublons.horsPerimetre.length,
+              ...details,
+              ...(aDesDoublons(doublons)
+                ? {
+                    creationMalgreDoublon: true,
+                    doublonsVisibles: doublons.visibles.map((d) => d.id),
+                    doublonsHorsPerimetre: doublons.horsPerimetre.length,
+                  }
+                : {}),
             },
           }
         : {}),
