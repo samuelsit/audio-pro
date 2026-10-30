@@ -18,6 +18,14 @@ export const texteOptionnelSchema = z
     return nettoye === '' ? null : nettoye;
   });
 
+/** Paramètre d'URL facultatif : absent ou vide → `undefined`. */
+export function parametreOptionnel<S extends z.ZodType>(schema: S) {
+  return z.preprocess(
+    (valeur) => (typeof valeur === 'string' && valeur.trim() !== '' ? valeur.trim() : undefined),
+    schema.optional(),
+  );
+}
+
 export function retirerEspaces(valeur: string): string {
   return valeur.replace(/\s+/g, '');
 }

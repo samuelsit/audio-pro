@@ -13,4 +13,5 @@ export * from './patient';
 export * from './ports';
 export * from './prescripteur';
 export * from './praticien';
+export * from './stock';
 export * from './vitale';

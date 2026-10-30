@@ -96,6 +96,15 @@ export const CHAMPS_VISIBLES_AUDIT: Readonly<Record<TypeEntite, readonly string[
     'contact',
     'actif',
   ],
+  // Le prix d'achat et les motifs restent hors liste blanche.
+  APPAREIL: [
+    'numeroSerie',
+    'modeleId',
+    'referenceBonLivraison',
+    'referenceFactureFabricant',
+    'enConsignation',
+  ],
+  STOCK_ACCESSOIRE: [],
 };
 
 export interface ChampModifie {

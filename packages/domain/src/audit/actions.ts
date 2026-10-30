@@ -40,6 +40,8 @@ export const TYPES_ENTITE = [
   'MODELE_AIDE_AUDITIVE',
   'ACCESSOIRE',
   'PRESCRIPTEUR',
+  'APPAREIL',
+  'STOCK_ACCESSOIRE',
 ] as const;
 
 export const typeEntiteSchema = z.enum(TYPES_ENTITE, { error: 'Type d’entité inconnu.' });
@@ -57,4 +59,6 @@ export const LIBELLES_TYPES_ENTITE: Readonly<Record<TypeEntite, string>> = {
   MODELE_AIDE_AUDITIVE: 'Modèle d’aide auditive',
   ACCESSOIRE: 'Accessoire',
   PRESCRIPTEUR: 'Prescripteur',
+  APPAREIL: 'Appareil',
+  STOCK_ACCESSOIRE: 'Stock d’accessoires',
 };
