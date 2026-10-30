@@ -298,6 +298,18 @@ Le reste n'est pas dans les tests : il est calculé. Dans ces cas de tiers payan
 - **Suivi** : bilans aux 3e, 6e et 12e mois (devis p. 2), deux consultations annuelles recommandées ensuite (art. 19, p. 20), télétransmission `SUI` (art. 20, p. 21).
 - **Droits** : appréciés à la date de délivrance (art. 27, p. 26).
 
+## R17 – Traçabilité des aides auditives (`packages/domain/src/stock`)
+
+**Statut : Confirmé avec écart.**
+
+**Texte** : l'entreprise conserve, pendant la durée prévue par l'article L. 332-1 du Code de la sécurité sociale, notamment le bon de livraison « jusqu'à ce que la facturation soit reçue du fabricant », le numéro de série des aides délivrées et la facture du fabricant. Elle identifie rapidement les assurés détenteurs en cas de signalement de l'ANSM et assure le retour en cas de rappel de lot (art. 21, p. 21).
+
+**Décision** : un appareil et ses mouvements ne se suppriment pas ; la référence de facture se saisit après la réception ; le mouvement garde le patient détenteur (ADR-010).
+
+**Écart** : ce sont les références qui sont stockées, pas les pièces elles-mêmes. Aucun numéro de lot n'est stocké et aucun écran ne liste les détenteurs d'un modèle.
+
+**Hors docs/ref** : la machine à états (ADR-010) est un choix d'organisation, pas une règle réglementaire. La consignation est un simple indicateur, aucun document n'en parle.
+
 ## Points À VÉRIFIER
 
 | Point                                               | Règle | Document qui trancherait                      |
@@ -317,3 +329,7 @@ Le reste n'est pas dans les tests : il est calculé. Dans ces cas de tiers payan
 | Prix inférieur à la base                            | R13   | Nomenclature LPP ou cahier des charges        |
 | 1 700 €                                             | R14   | Texte sur les contrats responsables           |
 | Quotas de piles et d'embouts, sens de `QTE_MAX`     | R15   | Nomenclature LPP, dictionnaire LPP            |
+| Durée de l'article L. 332-1 CSS                     | R17   | Code de la sécurité sociale                   |
+| Numéro de lot à conserver                           | R17   | Vigilance ANSM                                |
+| Format des numéros et codes lus à la douchette      | R17   | Étiquettes réelles des fabricants             |
+| Consignation                                        | R17   | Contrats fabricants                           |

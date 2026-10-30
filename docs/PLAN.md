@@ -64,7 +64,20 @@ Une étape est cochée quand ses tests sont verts, le typecheck OK et la CI vert
   - reporté à l'étape 9 : branchement de `controleDevis`, contrôle du prix conseillé d'un modèle de classe I (reporté de l'étape 5), exigence des 3 options parmi 8 de l'offre 100 % santé (non modélisée)
   - reporté à l'étape 10 : branchement de `etatEssai`
   - reporté à l'étape 11 : branchement de `ventilation`, contrôles comp/incomp (reportés de l'étape 5, aucun document ne les définit)
-- [ ] **7** – Stock
+- [ ] **7** – Stock — terminée en local le 2026-10-31 (tests, typecheck, lint, E2E verts), à cocher quand la CI est verte
+  - [x] Domaine : machine à états des appareils, normalisation et doublons de numéros de série, droits, saisies, filtres, CSV, dans `packages/domain/src/stock`
+  - [x] Modèle : `Appareil`, `MouvementAppareil`, `StockAccessoire`, `MouvementAccessoire` ; unicité par fabricant, clé composite modèle-fabricant, mouvements en ajout seul et motifs chiffrés (contraintes CHECK) ; migration `stock`
+  - [x] Service : réception tout ou rien, changement de statut, transfert immédiat, annulation de vente (ADMIN), correction d'une fiche, recherche, fiche avec historique, liste, export CSV, accessoires et piles
+  - [x] Mouvement dans la même transaction que le changement ; `updateMany` conditionné contre les écritures simultanées (ADR-010)
+  - [x] Cloisonnement : recherche hors périmètre limitée au modèle et au centre, patient hors droits masqué, audit READ par patient, prix d'achat réservé à l'ADMIN
+  - [x] Écrans : liste filtrable, réception à la douchette, recherche, fiche et actions, accessoires et piles, exports
+  - [x] Fusion de patients : `Appareil.patientId` suit la fiche conservée ; fabricant d'un modèle en stock figé
+  - [x] Seed : 12 appareils et 3 accessoires fictifs, stock dans chaque centre
+  - [x] Tests : domaine 100 % (matrice complète des transitions), intégration (unicité, transfert, réservations et réceptions simultanées, atomicité, droits, audit, CSV, accessoires), E2E (réception, recherche, transfert, réservation, accessoires)
+  - reporté à l'étape 8 : clé étrangère et saisie de `dossierId`
+  - reporté aux étapes 10 et 11 : essai et vente pilotés par le dossier, branchement sur `changerStatut`
+  - reporté à l'étape 13 : reprise des appareils de Cosium, sans passer par la machine à états
+  - à planifier : recherche des détenteurs par modèle ou par lot pour la matériovigilance (art. 21), numéro de lot à décider
 - [ ] **8** – Dossier et prescription
 - [ ] **9** – Devis normalisé
 - [ ] **10** – Essai

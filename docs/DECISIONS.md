@@ -293,3 +293,35 @@ L'étape 6 code les règles qui décident des prix, des remboursements et de la 
 - Avant le 07/07/2023, la base 908 n'a pas de ligne pour ces codes : `tarifsAudioEnVigueur` renvoie `null`. À traiter pour la reprise Cosium (étape 13) si des délivrances antérieures doivent être recalculées.
 - Le dépôt du texte de la nomenclature LPP permettra de lever la plupart des À VÉRIFIER, listés dans `docs/REGLES_AUDIO.md`.
 - Compléments aux ADR précédentes, qui restent inchangées. ADR-007 : l'art. 27 de la convention est en p. 26, pas 27. ADR-008 : depuis le 07/07/2023, les codes génériques portent la nature `RJT` et seuls les codes 7xxxxxx portent P1D, P1G, etc. ; le sens de `RJT` reste à confirmer.
+
+## ADR-010 – Stock au numéro de série
+
+- **Date** : 2026-10-31
+- **Statut** : acceptée
+
+### Contexte
+
+L'étape 7 suit chaque aide auditive par son numéro de série, et les accessoires et piles en quantité par centre. La convention (art. 21, p. 21) impose de conserver le numéro de série des aides délivrées, le bon de livraison et la facture du fabricant, et d'identifier rapidement les assurés détenteurs d'un dispositif. La table des dossiers n'existe pas encore (étape 8). Le dépôt n'avait ni machine à états ni écriture concurrente à protéger.
+
+### Décision
+
+- **Modèle** : `Appareil`, `MouvementAppareil`, `StockAccessoire`, `MouvementAccessoire` (migration `stock`). Les mouvements sont en ajout seul (trigger). Un appareil ne se supprime pas, même au-delà de la durée de conservation, que docs/ref ne donne pas.
+- **Machine à états** : `packages/domain/src/stock/etats.ts`, table des transitions dans `etats.test.ts` (les 49 couples). VENDU ne s'atteint que depuis EN_ESSAI. VENDU → EN_STOCK passe uniquement par `annulerVente`.
+- **Patient porteur** : RESERVE, EN_ESSAI et PRET exigent un patient. EN_ESSAI ou PRET → SAV le détache : l'appareil en panne n'est pas celui du patient. VENDU → SAV le conserve. Un appareil en SAV ou en retour fabricant avec un patient est donc un appareil vendu, qui ne revient qu'en VENDU, et un appareil sans patient ne revient qu'en EN_STOCK. Le mouvement garde le patient qui détenait l'appareil, même une fois détaché.
+- **Dossier** : `dossierId` sans clé étrangère, toujours nul à cette étape, car aucun identifiant ne pourrait être vérifié.
+- **Unicité** : `(fabricant_id, numero_serie)`, sur la forme normalisée (espaces retirés, majuscules). `fabricantId` est copié sur l'appareil ; la clé composite `(modele_id, fabricant_id)` en `ON UPDATE RESTRICT` interdit de changer le fabricant d'un modèle en stock.
+- **Concurrence** : `appliquerMouvement` est la seule écriture de `statut`, `centreId` et `patientId` (hors fusion de patients). Son `updateMany` est conditionné à l'état lu : en READ COMMITTED, le perdant attend le verrou, le `WHERE` est réévalué, aucune ligne ne correspond et `ErreurConflitStock` annule la transaction. Le formulaire envoie aussi le statut ou le centre affiché : celui qui lit après le commit du gagnant reçoit le même conflit, pas un refus de transition. Accessoires : incrément et décrément atomiques, `CHECK quantite >= 0`.
+- **Droits** : tous les rôles agissent dans leurs centres. Sont réservés à l'ADMIN l'annulation d'une vente, le prix d'achat (fiche, saisie, CSV) et la correction du numéro de série ou du modèle, possible tant que seul le mouvement de réception existe.
+- **Transfert** : immédiat, sans statut de transit, depuis EN_STOCK seulement. Le centre d'arrivée n'a pas besoin d'être rattaché à l'utilisateur. Une ligne d'audit par centre.
+- **Cloisonnement** : la recherche par numéro de série couvre l'organisation ; hors périmètre, seuls le modèle et le centre sont révélés (même principe que l'ADR-006). Sur la fiche, l'identité et le motif d'un mouvement lié à un patient hors droits sont retirés. Une ligne READ par patient affiché. Le sélecteur de patient cherche dans le centre de l'appareil, pas dans le périmètre courant.
+- **Motifs chiffrés** : texte libre susceptible de citer l'état de santé, comme `patient.notes` ; jamais recopié dans le journal d'audit. Motif obligatoire pour tout mouvement sauf la réception.
+- **Réception** : tout ou rien, comme un import CSV, 200 numéros au maximum. La douchette se comporte comme un clavier ; aucun pilote.
+- **Fiche** : lue sur le client et non sur la connexion de la transaction de `withAudit`, car Prisma charge les relations imbriquées en parallèle, ce que `pg` déprécie sur une même connexion.
+
+### Conséquences
+
+- Une nouvelle écriture d'état doit passer par `appliquerMouvement`, sinon l'historique diverge. L'étape 8 ajoutera la clé étrangère de `dossierId` ; les étapes 10 et 11 appelleront `changerStatut` avec un dossier. D'ici là, l'essai et la vente se saisissent à la main sur la fiche.
+- Un appareil remplacé par le fabricant sous un nouveau numéro reste en RETOUR_FABRICANT ; le remplaçant est une nouvelle réception. Aucun lien entre les deux n'est modélisé.
+- La reprise Cosium (étape 13) créera des appareils dans leur état réel, sans passer par la machine à états.
+- Rien ne recherche encore les détenteurs d'un modèle (matériovigilance, art. 21), et aucun numéro de lot n'est stocké (rappel de lot, même article).
+- `reponseCsv` (`apps/web/server/csv.ts`) reprend la réponse en flux de l'export du journal, qui l'utilise désormais.
