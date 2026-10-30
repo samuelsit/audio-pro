@@ -1,4 +1,5 @@
 export * from './acces';
+export * from './audio-rules';
 export * from './audit';
 export * from './catalogue';
 export * from './centre/centre';

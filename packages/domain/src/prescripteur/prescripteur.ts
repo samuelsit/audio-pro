@@ -26,7 +26,7 @@ const formationSchema = z
 
 /**
  * Fiche prescripteur. Le RPPS reste facultatif pour permettre la création à la volée (ADR-008).
- * L'éligibilité à prescrire n'est pas contrôlée ici : c'est une règle de l'étape 6.
+ * L'éligibilité à prescrire n'est pas contrôlée ici : voir `prescriptionValide`.
  */
 export const prescripteurSaisieSchema = z
   .object({
