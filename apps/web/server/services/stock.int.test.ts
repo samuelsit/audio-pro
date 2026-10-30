@@ -257,10 +257,20 @@ describe('unicité des numéros de série', () => {
 
   it('la base garantit l’unicité sans passer par le service', async () => {
     const id = await recevoirUn('AB123');
-    const { id: _id, createdAt: _c, updatedAt: _u, ...copie } = await etat(id);
-    await expect(prisma().appareil.create({ data: copie })).rejects.toMatchObject({
-      code: 'P2002',
-    });
+    const a = await etat(id);
+    await expect(
+      prisma().appareil.create({
+        data: {
+          organisationId: a.organisationId,
+          modeleId: a.modeleId,
+          fabricantId: a.fabricantId,
+          centreId: a.centreId,
+          numeroSerie: a.numeroSerie,
+          dateReception: a.dateReception,
+          referenceBonLivraison: a.referenceBonLivraison,
+        },
+      }),
+    ).rejects.toMatchObject({ code: 'P2002' });
   });
 
   it('le fabricant d’un modèle en stock ne peut plus changer, ni par le service ni en base', async () => {

@@ -878,13 +878,17 @@ export async function exporterStock(
   return lignes();
 }
 
-/** Centres actifs proposés comme destination d'un transfert, le centre de départ retiré. */
+/** Centres actifs proposés comme destination d'un transfert, le centre de départ retiré s'il est connu. */
 export async function centresDeDestination(
   acteur: UtilisateurConnecte,
-  centreId: string,
+  centreId: string | null,
 ): Promise<{ id: string; nom: string }[]> {
   return prisma().centre.findMany({
-    where: { organisationId: acteur.organisationId, actif: true, id: { not: centreId } },
+    where: {
+      organisationId: acteur.organisationId,
+      actif: true,
+      ...(centreId === null ? {} : { id: { not: centreId } }),
+    },
     select: { id: true, nom: true },
     orderBy: { nom: 'asc' },
   });
