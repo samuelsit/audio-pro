@@ -652,8 +652,11 @@ export async function obtenirFicheAppareil(
 ): Promise<FicheAppareil> {
   return withAudit(
     acteur,
-    async (tx) => {
-      const a = await tx.appareil.findFirst({
+    async () => {
+      // Lecture sur le client, pas sur la connexion de la transaction : Prisma charge ces relations en
+      // parallèle. Rien n'est renvoyé si le journal échoue.
+      const client = base();
+      const a = await client.appareil.findFirst({
         where: { id: appareilId, organisationId: acteur.organisationId },
         include: {
           centre: { select: { nom: true } },
@@ -666,7 +669,7 @@ export async function obtenirFicheAppareil(
         throw new AccesRefuseError();
       }
       verifierAccesCentre(acteur, a.centreId);
-      const lignes = await tx.mouvementAppareil.findMany({
+      const lignes = await client.mouvementAppareil.findMany({
         where: { appareilId },
         include: {
           utilisateur: { select: { prenom: true, nom: true } },

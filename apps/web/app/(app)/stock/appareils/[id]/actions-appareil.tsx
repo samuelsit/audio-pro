@@ -101,7 +101,9 @@ export function ActionsAppareil({
             <>
               <input type="hidden" name="statut" value={statut} />
               <input type="hidden" name="statutAttendu" value={fiche.statut} />
-              {patientAChoisir ? <SelecteurPatient erreurs={etat.erreurs?.['patientId']} /> : null}
+              {patientAChoisir ? (
+                <SelecteurPatient centreId={fiche.centreId} erreurs={etat.erreurs?.['patientId']} />
+              ) : null}
             </>
           )}
         </Panneau>

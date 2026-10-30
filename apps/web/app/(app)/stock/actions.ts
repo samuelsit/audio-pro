@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation';
 
 import { coche, liste, texte, type EtatFormulaire } from '@/lib/formulaire';
 import { executer } from '@/server/actions';
-import { perimetreCourant, requireSession } from '@/server/auth/gardes';
+import { requireSession } from '@/server/auth/gardes';
 import { notifier } from '@/server/notifications';
 import { listerPatients, type PatientResume } from '@/server/services/patients';
 import {
@@ -119,10 +119,13 @@ export async function modifierAppareilAction(
   redirect(accesFiche(appareilId));
 }
 
-/** Patients proposés par le sélecteur : recherche par nom dans le périmètre, aucune fiche ouverte. */
-export async function rechercherPatientsAction(nom: string): Promise<PatientResume[]> {
-  const { acteur, perimetre } = await perimetreCourant();
-  return (await listerPatients(acteur, perimetre, { nom })).patients;
+/** Patients du centre de l'appareil proposés par le sélecteur : aucune fiche n'est ouverte. */
+export async function rechercherPatientsAction(
+  centreId: string,
+  nom: string,
+): Promise<PatientResume[]> {
+  const acteur = await requireSession();
+  return (await listerPatients(acteur, { type: 'centre', centreId }, { nom })).patients;
 }
 
 export async function mouvementAccessoireAction(

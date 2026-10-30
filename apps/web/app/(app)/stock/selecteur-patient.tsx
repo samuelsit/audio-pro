@@ -17,8 +17,14 @@ function resume(p: PatientResume): string {
   return `${p.nomUsage ?? p.nomNaissance} ${p.prenoms} · ${formaterDate(p.dateNaissance)} · ${p.centre.nom}`;
 }
 
-/** Recherche d'un patient du périmètre courant. Le choix est porté par le champ caché `patientId`. */
-export function SelecteurPatient({ erreurs }: { erreurs: readonly string[] | undefined }) {
+/** Recherche d'un patient du centre de l'appareil. Le choix est porté par le champ caché `patientId`. */
+export function SelecteurPatient({
+  centreId,
+  erreurs,
+}: {
+  centreId: string;
+  erreurs: readonly string[] | undefined;
+}) {
   const [q, setQ] = useState('');
   const [suggestions, setSuggestions] = useState<readonly PatientResume[]>([]);
   const [choisi, setChoisi] = useState<PatientResume | null>(null);
@@ -30,11 +36,11 @@ export function SelecteurPatient({ erreurs }: { erreurs: readonly string[] | und
     }
     const minuteur = setTimeout(() => {
       demarrer(async () => {
-        setSuggestions(await rechercherPatientsAction(q));
+        setSuggestions(await rechercherPatientsAction(centreId, q));
       });
     }, DELAI_MS);
     return () => clearTimeout(minuteur);
-  }, [q]);
+  }, [centreId, q]);
 
   const recherche = q.trim().length >= LONGUEUR_MIN;
   return (
