@@ -14,7 +14,7 @@ export const LIBELLES_ETAT_DROITS_AMO: Readonly<Record<EtatDroitsAmo, string>> =
 /**
  * Ouverture des droits AMO au jour `jour` (AAAA-MM-JJ), bornes comprises : l'audioprothésiste vérifie
  * l'ouverture du droit aux prestations sur les données de la carte.
- * Source : convention-audioprothesistes.pdf, art. 27 (p. 27) et art. 35 § 1 (p. 32).
+ * Source : convention-audioprothesistes.pdf, art. 27 (p. 26) et art. 35 § 1 (p. 32).
  * La convention apprécie les droits à la date de délivrance (art. 27) : ici on alerte au jour de la
  * lecture ou de la consultation ; le contrôle à la date de délivrance viendra avec la facture (étape 11).
  */
