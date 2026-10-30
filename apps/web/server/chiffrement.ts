@@ -16,6 +16,8 @@ import { nirSansCle, type Nir } from '@ha/domain';
 export const CHAMPS_CHIFFRES: ConfigurationChampsChiffres = {
   Patient: { notes: 'patient.notes' },
   CouvertureAmo: { nir: 'couverture_amo.nir', ald: 'couverture_amo.ald' },
+  MouvementAppareil: { motif: 'mouvement_appareil.motif' },
+  MouvementAccessoire: { motif: 'mouvement_accessoire.motif' },
 };
 
 let instanceChiffreur: ChiffreurAesGcm | undefined;

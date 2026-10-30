@@ -271,6 +271,15 @@ export async function modifierModele(
   verifierRole(acteur, 'ADMIN');
   const actuel = await obtenirModele(acteur, modeleId);
   const { codesLpp, ...donnees } = await validerModele(acteur, saisie);
+  if (donnees.fabricantId !== actuel.fabricantId) {
+    const appareils = await prisma().appareil.count({ where: { modeleId } });
+    if (appareils > 0) {
+      throw ErreurSaisie.surChamp(
+        'fabricantId',
+        'Des appareils de ce modèle sont en stock : son fabricant ne peut plus changer.',
+      );
+    }
+  }
   try {
     await withAudit(
       acteur,

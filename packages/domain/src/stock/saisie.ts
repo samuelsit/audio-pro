@@ -55,6 +55,8 @@ export type ReceptionSaisie = z.infer<typeof receptionSaisieSchema>;
 
 export const changementStatutSaisieSchema = z.object({
   statut: z.enum(STATUTS_APPAREIL, { error: 'Choisir un statut.' }),
+  /** Statut affiché à l'utilisateur : s'il a changé entre-temps, l'opération est refusée. */
+  statutAttendu: z.enum(STATUTS_APPAREIL, { error: 'Statut actuel inconnu.' }),
   patientId: texteOptionnelSchema.pipe(identifiantSchema('Patient inconnu.').nullable()),
   motif: motifSchema,
 });
@@ -62,6 +64,8 @@ export type ChangementStatutSaisie = z.infer<typeof changementStatutSaisieSchema
 
 export const transfertSaisieSchema = z.object({
   centreDestinationId: identifiantSchema('Choisir le centre de destination.'),
+  /** Centre affiché à l'utilisateur : s'il a changé entre-temps, l'opération est refusée. */
+  centreOrigineId: identifiantSchema('Centre actuel inconnu.'),
   motif: motifSchema,
 });
 export type TransfertSaisie = z.infer<typeof transfertSaisieSchema>;

@@ -90,44 +90,40 @@ describe('dateReceptionValide', () => {
 });
 
 describe('schémas des mouvements', () => {
+  const changement = { statut: 'SAV', statutAttendu: 'EN_STOCK', motif: 'Panne' };
+
   it('un changement de statut lit le patient facultatif', () => {
     expect(
-      changementStatutSaisieSchema.parse({ statut: 'SAV', patientId: '', motif: ' Panne ' }),
-    ).toEqual({ statut: 'SAV', patientId: null, motif: 'Panne' });
+      changementStatutSaisieSchema.parse({ ...changement, patientId: '', motif: ' Panne ' }),
+    ).toEqual({ ...changement, patientId: null, motif: 'Panne' });
     expect(
-      changementStatutSaisieSchema.parse({ statut: 'RESERVE', patientId: ID_A, motif: 'Essai' })
+      changementStatutSaisieSchema.parse({ ...changement, patientId: ID_A, motif: 'Essai' })
         .patientId,
     ).toBe(ID_A);
   });
 
   it.each([
+    { cas: 'statut inconnu', saisie: { statut: 'PERDU' }, attendu: 'Choisir un statut.' },
     {
-      cas: 'statut inconnu',
-      saisie: { statut: 'PERDU', motif: 'x' },
-      attendu: 'Choisir un statut.',
+      cas: 'statut attendu absent',
+      saisie: { statutAttendu: undefined },
+      attendu: 'Statut actuel inconnu.',
     },
-    {
-      cas: 'patient invalide',
-      saisie: { statut: 'SAV', patientId: 'x', motif: 'x' },
-      attendu: 'Patient inconnu.',
-    },
-    { cas: 'motif vide', saisie: { statut: 'SAV', motif: '  ' }, attendu: 'motif est obligatoire' },
-    {
-      cas: 'motif trop long',
-      saisie: { statut: 'SAV', motif: 'x'.repeat(501) },
-      attendu: '500 caractères',
-    },
+    { cas: 'patient invalide', saisie: { patientId: 'x' }, attendu: 'Patient inconnu.' },
+    { cas: 'motif vide', saisie: { motif: '  ' }, attendu: 'motif est obligatoire' },
+    { cas: 'motif trop long', saisie: { motif: 'x'.repeat(501) }, attendu: '500 caractères' },
   ])('changement de statut refusé : $cas', ({ saisie, attendu }) => {
-    expect(messages(changementStatutSaisieSchema.safeParse(saisie)).join(' ')).toContain(attendu);
+    expect(
+      messages(changementStatutSaisieSchema.safeParse({ ...changement, ...saisie })).join(' '),
+    ).toContain(attendu);
   });
 
   it('un transfert exige une destination et un motif', () => {
-    expect(transfertSaisieSchema.parse({ centreDestinationId: ID_A, motif: 'Besoin' })).toEqual({
-      centreDestinationId: ID_A,
-      motif: 'Besoin',
-    });
+    const transfert = { centreDestinationId: ID_A, centreOrigineId: ID_B, motif: 'Besoin' };
+    expect(transfertSaisieSchema.parse(transfert)).toEqual(transfert);
     expect(messages(transfertSaisieSchema.safeParse({ motif: '' }))).toEqual([
       'Choisir le centre de destination.',
+      'Centre actuel inconnu.',
       'Le motif est obligatoire.',
     ]);
   });

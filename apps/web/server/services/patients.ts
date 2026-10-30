@@ -894,6 +894,11 @@ export async function fusionnerPatients(
         where: { id: doublonId },
         data: { fusionneDansId: conserveeId, fusionneLe },
       });
+      // Les mouvements, immuables, gardent l'ancienne fiche : l'affichage suit `fusionneDansId`.
+      await tx.appareil.updateMany({
+        where: { patientId: doublonId },
+        data: { patientId: conserveeId },
+      });
       return { conservee, doublon, avant, apres };
     },
     ({ conservee, doublon, avant, apres }): EvenementAudit[] => [
