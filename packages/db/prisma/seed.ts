@@ -8,7 +8,7 @@ import { NOMBRE_PATIENTS_DEMO, seedPatients } from './seed-patients';
 
 // Seed idempotent de démonstration. Toutes les données sont fictives (domaine exemple.test,
 // RPPS et NIR inventés). Les patients de démonstration sont dans seed-patients.ts.
-const SCHEMA_VERSION = '2';
+const SCHEMA_VERSION = '3';
 
 const ORGANISATION_ID = '019a3000-0000-7000-8000-000000000001';
 

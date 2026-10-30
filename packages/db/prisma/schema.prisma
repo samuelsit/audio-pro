@@ -28,44 +28,52 @@ enum Role {
 
 /// Le réseau de centres (une seule ligne en pratique).
 model Organisation {
-  id             String               @id @default(uuid(7))
-  nom            String
-  createdAt      DateTime             @default(now()) @map("created_at")
-  updatedAt      DateTime             @updatedAt @map("updated_at")
-  centres        Centre[]
-  utilisateurs   Utilisateur[]
-  patients       Patient[]
-  lecturesVitale LectureVitale[]
-  fabricants     Fabricant[]
-  modeles        ModeleAideAuditive[]
-  accessoires    Accessoire[]
-  prescripteurs  Prescripteur[]
+  id                   String                @id @default(uuid(7))
+  nom                  String
+  createdAt            DateTime              @default(now()) @map("created_at")
+  updatedAt            DateTime              @updatedAt @map("updated_at")
+  centres              Centre[]
+  utilisateurs         Utilisateur[]
+  patients             Patient[]
+  lecturesVitale       LectureVitale[]
+  fabricants           Fabricant[]
+  modeles              ModeleAideAuditive[]
+  accessoires          Accessoire[]
+  prescripteurs        Prescripteur[]
+  appareils            Appareil[]
+  mouvementsAppareil   MouvementAppareil[]
+  mouvementsAccessoire MouvementAccessoire[]
 
   @@map("organisation")
 }
 
 /// Centre (établissement). On ne supprime pas un centre : on le désactive.
 model Centre {
-  id                  String              @id @default(uuid(7))
-  organisationId      String              @map("organisation_id")
-  nom                 String
-  adresseLigne1       String              @map("adresse_ligne1")
-  adresseLigne2       String?             @map("adresse_ligne2")
-  codePostal          String              @map("code_postal")
-  ville               String
-  finess              String?             @unique
+  id                   String                @id @default(uuid(7))
+  organisationId       String                @map("organisation_id")
+  nom                  String
+  adresseLigne1        String                @map("adresse_ligne1")
+  adresseLigne2        String?               @map("adresse_ligne2")
+  codePostal           String                @map("code_postal")
+  ville                String
+  finess               String?               @unique
   /// Identifiant de facturation Assurance Maladie, attribué par établissement.
-  numeroFacturationAm String?             @unique @map("numero_facturation_am")
-  email               String
-  telephone           String
-  actif               Boolean             @default(true)
-  createdAt           DateTime            @default(now()) @map("created_at")
-  updatedAt           DateTime            @updatedAt @map("updated_at")
-  organisation        Organisation        @relation(fields: [organisationId], references: [id], onDelete: Restrict)
-  utilisateurs        UtilisateurCentre[]
-  praticiens          PraticienCentre[]
-  patients            Patient[]
-  lecturesVitale      LectureVitale[]
+  numeroFacturationAm  String?               @unique @map("numero_facturation_am")
+  email                String
+  telephone            String
+  actif                Boolean               @default(true)
+  createdAt            DateTime              @default(now()) @map("created_at")
+  updatedAt            DateTime              @updatedAt @map("updated_at")
+  organisation         Organisation          @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  utilisateurs         UtilisateurCentre[]
+  praticiens           PraticienCentre[]
+  patients             Patient[]
+  lecturesVitale       LectureVitale[]
+  appareils            Appareil[]
+  mouvementsDepart     MouvementAppareil[]   @relation("MouvementCentreAvant")
+  mouvementsArrivee    MouvementAppareil[]   @relation("MouvementCentreApres")
+  stockAccessoires     StockAccessoire[]
+  mouvementsAccessoire MouvementAccessoire[]
 
   @@unique([organisationId, nom])
   @@map("centre")
@@ -74,30 +82,32 @@ model Centre {
 /// Compte utilisateur. Table « user » de Better Auth (noms de champs imposés : name, email,
 /// emailVerified, image, twoFactorEnabled), complétée par nos champs métier.
 model Utilisateur {
-  id                    String              @id @default(uuid(7))
-  organisationId        String              @map("organisation_id")
+  id                    String                @id @default(uuid(7))
+  organisationId        String                @map("organisation_id")
   prenom                String
   nom                   String
   /// Nom affiché exigé par Better Auth (« Prénom Nom »), maintenu par le service.
-  name                  String              @map("nom_affiche")
+  name                  String                @map("nom_affiche")
   /// Toujours en minuscules.
-  email                 String              @unique
-  emailVerified         Boolean             @default(false) @map("email_verifie")
+  email                 String                @unique
+  emailVerified         Boolean               @default(false) @map("email_verifie")
   image                 String?
   role                  Role
-  actif                 Boolean             @default(true)
-  doitChangerMotDePasse Boolean             @default(true) @map("doit_changer_mot_de_passe")
+  actif                 Boolean               @default(true)
+  doitChangerMotDePasse Boolean               @default(true) @map("doit_changer_mot_de_passe")
   /// 2FA TOTP : obligatoire pour ADMIN, facultative pour les autres rôles.
-  twoFactorEnabled      Boolean             @default(false) @map("deux_facteurs_actif")
-  createdAt             DateTime            @default(now()) @map("created_at")
-  updatedAt             DateTime            @updatedAt @map("updated_at")
-  organisation          Organisation        @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  twoFactorEnabled      Boolean               @default(false) @map("deux_facteurs_actif")
+  createdAt             DateTime              @default(now()) @map("created_at")
+  updatedAt             DateTime              @updatedAt @map("updated_at")
+  organisation          Organisation          @relation(fields: [organisationId], references: [id], onDelete: Restrict)
   centres               UtilisateurCentre[]
   praticien             Praticien?
   sessions              Session[]
   comptes               Compte[]
   deuxFacteurs          DeuxFacteurs[]
   lecturesVitale        LectureVitale[]
+  mouvementsAppareil    MouvementAppareil[]
+  mouvementsAccessoire  MouvementAccessoire[]
 
   @@index([organisationId])
   @@map("utilisateur")
@@ -171,42 +181,44 @@ enum OrigineDonnee {
 /// Une fiche fusionnée n'est pas supprimée : elle pointe vers la fiche conservée (`fusionneDansId`).
 /// Les couvertures sont lues et écrites directement (jamais par relation imbriquée : champs chiffrés).
 model Patient {
-  id                    String         @id @default(uuid(7))
-  organisationId        String         @map("organisation_id")
-  centreId              String         @map("centre_id")
+  id                    String              @id @default(uuid(7))
+  organisationId        String              @map("organisation_id")
+  centreId              String              @map("centre_id")
   civilite              Civilite
-  nomNaissance          String         @map("nom_naissance")
-  nomUsage              String?        @map("nom_usage")
+  nomNaissance          String              @map("nom_naissance")
+  nomUsage              String?             @map("nom_usage")
   prenoms               String
-  dateNaissance         DateTime       @map("date_naissance") @db.Date
+  dateNaissance         DateTime            @map("date_naissance") @db.Date
   sexe                  Sexe
-  adresseLigne1         String?        @map("adresse_ligne1")
-  adresseLigne2         String?        @map("adresse_ligne2")
-  codePostal            String?        @map("code_postal")
+  adresseLigne1         String?             @map("adresse_ligne1")
+  adresseLigne2         String?             @map("adresse_ligne2")
+  codePostal            String?             @map("code_postal")
   ville                 String?
   telephone             String?
   email                 String?
   /// Texte libre pendant le MVP.
-  medecinTraitant       String?        @map("medecin_traitant")
-  consentementSms       Boolean        @default(false) @map("consentement_sms")
-  consentementEmail     Boolean        @default(false) @map("consentement_email")
-  consentementCourrier  Boolean        @default(false) @map("consentement_courrier")
+  medecinTraitant       String?             @map("medecin_traitant")
+  consentementSms       Boolean             @default(false) @map("consentement_sms")
+  consentementEmail     Boolean             @default(false) @map("consentement_email")
+  consentementCourrier  Boolean             @default(false) @map("consentement_courrier")
   /// Chiffré (contexte « patient.notes ») : peut contenir des données de santé.
   notes                 String?
   /// Formes normalisées (sans accents, majuscules) pour la recherche et les doublons.
-  nomNaissanceRecherche String         @map("nom_naissance_recherche")
-  nomUsageRecherche     String?        @map("nom_usage_recherche")
-  prenomsRecherche      String         @map("prenoms_recherche")
-  fusionneDansId        String?        @map("fusionne_dans_id")
-  fusionneLe            DateTime?      @map("fusionne_le")
-  createdAt             DateTime       @default(now()) @map("created_at")
-  updatedAt             DateTime       @updatedAt @map("updated_at")
-  organisation          Organisation   @relation(fields: [organisationId], references: [id], onDelete: Restrict)
-  centre                Centre         @relation(fields: [centreId], references: [id], onDelete: Restrict)
-  fusionneDans          Patient?       @relation("FusionPatient", fields: [fusionneDansId], references: [id], onDelete: Restrict)
-  fusionnes             Patient[]      @relation("FusionPatient")
+  nomNaissanceRecherche String              @map("nom_naissance_recherche")
+  nomUsageRecherche     String?             @map("nom_usage_recherche")
+  prenomsRecherche      String              @map("prenoms_recherche")
+  fusionneDansId        String?             @map("fusionne_dans_id")
+  fusionneLe            DateTime?           @map("fusionne_le")
+  createdAt             DateTime            @default(now()) @map("created_at")
+  updatedAt             DateTime            @updatedAt @map("updated_at")
+  organisation          Organisation        @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  centre                Centre              @relation(fields: [centreId], references: [id], onDelete: Restrict)
+  fusionneDans          Patient?            @relation("FusionPatient", fields: [fusionneDansId], references: [id], onDelete: Restrict)
+  fusionnes             Patient[]           @relation("FusionPatient")
   couvertureAmo         CouvertureAmo?
   couvertureAmc         CouvertureAmc?
+  appareils             Appareil[]
+  mouvementsAppareil    MouvementAppareil[]
 
   @@index([organisationId, nomNaissanceRecherche])
   @@index([organisationId, nomUsageRecherche])
@@ -439,6 +451,7 @@ model Fabricant {
   updatedAt      DateTime             @updatedAt @map("updated_at")
   organisation   Organisation         @relation(fields: [organisationId], references: [id], onDelete: Restrict)
   modeles        ModeleAideAuditive[]
+  appareils      Appareil[]
 
   @@unique([organisationId, nom])
   @@map("fabricant")
@@ -459,7 +472,10 @@ model ModeleAideAuditive {
   organisation          Organisation     @relation(fields: [organisationId], references: [id], onDelete: Restrict)
   fabricant             Fabricant        @relation(fields: [fabricantId], references: [id], onDelete: Restrict)
   codesLpp              ModeleCodeLpp[]
+  appareils             Appareil[]
 
+  /// Cible de la clé composite d'`Appareil` : le fabricant d'un modèle en stock ne peut plus changer.
+  @@unique([id, fabricantId])
   @@unique([fabricantId, gamme, nom])
   @@index([organisationId])
   @@map("modele_aide_auditive")
@@ -479,21 +495,157 @@ model ModeleCodeLpp {
 
 /// Accessoire ou boîte de piles.
 model Accessoire {
-  id             String           @id @default(uuid(7))
-  organisationId String           @map("organisation_id")
+  id             String                @id @default(uuid(7))
+  organisationId String                @map("organisation_id")
   nom            String
   nature         NatureAccessoire
-  codeLpp        String?          @map("code_lpp") @db.Char(7)
-  prixCentimes   Int              @map("prix_centimes")
-  actif          Boolean          @default(true)
-  createdAt      DateTime         @default(now()) @map("created_at")
-  updatedAt      DateTime         @updatedAt @map("updated_at")
-  organisation   Organisation     @relation(fields: [organisationId], references: [id], onDelete: Restrict)
-  lppCode        LppCode?         @relation(fields: [codeLpp], references: [code], onDelete: Restrict)
+  codeLpp        String?               @map("code_lpp") @db.Char(7)
+  prixCentimes   Int                   @map("prix_centimes")
+  actif          Boolean               @default(true)
+  createdAt      DateTime              @default(now()) @map("created_at")
+  updatedAt      DateTime              @updatedAt @map("updated_at")
+  organisation   Organisation          @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  lppCode        LppCode?              @relation(fields: [codeLpp], references: [code], onDelete: Restrict)
+  stocks         StockAccessoire[]
+  mouvements     MouvementAccessoire[]
 
   @@unique([organisationId, nom])
   @@index([codeLpp])
   @@map("accessoire")
+}
+
+// ---------------------------------------------------------------------------
+// Stock
+// ---------------------------------------------------------------------------
+
+enum StatutAppareil {
+  EN_STOCK
+  RESERVE
+  EN_ESSAI
+  VENDU
+  RETOUR_FABRICANT
+  SAV
+  PRET
+}
+
+enum TypeMouvementAppareil {
+  RECEPTION
+  CHANGEMENT_STATUT
+  TRANSFERT
+  ANNULATION_VENTE
+}
+
+enum TypeMouvementAccessoire {
+  ENTREE
+  SORTIE
+  TRANSFERT_SORTANT
+  TRANSFERT_ENTRANT
+}
+
+/// Aide auditive physique, suivie au numéro de série. Jamais supprimée (traçabilité, convention art. 21).
+/// `statut`, `centreId` et `patientId` ne changent que par le service, avec un mouvement (voir ADR-010).
+model Appareil {
+  id                        String              @id @default(uuid(7))
+  organisationId            String              @map("organisation_id")
+  modeleId                  String              @map("modele_id")
+  /// Copie du fabricant du modèle, tenue à jour par la clé composite : porte l'unicité du numéro de série.
+  fabricantId               String              @map("fabricant_id")
+  centreId                  String              @map("centre_id")
+  /// Forme normalisée (sans espaces, majuscules).
+  numeroSerie               String              @map("numero_serie")
+  statut                    StatutAppareil      @default(EN_STOCK)
+  /// Patient rattaché : réservation, essai, prêt, vente, et SAV ou retour d'un appareil vendu.
+  patientId                 String?             @map("patient_id")
+  dateReception             DateTime            @map("date_reception") @db.Date
+  referenceBonLivraison     String              @map("reference_bon_livraison")
+  referenceFactureFabricant String?             @map("reference_facture_fabricant")
+  /// Réservé à l'ADMIN (lecture et saisie).
+  prixAchatCentimes         Int?                @map("prix_achat_centimes")
+  enConsignation            Boolean             @default(false) @map("en_consignation")
+  createdAt                 DateTime            @default(now()) @map("created_at")
+  updatedAt                 DateTime            @updatedAt @map("updated_at")
+  organisation              Organisation        @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  modele                    ModeleAideAuditive  @relation(fields: [modeleId, fabricantId], references: [id, fabricantId], onDelete: Restrict, onUpdate: Restrict)
+  fabricant                 Fabricant           @relation(fields: [fabricantId], references: [id], onDelete: Restrict)
+  centre                    Centre              @relation(fields: [centreId], references: [id], onDelete: Restrict)
+  patient                   Patient?            @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  mouvements                MouvementAppareil[]
+
+  @@unique([fabricantId, numeroSerie])
+  @@index([organisationId, numeroSerie])
+  @@index([centreId, statut])
+  @@index([modeleId])
+  @@index([patientId])
+  @@map("appareil")
+}
+
+/// Historique d'un appareil, en ajout seul (trigger, voir la migration). Écrit dans la même transaction
+/// que le changement de statut ou de centre. Lu directement, jamais par relation imbriquée : motif chiffré.
+model MouvementAppareil {
+  id             String                @id @default(uuid(7))
+  organisationId String                @map("organisation_id")
+  appareilId     String                @map("appareil_id")
+  type           TypeMouvementAppareil
+  horodatage     DateTime              @default(now())
+  utilisateurId  String                @map("utilisateur_id")
+  /// Null pour la réception.
+  statutAvant    StatutAppareil?       @map("statut_avant")
+  statutApres    StatutAppareil        @map("statut_apres")
+  /// Null pour la réception.
+  centreAvantId  String?               @map("centre_avant_id")
+  centreApresId  String                @map("centre_apres_id")
+  patientId      String?               @map("patient_id")
+  /// Sans clé étrangère jusqu'à l'étape 8 (table des dossiers) ; reste nul d'ici là.
+  dossierId      String?               @map("dossier_id")
+  /// Chiffré (contexte « mouvement_appareil.motif ») : texte libre. Null pour la réception.
+  motif          String?
+  organisation   Organisation          @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  appareil       Appareil              @relation(fields: [appareilId], references: [id], onDelete: Restrict)
+  utilisateur    Utilisateur           @relation(fields: [utilisateurId], references: [id], onDelete: Restrict)
+  centreAvant    Centre?               @relation("MouvementCentreAvant", fields: [centreAvantId], references: [id], onDelete: Restrict)
+  centreApres    Centre                @relation("MouvementCentreApres", fields: [centreApresId], references: [id], onDelete: Restrict)
+  patient        Patient?              @relation(fields: [patientId], references: [id], onDelete: Restrict)
+
+  @@index([appareilId, horodatage])
+  @@index([patientId])
+  @@map("mouvement_appareil")
+}
+
+/// Quantité d'un accessoire (ou de piles) dans un centre. Jamais négative (contrainte CHECK).
+model StockAccessoire {
+  centreId     String     @map("centre_id")
+  accessoireId String     @map("accessoire_id")
+  quantite     Int        @default(0)
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+  centre       Centre     @relation(fields: [centreId], references: [id], onDelete: Restrict)
+  accessoire   Accessoire @relation(fields: [accessoireId], references: [id], onDelete: Restrict)
+
+  @@id([centreId, accessoireId])
+  @@index([accessoireId])
+  @@map("stock_accessoire")
+}
+
+/// Historique des quantités, en ajout seul (trigger). Lu directement : motif chiffré.
+model MouvementAccessoire {
+  id             String                  @id @default(uuid(7))
+  organisationId String                  @map("organisation_id")
+  centreId       String                  @map("centre_id")
+  accessoireId   String                  @map("accessoire_id")
+  type           TypeMouvementAccessoire
+  /// Toujours positive : le sens vient du type.
+  quantite       Int
+  quantiteApres  Int                     @map("quantite_apres")
+  horodatage     DateTime                @default(now())
+  utilisateurId  String                  @map("utilisateur_id")
+  /// Chiffré (contexte « mouvement_accessoire.motif »).
+  motif          String
+  organisation   Organisation            @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  centre         Centre                  @relation(fields: [centreId], references: [id], onDelete: Restrict)
+  accessoire     Accessoire              @relation(fields: [accessoireId], references: [id], onDelete: Restrict)
+  utilisateur    Utilisateur             @relation(fields: [utilisateurId], references: [id], onDelete: Restrict)
+
+  @@index([centreId, accessoireId, horodatage])
+  @@map("mouvement_accessoire")
 }
 
 // ---------------------------------------------------------------------------
