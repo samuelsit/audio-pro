@@ -28,14 +28,18 @@ enum Role {
 
 /// Le réseau de centres (une seule ligne en pratique).
 model Organisation {
-  id             String          @id @default(uuid(7))
+  id             String               @id @default(uuid(7))
   nom            String
-  createdAt      DateTime        @default(now()) @map("created_at")
-  updatedAt      DateTime        @updatedAt @map("updated_at")
+  createdAt      DateTime             @default(now()) @map("created_at")
+  updatedAt      DateTime             @updatedAt @map("updated_at")
   centres        Centre[]
   utilisateurs   Utilisateur[]
   patients       Patient[]
   lecturesVitale LectureVitale[]
+  fabricants     Fabricant[]
+  modeles        ModeleAideAuditive[]
+  accessoires    Accessoire[]
+  prescripteurs  Prescripteur[]
 
   @@map("organisation")
 }
@@ -293,6 +297,239 @@ model LectureVitale {
   @@index([organisationId, horodatage])
   @@index([utilisateurId, horodatage])
   @@map("lecture_vitale")
+}
+
+// ---------------------------------------------------------------------------
+// Nomenclature LPP (données nationales, importées par `pnpm import:lpp`)
+// ---------------------------------------------------------------------------
+
+enum TypeLienLpp {
+  COMPATIBLE
+  INCOMPATIBLE
+}
+
+/// Version importée de la base LPP. Chaque version est un instantané complet et immuable :
+/// le tarif applicable se lit dans la dernière version, à la date voulue (voir ADR-008).
+model LppVersion {
+  numero             Int        @id
+  /// Date inscrite dans l'en-tête de la fiche. La date d'actualisation de la note n'est pas lue.
+  dateFichiers       DateTime   @map("date_fichiers") @db.Date
+  nbCodes            Int        @map("nb_codes")
+  nbTarifs           Int        @map("nb_tarifs")
+  nbCompatibilites   Int        @map("nb_compatibilites")
+  nbIncompatibilites Int        @map("nb_incompatibilites")
+  importeeLe         DateTime   @default(now()) @map("importee_le")
+  fiches             LppFiche[]
+  tarifs             LppTarif[]
+  liens              LppLien[]
+
+  @@map("lpp_version")
+}
+
+/// Identité stable d'un code du titre II chapitre 3 : cible des clés étrangères du catalogue.
+/// Un code absent d'une version ultérieure reste ici.
+model LppCode {
+  code            String          @id @db.Char(7)
+  /// Null pour un code amorcé par le seed, pas encore importé.
+  derniereVersion Int?            @map("derniere_version")
+  fiches          LppFiche[]
+  tarifs          LppTarif[]
+  modeles         ModeleCodeLpp[]
+  accessoires     Accessoire[]
+
+  @@map("lpp_code")
+}
+
+/// Fiche d'un code dans une version (fichier lpp_fiche). `brut` garde la ligne d'origine complète.
+model LppFiche {
+  versionNumero  Int        @map("version_numero")
+  code           String     @db.Char(7)
+  libelle        String
+  dateFin        DateTime?  @map("date_fin") @db.Date
+  ageMax         Int?       @map("age_max")
+  typePrestation String?    @map("type_prestation")
+  indication     String?
+  prothese       String?
+  /// OLD_CODE tel quel : code générique, ancien code ou ancien code TIPS.
+  oldCode        String?    @map("old_code")
+  /// Code générique déduit d'OLD_CODE pour un code spécifique 7xxxxxx (voir ADR-008). Sans clé étrangère.
+  codeGenerique  String?    @map("code_generique") @db.Char(7)
+  rmo            String[]
+  arbo           Int[]
+  brut           Json
+  version        LppVersion @relation(fields: [versionNumero], references: [numero], onDelete: Cascade)
+  lppCode        LppCode    @relation(fields: [code], references: [code], onDelete: Restrict)
+
+  @@id([versionNumero, code])
+  @@index([code])
+  @@index([versionNumero, codeGenerique])
+  @@map("lpp_fiche")
+}
+
+/// Ligne d'historique d'un code dans une version (fichier lpp_histo). Bornes de validité incluses.
+model LppTarif {
+  versionNumero             Int        @map("version_numero")
+  code                      String     @db.Char(7)
+  debutValidite             DateTime   @map("debut_validite") @db.Date
+  finValidite               DateTime?  @map("fin_validite") @db.Date
+  naturePrestation          String     @map("nature_prestation")
+  entente                   String?
+  dateArrete                DateTime?  @map("date_arrete") @db.Date
+  dateJo                    DateTime?  @map("date_jo") @db.Date
+  puDevis                   Int?       @map("pu_devis")
+  /// TARIF : tarif ou base de remboursement.
+  baseRemboursementCentimes Int        @map("base_remboursement_centimes")
+  /// PUREGLEMEN : null s'il vaut 0 (pas de plafond).
+  prixLimiteVenteCentimes   Int?       @map("prix_limite_vente_centimes")
+  montantMaxCentimes        Int?       @map("montant_max_centimes")
+  quantiteMax               Int?       @map("quantite_max")
+  prisesEnCharge            String[]   @map("prises_en_charge")
+  /// MAJO_DOM1 à 6, en millièmes (1,300 → 1300).
+  majorationsDom            Int[]      @map("majorations_dom")
+  brut                      Json
+  version                   LppVersion @relation(fields: [versionNumero], references: [numero], onDelete: Cascade)
+  lppCode                   LppCode    @relation(fields: [code], references: [code], onDelete: Restrict)
+
+  @@id([versionNumero, code, debutValidite])
+  @@index([code])
+  @@map("lpp_tarif")
+}
+
+/// Compatibilités et incompatibilités (fichiers lpp_comp et lpp_incomp), telles quelles : base entière,
+/// donc sans clé étrangère vers `LppCode` qui ne porte que le chapitre 3.
+model LppLien {
+  versionNumero Int         @map("version_numero")
+  type          TypeLienLpp
+  code1         String      @db.Char(7)
+  code2         String      @db.Char(7)
+  version       LppVersion  @relation(fields: [versionNumero], references: [numero], onDelete: Cascade)
+
+  @@id([versionNumero, type, code1, code2])
+  @@index([code1])
+  @@index([code2])
+  @@map("lpp_lien")
+}
+
+// ---------------------------------------------------------------------------
+// Catalogue
+// ---------------------------------------------------------------------------
+
+enum TypeAideAuditive {
+  CONTOUR
+  INTRA
+  RIC
+}
+
+enum ClasseLpp {
+  CLASSE_I
+  CLASSE_II
+}
+
+enum NatureAccessoire {
+  ACCESSOIRE
+  PILE
+}
+
+model Fabricant {
+  id             String               @id @default(uuid(7))
+  organisationId String               @map("organisation_id")
+  nom            String
+  actif          Boolean              @default(true)
+  createdAt      DateTime             @default(now()) @map("created_at")
+  updatedAt      DateTime             @updatedAt @map("updated_at")
+  organisation   Organisation         @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  modeles        ModeleAideAuditive[]
+
+  @@unique([organisationId, nom])
+  @@map("fabricant")
+}
+
+model ModeleAideAuditive {
+  id                    String           @id @default(uuid(7))
+  organisationId        String           @map("organisation_id")
+  fabricantId           String           @map("fabricant_id")
+  gamme                 String
+  nom                   String
+  type                  TypeAideAuditive
+  classe                ClasseLpp
+  prixConseilleCentimes Int              @map("prix_conseille_centimes")
+  actif                 Boolean          @default(true)
+  createdAt             DateTime         @default(now()) @map("created_at")
+  updatedAt             DateTime         @updatedAt @map("updated_at")
+  organisation          Organisation     @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  fabricant             Fabricant        @relation(fields: [fabricantId], references: [id], onDelete: Restrict)
+  codesLpp              ModeleCodeLpp[]
+
+  @@unique([fabricantId, gamme, nom])
+  @@index([organisationId])
+  @@map("modele_aide_auditive")
+}
+
+/// Codes LPP d'un modèle : génériques ou spécifiques (voir ADR-008).
+model ModeleCodeLpp {
+  modeleId String             @map("modele_id")
+  code     String             @db.Char(7)
+  modele   ModeleAideAuditive @relation(fields: [modeleId], references: [id], onDelete: Cascade)
+  lppCode  LppCode            @relation(fields: [code], references: [code], onDelete: Restrict)
+
+  @@id([modeleId, code])
+  @@index([code])
+  @@map("modele_code_lpp")
+}
+
+/// Accessoire ou boîte de piles.
+model Accessoire {
+  id             String           @id @default(uuid(7))
+  organisationId String           @map("organisation_id")
+  nom            String
+  nature         NatureAccessoire
+  codeLpp        String?          @map("code_lpp") @db.Char(7)
+  prixCentimes   Int              @map("prix_centimes")
+  actif          Boolean          @default(true)
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+  organisation   Organisation     @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  lppCode        LppCode?         @relation(fields: [codeLpp], references: [code], onDelete: Restrict)
+
+  @@unique([organisationId, nom])
+  @@index([codeLpp])
+  @@map("accessoire")
+}
+
+// ---------------------------------------------------------------------------
+// Prescripteurs
+// ---------------------------------------------------------------------------
+
+enum SpecialitePrescripteur {
+  ORL
+  MEDECIN_GENERALISTE
+  AUTRE
+}
+
+/// Médecin prescripteur, commun à l'organisation. RPPS facultatif (création à la volée, ADR-008).
+model Prescripteur {
+  id                String                 @id @default(uuid(7))
+  organisationId    String                 @map("organisation_id")
+  nom               String
+  prenom            String
+  rpps              String?                @db.Char(11)
+  specialite        SpecialitePrescripteur
+  /// Oui ou non pour un médecin généraliste, null sinon.
+  formationOtologie Boolean?               @map("formation_otologie")
+  cabinet           String?
+  /// Adresse e-mail ou MSSanté.
+  contact           String?
+  /// Formes normalisées (sans accents, majuscules) pour la recherche.
+  nomRecherche      String                 @map("nom_recherche")
+  prenomRecherche   String                 @map("prenom_recherche")
+  actif             Boolean                @default(true)
+  createdAt         DateTime               @default(now()) @map("created_at")
+  updatedAt         DateTime               @updatedAt @map("updated_at")
+  organisation      Organisation           @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+
+  @@unique([organisationId, rpps])
+  @@index([organisationId, nomRecherche])
+  @@map("prescripteur")
 }
 
 // ---------------------------------------------------------------------------
