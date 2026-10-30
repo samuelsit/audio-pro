@@ -75,6 +75,41 @@ test('l’ADMIN doit activer la 2FA, puis la saisir à chaque connexion', async 
   await page.getByRole('button', { name: 'Créer la fiche' }).click();
   await expect(page.getByRole('row', { name: /Morgan Démo 10000000001/ })).toBeVisible();
 
+  // Catalogue : modèles du seed, création avec contrôle des codes LPP, import CSV tout ou rien.
+  await page.getByRole('link', { name: 'Modèles', exact: true }).click();
+  await expect(page.getByRole('link', { name: 'Aurore 1 C' })).toBeVisible();
+  await page.getByRole('link', { name: 'Nouveau modèle' }).click();
+  await page.getByLabel('Fabricant').selectOption({ label: 'Sonora Démo' });
+  await page.getByLabel('Gamme').fill('Lyra');
+  await page.getByLabel('Modèle', { exact: true }).fill('Lyra Test');
+  await page.getByLabel('Type').selectOption({ label: 'RIC' });
+  await page.getByLabel('Classe').selectOption({ label: 'Classe II' });
+  await page.getByLabel('Codes LPP associés').fill('2392530 9999999');
+  await page.getByLabel('Prix de vente conseillé (€)').fill('1 290,00');
+  await page.getByRole('button', { name: 'Créer le modèle' }).click();
+  await expect(page.locator('#codesLpp-erreur')).toHaveText('Code(s) LPP inconnu(s) : 9999999.');
+  await page.getByLabel('Codes LPP associés').fill('2392530 2341840');
+  await page.getByRole('button', { name: 'Créer le modèle' }).click();
+  await expect(
+    page.getByRole('row', { name: /Lyra Test Sonora Démo Lyra RIC Classe II 2/ }),
+  ).toBeVisible();
+
+  const entete = 'fabricant;gamme;nom;type;classe;codes_lpp;prix_conseille;actif';
+  const fichierCsv = (lignes: string) => ({
+    name: 'modeles.csv',
+    mimeType: 'text/csv',
+    buffer: Buffer.from(`\uFEFF${entete}\n${lignes}\n`),
+  });
+  await page.getByLabel('Fichier CSV').setInputFiles(fichierCsv('Inconnu;G;M;RIC;I;;950;oui'));
+  await page.getByRole('button', { name: 'Importer' }).click();
+  await expect(page.getByText('Ligne 2 : Fabricant inconnu : Inconnu.')).toBeVisible();
+  await page
+    .getByLabel('Fichier CSV')
+    .setInputFiles(fichierCsv('Vibra Démo;Écho;Écho CSV;intra;I;2351057;900;oui'));
+  await page.getByRole('button', { name: 'Importer' }).click();
+  await expect(page.getByText('Import terminé : 1 créé(s), 0 mis à jour.')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Écho CSV' })).toBeVisible();
+
   // Journal d'audit : les actions ci-dessus sont tracées, filtrables et exportables.
   await page.getByRole('link', { name: 'Journal d’audit' }).click();
   await expect(page.getByRole('heading', { name: 'Journal d’audit' })).toBeVisible();

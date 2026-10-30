@@ -1,8 +1,12 @@
 'use client';
 
 import {
+  BatteryCharging,
+  BookUser,
   Building2,
   ContactRound,
+  Ear,
+  Factory,
   FolderOpen,
   LayoutDashboard,
   Menu,
@@ -32,6 +36,7 @@ interface Lien {
 const LIENS_METIER: readonly Lien[] = [
   { href: '/patients', libelle: 'Patients', icone: Users },
   { href: '/dossiers', libelle: 'Dossiers', icone: FolderOpen },
+  { href: '/prescripteurs', libelle: 'Prescripteurs', icone: BookUser },
   { href: '/stock', libelle: 'Stock', icone: Package },
   { href: '/a-facturer', libelle: 'À facturer', icone: ReceiptText },
   { href: '/renouvellements', libelle: 'Renouvellements', icone: RefreshCw },
@@ -42,6 +47,9 @@ const LIENS_ADMIN: readonly Lien[] = [
   { href: '/admin/centres', libelle: 'Centres', icone: Building2 },
   { href: '/admin/utilisateurs', libelle: 'Utilisateurs', icone: UserCog },
   { href: '/admin/praticiens', libelle: 'Praticiens', icone: Stethoscope },
+  { href: '/admin/fabricants', libelle: 'Fabricants', icone: Factory },
+  { href: '/admin/modeles', libelle: 'Modèles', icone: Ear },
+  { href: '/admin/accessoires', libelle: 'Accessoires et piles', icone: BatteryCharging },
   { href: '/admin/journal', libelle: 'Journal d’audit', icone: ScrollText },
 ];
 
