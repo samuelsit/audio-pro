@@ -13,6 +13,7 @@ export {
 } from './crypto/prisma';
 export { chargerCleEmpreinte, EmpreinteHmac } from './crypto/empreinte';
 export { chargerTrousseau, type Trousseau } from './crypto/trousseau';
+export { ErreurDbf, lireDbf, type ChampDbf, type TableDbf } from './lpp/lecteur-dbf';
 export {
   cartesSimulees,
   decoderSimulation,
