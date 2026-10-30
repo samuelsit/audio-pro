@@ -1,6 +1,12 @@
 import { SystemClock } from '@ha/adapters';
 import { prisma } from '@ha/db';
-import { tarifEnVigueur, type Clock } from '@ha/domain';
+import {
+  CODES_LPP_TARIFS_AUDIO,
+  tarifEnVigueur,
+  tarifsAudioDepuisLpp,
+  type Clock,
+  type TarifsAudio,
+} from '@ha/domain';
 
 const horloge: Clock = new SystemClock();
 
@@ -81,6 +87,15 @@ export async function decrireCodesLpp(
       tarif: tarifEnVigueur(lignes, fiche?.dateFin ? dateIso(fiche.dateFin) : null, date),
     };
   });
+}
+
+/**
+ * Prix limites et bases de remboursement en vigueur à une date (date de délivrance) ; `null` si la
+ * base importée ne les couvre pas à cette date.
+ */
+export async function tarifsAudioEnVigueur(date: string): Promise<TarifsAudio | null> {
+  const decrits = await decrireCodesLpp(Object.values(CODES_LPP_TARIFS_AUDIO), { date });
+  return tarifsAudioDepuisLpp(new Map(decrits.map((d) => [d.code, d.tarif])));
 }
 
 /** Codes de la liste absents du référentiel. */

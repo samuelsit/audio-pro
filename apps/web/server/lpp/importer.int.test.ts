@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { viderBase } from '@/test/donnees';
 
-import { decrireCodesLpp, derniereVersionLpp } from '../services/lpp';
+import { decrireCodesLpp, derniereVersionLpp, tarifsAudioEnVigueur } from '../services/lpp';
 import { importerLpp } from './importer';
 
 const FIXTURES = path.join(import.meta.dirname, '../../../../fixtures/lpp');
@@ -186,5 +186,26 @@ describe('decrireCodesLpp', () => {
     await importerLpp(V908);
     const [decrit] = await decrireCodesLpp(['7336200']);
     expect(decrit?.tarif?.baseRemboursementCentimes).toBe(40_000);
+  });
+});
+
+describe('tarifsAudioEnVigueur', () => {
+  it('lit le prix limite et la base des deux tranches dans la base importée', async () => {
+    await importerLpp(V908);
+
+    expect(await tarifsAudioEnVigueur('2026-10-30')).toEqual({
+      VINGT_ET_PLUS: { baseRemboursement: 40_000, prixLimiteClasseI: 95_000 },
+      MOINS_DE_20: { baseRemboursement: 140_000, prixLimiteClasseI: 140_000 },
+    });
+  });
+
+  it('renvoie null avant la première ligne de ces codes', async () => {
+    await importerLpp(V908);
+
+    expect(await tarifsAudioEnVigueur('2023-07-06')).toBeNull();
+  });
+
+  it('renvoie null sans base importée', async () => {
+    expect(await tarifsAudioEnVigueur('2026-10-30')).toBeNull();
   });
 });
