@@ -74,6 +74,28 @@ export const CHAMPS_VISIBLES_AUDIT: Readonly<Record<TypeEntite, readonly string[
   JOURNAL_AUDIT: [],
   PATIENT: ['centreId'],
   DOSSIER: [],
+  FABRICANT: ['nom', 'actif'],
+  MODELE_AIDE_AUDITIVE: [
+    'fabricantId',
+    'gamme',
+    'nom',
+    'type',
+    'classe',
+    'codesLpp',
+    'prixConseilleCentimes',
+    'actif',
+  ],
+  ACCESSOIRE: ['nom', 'nature', 'codeLpp', 'prixCentimes', 'actif'],
+  PRESCRIPTEUR: [
+    'nom',
+    'prenom',
+    'rpps',
+    'specialite',
+    'formationOtologie',
+    'cabinet',
+    'contact',
+    'actif',
+  ],
 };
 
 export interface ChampModifie {

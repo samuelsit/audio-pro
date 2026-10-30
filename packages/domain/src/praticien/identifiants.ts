@@ -16,6 +16,9 @@ export const rppsSchema = z
   .brand<'Rpps'>();
 export type Rpps = z.infer<typeof rppsSchema>;
 
+/** RPPS d'un prescripteur, facultatif : mêmes règles que `rppsSchema`, saisie vide → `null`. */
+export const rppsOptionnelSchema = texteOptionnelSchema.pipe(rppsSchema.nullable());
+
 export function estRppsValide(saisie: string): boolean {
   return rppsSchema.safeParse(saisie).success;
 }

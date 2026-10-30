@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { additionnerCentimes, centimes, formatEuros } from './money';
+import {
+  additionnerCentimes,
+  centimes,
+  centimesDepuisSaisieEuros,
+  decimalEnEntier,
+  formatEuros,
+} from './money';
 
 // Intl.NumberFormat fr-FR utilise des espaces insécables (U+202F et U+00A0).
 const normaliserEspaces = (texte: string): string => texte.replace(/[\u202f\u00a0]/g, ' ');
@@ -34,5 +40,39 @@ describe('formatEuros', () => {
     { valeur: -1_050, attendu: '-10,50 €' },
   ])('$valeur → « $attendu »', ({ valeur, attendu }) => {
     expect(normaliserEspaces(formatEuros(centimes(valeur)))).toBe(attendu);
+  });
+});
+
+describe('decimalEnEntier', () => {
+  it.each([
+    { texte: '819.41', decimales: 2, attendu: 81_941 },
+    { texte: '950', decimales: 2, attendu: 95_000 },
+    { texte: '1.5', decimales: 2, attendu: 150 },
+    { texte: '0.07', decimales: 2, attendu: 7 },
+    // 4,35 × 100 vaut 434,99… en flottant.
+    { texte: '4.35', decimales: 2, attendu: 435 },
+    { texte: '1.300', decimales: 3, attendu: 1_300 },
+    { texte: '54', decimales: 0, attendu: 54 },
+    { texte: '1.234', decimales: 2, attendu: null },
+    { texte: '-1', decimales: 2, attendu: null },
+    { texte: '12,5', decimales: 2, attendu: null },
+    { texte: '', decimales: 2, attendu: null },
+  ])('$texte ($decimales décimales) → $attendu', ({ texte, decimales, attendu }) => {
+    expect(decimalEnEntier(texte, decimales)).toBe(attendu);
+  });
+});
+
+describe('centimesDepuisSaisieEuros', () => {
+  it.each([
+    { saisie: '1 490,50', attendu: 149_050 },
+    { saisie: '1 490,50 €', attendu: 149_050 },
+    { saisie: '1490.5', attendu: 149_050 },
+    { saisie: '1490', attendu: 149_000 },
+    { saisie: '0', attendu: 0 },
+    { saisie: '', attendu: null },
+    { saisie: 'abc', attendu: null },
+    { saisie: '1,2,3', attendu: null },
+  ])('« $saisie » → $attendu', ({ saisie, attendu }) => {
+    expect(centimesDepuisSaisieEuros(saisie)).toBe(attendu);
   });
 });
