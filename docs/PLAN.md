@@ -39,7 +39,19 @@ Une étape est cochée quand ses tests sont verts, le typecheck OK et la CI vert
   - [x] Écrans : bouton « Lire la carte Vitale » sur la liste et la fiche, choix du bénéficiaire, comparaison base/carte avec acceptation ou refus de chaque mise à jour, création pré-remplie ; bandeau des droits expirés ; badge C2S sur la liste, la fiche, la modification et la comparaison
   - [x] Tests : domaine 100 %, adaptateur, intégration (historique de chaque résultat, jeton, correspondance, cloisonnement, comparaison, mises à jour, création, audit), E2E (famille, assuré seul, erreurs, droits expirés, C2S)
   - reporté : écran de consultation de l'historique des lectures (ADMIN), date de début des droits AMO en base, droits appréciés à la date de délivrance (étape 11), lecteur réel AreaFSE (étape 17)
-- [ ] **5** – Référentiels : LPP, catalogue, prescripteurs
+- [ ] **5** – Référentiels : LPP, catalogue, prescripteurs — terminée en local le 2026-10-30 (tests, typecheck, E2E verts), à cocher quand la CI est verte
+  - [x] Domaine : règles LPP (repérage du titre II chapitre 3, prix limite, code générique, tarif en vigueur à une date), préparation d'un import, lecture CSV, schémas du catalogue et des prescripteurs
+  - [x] Lecteur dBase III maison (`packages/adapters`), Latin-1
+  - [x] Modèle : `LppVersion`, `LppCode`, `LppFiche`, `LppTarif`, `LppLien`, `Fabricant`, `ModeleAideAuditive`, `ModeleCodeLpp`, `Accessoire`, `Prescripteur` ; migration `referentiels`
+  - [x] `pnpm import:lpp <dossier-version>` : instantané complet par version, tarif lu par date d'effet, réimport sans doublon, tout validé avant la première écriture ; base 908 importée (846 codes, 855 tarifs, 13 646 liens, 273 codes reliés à un générique)
+  - [x] Fixtures `fixtures/lpp` : extrait réel de la 908 et version 907 synthétique, script de régénération ; DBF complets hors dépôt
+  - [x] Écrans admin : fabricants, modèles, accessoires et piles ; import CSV tout ou rien, erreurs par ligne
+  - [x] Prescripteurs : écran, recherche rapide (nom, prénom, RPPS), composant `SelecteurPrescripteur` avec création à la volée
+  - [x] Seed : 3 fabricants et 10 modèles fictifs, classes I et II
+  - [x] Tests : domaine 100 %, adaptateur, intégration (import, historisation, réimport, recherche, droits, audit, CSV), E2E (modèle, CSV, création à la volée)
+  - reporté à l'étape 6 : borne des 20 ans, plafonds C2S, éligibilité du prescripteur, contrôle du prix conseillé d'un modèle de classe I par rapport au prix limite, contrôles comp/incomp
+  - reporté à l'étape 8 : branchement de `SelecteurPrescripteur` sur le dossier, RPPS exigé selon l'avancement du dossier
+  - reporté à l'étape 11 : choix du code à facturer (générique ou spécifique), une fois `RJT` confirmé
 - [ ] **6** – Moteur de règles audio
 - [ ] **7** – Stock
 - [ ] **8** – Dossier et prescription

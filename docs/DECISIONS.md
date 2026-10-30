@@ -230,3 +230,35 @@ L'étape 4 branche la lecture de la carte Vitale derrière le port `VitaleReader
 - Une carte familiale nombreuse doit tenir dans un cookie (4 Ko) : la compression suffit pour les cartes fictives, à vérifier avec des cartes réelles et AreaFSE.
 - L'historique des lectures n'a pas encore d'écran de consultation.
 - La date de début des droits AMO n'est pas stockée. Les droits sont vérifiés au jour de la lecture ; la convention les apprécie à la date de délivrance (art. 27), ce qui sera contrôlé avec la facture (étape 11).
+
+## ADR-008 – Référentiels : base LPP, catalogue, prescripteurs
+
+- **Date** : 2026-10-30
+- **Statut** : accepté
+
+### Contexte
+
+La base LPP est diffusée par ameli en fichiers dBase : `lpp_fiche_tot`, `lpp_histo_tot`, `lpp_comp_tot`, `lpp_incomp_tot`. Aucun dictionnaire des champs ni table de correspondance générique/spécifique n'accompagne la version 908. Les règles et le devis ont besoin du tarif applicable à une date, et le dépôt ne doit pas contenir la base complète.
+
+### Décision
+
+- **Périmètre** : fiche et historique du seul titre II chapitre 3 (`ARBO1 = 2`, `ARBO2 = 3`), soit 846 codes en 908 ; `comp` et `incomp` en entier, tels quels, sans clé étrangère.
+- **Historisation** : chaque version est un instantané complet et immuable, clé `(version, code)` pour la fiche, `(version, code, debutValidite)` pour le tarif. Le tarif applicable se lit dans la dernière version, à la date voulue. Une version plus ancienne importée après coup ne remplace rien.
+- **Réimport** : la version est supprimée puis réécrite dans une seule transaction, après validation complète des fichiers. Les clés primaires interdisent tout doublon.
+- **`LppCode`** : table stable, cible des clés étrangères du catalogue. Un code disparu d'une version reste référencé.
+- **Lignes brutes** : colonnes typées pour les champs connus, plus une copie intégrale (`brut`) : rien n'est perdu, et un champ de sens inconnu n'est pas interprété.
+- **Prix limite** : `PUREGLEMEN`, 0 signifiant « pas de plafond ». Recoupé avec le guide ameli pour la classe I uniquement.
+- **Code générique** : déduit d'`OLD_CODE` pour un code `7xxxxxx`, si `OLD_CODE` désigne un code importé (273 sur 273 cohérents en 908). Une table officielle, si elle est déposée, primera.
+- **Fin de validité** : la date de fin de la fiche borne l'historique (507 codes de la section 6.1 sont clos dans la fiche et ouverts dans l'historique).
+- **Lecteur dBase maison**, sans dépendance : format fixe et simple.
+- **Commande dans `apps/web`** : `apps/web/scripts/import-lpp.ts` appelle `server/lpp/importer.ts`, à côté des tests d'intégration ; `pnpm --filter` changeant de dossier, le chemin reçu est résolu depuis `INIT_CWD`.
+- **Catalogue et prescripteurs** : portée organisation. Un modèle porte une liste de codes (table de liaison), génériques ou spécifiques. Un `nom` de modèle s'ajoute à la gamme. RPPS du prescripteur facultatif et unique, pour permettre la création à la volée.
+- **Droits** : catalogue en écriture ADMIN ; prescripteurs créés par les 3 rôles, modifiés et désactivés par l'ADMIN.
+
+### Conséquences
+
+- Une version occupe environ 15 000 lignes, dont 13 646 liens : volume négligeable, mais `lpp_lien` grossit à chaque version.
+- Les DBF complets ne sont pas versionnés : chaque environnement les dépose et lance `pnpm import:lpp`. Le seed amorce les 8 codes génériques (`LppCode` seul, sans tarif) pour fonctionner sans import.
+- La date stockée est celle de l'en-tête des DBF ; la date d'actualisation de la note `.doc` n'est pas lue.
+- Le rattachement d'un modèle aux codes spécifiques `7xxxxxx` n'est pas automatisé : le nom en fin de libellé est un texte libre, tronqué à 80 caractères, et le code à facturer reste à confirmer (`RJT` n'est défini dans aucun document de docs/ref).
+- `SelecteurPrescripteur` n'est branché sur aucun dossier avant l'étape 8.

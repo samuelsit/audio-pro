@@ -10,7 +10,7 @@ Textes officiels sur lesquels s'appuient les règles métier. Ils sont déposés
 | `ameli-100-sante-audio.pdf` | Guide ameli du 100 % Santé en audiologie (classes I et II, prix limites, renouvellement) | présent |
 | `fr201-codes-prestation.pdf` | Codes de prestation FR 201 | présent |
 | `modele-devis-audio.pdf` | Modèle réglementaire du devis normalisé en audioprothèse | présent |
-| `lpp/` | LPP titre II chapitre 3 : codes, tarifs et conditions de prise en charge (extraits datés) | à déposer |
+| `lpp/<version>/` | Base LPP diffusée par ameli : `lpp_fiche_tot`, `lpp_histo_tot`, `lpp_comp_tot`, `lpp_incomp_tot` (`.dbf`) et note de version. Importée par `pnpm import:lpp` (ADR-008) | version 908, actualisée au 16/10/2026 ; DBF non versionnés (`.gitignore`), à déposer sur chaque poste ; extrait dans `fixtures/lpp` |
 
 ## Documentation éditeur
 
