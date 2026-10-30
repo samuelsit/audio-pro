@@ -262,3 +262,34 @@ La base LPP est diffusée par ameli en fichiers dBase : `lpp_fiche_tot`, `lpp_hi
 - La date stockée est celle de l'en-tête des DBF ; la date d'actualisation de la note `.doc` n'est pas lue.
 - Le rattachement d'un modèle aux codes spécifiques `7xxxxxx` n'est pas automatisé : le nom en fin de libellé est un texte libre, tronqué à 80 caractères, et le code à facturer reste à confirmer (`RJT` n'est défini dans aucun document de docs/ref).
 - `SelecteurPrescripteur` n'est branché sur aucun dossier avant l'étape 8.
+
+---
+
+## ADR-009 – Moteur de règles audio
+
+- **Date** : 2026-10-30
+- **Statut** : acceptée
+
+### Contexte
+
+L'étape 6 code les règles qui décident des prix, des remboursements et de la conformité du devis. `docs/REGLES_AUDIO.md` les compare aux documents de docs/ref : plusieurs sont absentes (qualité du prescripteur, plafond du contrat responsable, validité de l'ordonnance, quotas de piles) ou contradictoires (borne des 20 ans). Le texte de la nomenclature LPP n'est pas dans docs/ref. Le domaine doit rester sans I/O alors que les montants viennent de la base LPP.
+
+### Décision
+
+- **Module** : `packages/domain/src/audio-rules`, des fonctions pures, un fichier et un test par règle. `constantes.ts` est le seul fichier de constantes, chacune avec sa valeur, sa date d'effet et sa source. Une date inconnue vaut `null`.
+- **Montants LPP** : prix limites et bases ne sont pas des constantes. `tarifsAudioDepuisLpp` les extrait des codes 2351057 et 2325120, `tarifsAudioEnVigueur` (`apps/web/server/services/lpp.ts`) les lit à une date, et les fonctions les reçoivent en second argument (`TarifsAudio`). La signature demandée gagne donc un paramètre : `plafondPrixVente`, `baseRemboursement`, `controleDevis`.
+- **Borne des 20 ans** : lecture d'ameli, âge révolu ≥ 20 ans (À VÉRIFIER, libellés LPP contraires).
+- **Date de référence de l'âge** : date de délivrance, pour toutes les règles liées à l'âge (À VÉRIFIER).
+- **Règles sans source** : codées à partir de la table fournie par le métier, marquées À VÉRIFIER, en avertissement dans `controleDevis`, jamais en erreur bloquante (prescripteur, 1 700 €). Validité de l'ordonnance et quotas de piles : rien n'est contrôlé, aucune valeur inventée.
+- **C2S** : le plafond est celui de la C2S, sauf option `refusOffreC2S` (plafond général et avertissement de dépassement). `surdicecite` porte le plafond C2S à 1 400 € à tout âge.
+- **Ventilation** : l'AMO se calcule sur min(prix, base), arrondie au centime le plus proche. Le taux reste fourni par l'appelant, la table FR 201 ne couvrant ni l'ALD, ni l'accident du travail, ni la SNCF.
+- **Dates** : arithmétique calendaire dans `commun/date.ts`, sans `new Date()`. Un mois d'arrivée trop court donne son dernier jour.
+- **Résultats** : codes stables et libellés français séparés (`CODES_CONTROLE`, `LIBELLES_CONTROLES`), à la manière des autres modules du domaine.
+
+### Conséquences
+
+- Pas de changement de schéma. `surdicecite`, `refusOffreC2S` et le type d'appareillage par oreille seront à porter par le dossier et le devis (étapes 8 et 9).
+- `eligibiliteRenouvellement` ne voit que les délivrances locales : son résultat reste indicatif, le téléservice de l'Assurance Maladie fait foi.
+- Avant le 07/07/2023, la base 908 n'a pas de ligne pour ces codes : `tarifsAudioEnVigueur` renvoie `null`. À traiter pour la reprise Cosium (étape 13) si des délivrances antérieures doivent être recalculées.
+- Le dépôt du texte de la nomenclature LPP permettra de lever la plupart des À VÉRIFIER, listés dans `docs/REGLES_AUDIO.md`.
+- Compléments aux ADR précédentes, qui restent inchangées. ADR-007 : l'art. 27 de la convention est en p. 26, pas 27. ADR-008 : depuis le 07/07/2023, les codes génériques portent la nature `RJT` et seuls les codes 7xxxxxx portent P1D, P1G, etc. ; le sens de `RJT` reste à confirmer.

@@ -2,17 +2,19 @@
 
 Synthèse des règles métier, établie le 2026-10-30. Chaque règle cite sa source dans docs/ref. Une règle sans source porte la mention **À VÉRIFIER** : elle ne doit pas être présentée comme réglementaire.
 
+Les choix marqués **Décision** ont été validés le 2026-10-30 (ADR-009) et sont codés dans `packages/domain/src/audio-rules`. Une décision sur une règle À VÉRIFIER reste à confirmer sur le texte.
+
 Statuts : **Confirmé** (le texte dit exactement cela), **Confirmé avec écart** (le texte nuance ou complète), **À VÉRIFIER** (absent de docs/ref, ou textes contradictoires).
 
 ## Sources
 
-| Fichier | Contenu | Version |
-|---|---|---|
-| `convention-audioprothesistes.pdf` | Convention nationale, version consolidée | Convention du 23/03/2022 (JORF 02/07/2022) et avenant n° 1 du 04/11/2024 (JO 04/12/2024), en vigueur le 01/01/2025. Seuls ces deux textes sont opposables, pas la version consolidée (p. 1) |
-| `ameli-100-sante-audio.pdf` | Page amelipro « Aide auditive dans le cadre du 100 % Santé » | Datée du 04/10/2023 |
-| `fr201-codes-prestation.pdf` | Fiche d'évolution réglementaire FR 201v2 et cas de tests | Application 01/01/2021, CDC 1.40 |
-| `modele-devis-audio.pdf` | Annexe I, devis normalisé | Fichier de 2019 ; encore rédigé avec « CMU-c » et « Dès 2020 » |
-| `lpp/908/` | Base LPP | Version 908, actualisée au 16/10/2026 |
+| Fichier                            | Contenu                                                      | Version                                                                                                                                                                                     |
+| ---------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `convention-audioprothesistes.pdf` | Convention nationale, version consolidée                     | Convention du 23/03/2022 (JORF 02/07/2022) et avenant n° 1 du 04/11/2024 (JO 04/12/2024), en vigueur le 01/01/2025. Seuls ces deux textes sont opposables, pas la version consolidée (p. 1) |
+| `ameli-100-sante-audio.pdf`        | Page amelipro « Aide auditive dans le cadre du 100 % Santé » | Datée du 04/10/2023                                                                                                                                                                         |
+| `fr201-codes-prestation.pdf`       | Fiche d'évolution réglementaire FR 201v2 et cas de tests     | Application 01/01/2021, CDC 1.40                                                                                                                                                            |
+| `modele-devis-audio.pdf`           | Annexe I, devis normalisé                                    | Fichier de 2019 ; encore rédigé avec « CMU-c » et « Dès 2020 »                                                                                                                              |
+| `lpp/908/`                         | Base LPP                                                     | Version 908, actualisée au 16/10/2026                                                                                                                                                       |
 
 Les pages citées sont celles du PDF (identiques à la numérotation imprimée pour la convention).
 
@@ -20,21 +22,21 @@ Les pages citées sont celles du PDF (identiques à la numérotation imprimée p
 
 ## Bilan de la vérification
 
-| Point de départ | Verdict | Écart |
-|---|---|---|
-| PLV classe I : 950 € / 1 400 € | Confirmé avec écart | Montants exacts. La borne des 20 ans est contradictoire (R1). « TTC » n'est écrit dans aucun texte (R3) |
-| Base 400 € / 1 400 € | Confirmé avec écart | Montants exacts, même borne contradictoire |
-| AMO à 60 % | Confirmé avec écart | Pas universel : 85 % CRPCEN, SNCF hors table sans valeur, 100 % AME (R5) |
-| C2S : plafond 800 € par oreille | Confirmé avec écart | Incomplet : 1 400 € avant 20 ans ou personne sourde et aveugle. Le patient peut refuser et payer plus (R6) |
-| C2S : toujours P2G/P2D | Confirmé | Convention et ameli concordent (R7) |
-| Codes P1G/P1D, P2G/P2D, PIL, APA | Confirmé avec écart | Existe aussi `SUI` pour le suivi. Les codes génériques portent `RJT` dans la LPP (R7) |
-| Renouvellement 4 ans, même oreille | Confirmé avec écart | Le texte part de la **délivrance**, pas de la facturation. Renouvellement anticipé possible (R8) |
-| Essai 30 à 45 jours, 2 RDV, non facturable | Confirmé avec écart | Prolongation seulement sur demande écrite du prescripteur. Embouts sur mesure facturables (R9) |
-| Prescription selon âge et médecin | **À VÉRIFIER** | Aucun document ne parle d'ORL, de généraliste, d'otologie ni du seuil de 6 ans (R10) |
-| Contrat responsable : 1 700 € | **À VÉRIFIER** | Montant absent de tous les documents (R14) |
-| Date de référence de l'âge | **À VÉRIFIER** | Non tranchée (R2) |
-| Durée de validité de l'ordonnance | **À VÉRIFIER** | Non tranchée (R11) |
-| Quotas annuels de piles | **À VÉRIFIER** | Non tranchés (R15) |
+| Point de départ                            | Verdict             | Écart                                                                                                      |
+| ------------------------------------------ | ------------------- | ---------------------------------------------------------------------------------------------------------- |
+| PLV classe I : 950 € / 1 400 €             | Confirmé avec écart | Montants exacts. La borne des 20 ans est contradictoire (R1). « TTC » n'est écrit dans aucun texte (R3)    |
+| Base 400 € / 1 400 €                       | Confirmé avec écart | Montants exacts, même borne contradictoire                                                                 |
+| AMO à 60 %                                 | Confirmé avec écart | Pas universel : 85 % CRPCEN, SNCF hors table sans valeur, 100 % AME (R5)                                   |
+| C2S : plafond 800 € par oreille            | Confirmé avec écart | Incomplet : 1 400 € avant 20 ans ou personne sourde et aveugle. Le patient peut refuser et payer plus (R6) |
+| C2S : toujours P2G/P2D                     | Confirmé            | Convention et ameli concordent (R7)                                                                        |
+| Codes P1G/P1D, P2G/P2D, PIL, APA           | Confirmé avec écart | Existe aussi `SUI` pour le suivi. Les codes génériques portent `RJT` dans la LPP (R7)                      |
+| Renouvellement 4 ans, même oreille         | Confirmé avec écart | Le texte part de la **délivrance**, pas de la facturation. Renouvellement anticipé possible (R8)           |
+| Essai 30 à 45 jours, 2 RDV, non facturable | Confirmé avec écart | Prolongation seulement sur demande écrite du prescripteur. Embouts sur mesure facturables (R9)             |
+| Prescription selon âge et médecin          | **À VÉRIFIER**      | Aucun document ne parle d'ORL, de généraliste, d'otologie ni du seuil de 6 ans (R10)                       |
+| Contrat responsable : 1 700 €              | **À VÉRIFIER**      | Montant absent de tous les documents (R14)                                                                 |
+| Date de référence de l'âge                 | **À VÉRIFIER**      | Non tranchée (R2)                                                                                          |
+| Durée de validité de l'ordonnance          | **À VÉRIFIER**      | Non tranchée (R11)                                                                                         |
+| Quotas annuels de piles                    | **À VÉRIFIER**      | Non tranchés (R15)                                                                                         |
 
 ## R1 – Tranche d'âge (`trancheAge`)
 
@@ -42,12 +44,12 @@ Les pages citées sont celles du PDF (identiques à la numérotation imprimée p
 
 **Règle** : deux tranches, à 20 ans. Les textes ne s'accordent pas sur l'année des 20 ans :
 
-| Source | Tranche basse | Tranche haute |
-|---|---|---|
-| ameli p. 1 | Moins de 20 ans | 20 ans et plus |
-| LPP 908, libellés des aides auditives (2351057, 2325120…) | `<= A 20 ANS` | `> 20 ANS` |
-| LPP 908, embouts (2357338, 2312927) | `< 20 ANS` | `> OU = 20 ANS` |
-| FR 201v2, tests n° 6, 7 et 9 | « jusqu'à 20 ans » | « plus de 20 ans », « 20 ans ou plus » (APA) |
+| Source                                                    | Tranche basse      | Tranche haute                                |
+| --------------------------------------------------------- | ------------------ | -------------------------------------------- |
+| ameli p. 1                                                | Moins de 20 ans    | 20 ans et plus                               |
+| LPP 908, libellés des aides auditives (2351057, 2325120…) | `<= A 20 ANS`      | `> 20 ANS`                                   |
+| LPP 908, embouts (2357338, 2312927)                       | `< 20 ANS`         | `> OU = 20 ANS`                              |
+| FR 201v2, tests n° 6, 7 et 9                              | « jusqu'à 20 ans » | « plus de 20 ans », « 20 ans ou plus » (APA) |
 
 Le champ `AGE_MAX` ne tranche pas : il vaut 0 sur les aides auditives.
 
@@ -55,7 +57,7 @@ Le champ `AGE_MAX` ne tranche pas : il vaut 0 sur les aides auditives.
 
 **Paramètres** : seuil 20 ans ; tranches `MOINS_DE_20` et `VINGT_ET_PLUS`.
 
-**Proposition** : suivre ameli (âge révolu ≥ 20 ans = `VINGT_ET_PLUS`), seule source rédigée en clair et cohérente avec les embouts. La nomenclature LPP doit confirmer.
+**Décision** : suivre ameli (âge révolu ≥ 20 ans = `VINGT_ET_PLUS`), seule source rédigée en clair et cohérente avec les embouts. La nomenclature LPP doit confirmer.
 
 **Cas limites** : veille des 20 ans ; jour des 20 ans ; 20 ans et 11 mois ; né un 29 février (anniversaire au 1er mars, déjà À VÉRIFIER dans `ageAt`).
 
@@ -65,7 +67,7 @@ Le champ `AGE_MAX` ne tranche pas : il vaut 0 sur les aides auditives.
 
 **Indices** : le tarif et les codes se lisent à la date de délivrance (ameli p. 2) ; les droits s'apprécient à la date de délivrance, définie comme la remise de l'aide auditive en situation de la facturer, à l'issue de l'essai (convention art. 27, p. 26). Les cas FR 201 ne discriminent pas : prescription, soins et facture ont la même date.
 
-**Proposition** : date de délivrance. Au stade du devis, utiliser la date prévue et avertir si la tranche change avant la délivrance possible (20 ans atteints pendant l'essai ou la validité du devis).
+**Décision** : date de délivrance, pour toutes les règles liées à l'âge, y compris la qualité du prescripteur (R10). Au stade du devis, on utilise la date prévue et on avertit si la tranche change avant la délivrance possible (20 ans atteints pendant l'essai ou la validité du devis).
 
 ## R3 – Prix limite de vente (`plafondPrixVente`)
 
@@ -112,7 +114,7 @@ Le champ `AGE_MAX` ne tranche pas : il vaut 0 sur les aides auditives.
 - AME : 100 % du tarif de responsabilité (convention art. 30, p. 28).
 - ALD, maternité, accident du travail, Alsace-Moselle : aucun taux dans docs/ref. À VÉRIFIER. Le taux reste donc un paramètre fourni par l'appelant.
 
-**Cas limites** : base impaire ; exactement ,5 centime (aucun cas dans les textes, arrondi au supérieur proposé, À VÉRIFIER).
+**Cas limites** : base impaire ; exactement ,5 centime (aucun cas dans les textes, arrondi au supérieur retenu, À VÉRIFIER).
 
 ## R6 – Bénéficiaire C2S (`plafondPrixVente`)
 
@@ -120,9 +122,9 @@ Le champ `AGE_MAX` ne tranche pas : il vaut 0 sur les aides auditives.
 
 **Règle** : prix maximal spécifique, quelle que soit la classe, pris en charge à 100 %.
 
-| Situation | Plafond |
-|---|---|
-| 20 ans et plus | 800 € |
+| Situation                                      | Plafond |
+| ---------------------------------------------- | ------- |
+| 20 ans et plus                                 | 800 €   |
 | Moins de 20 ans, ou personne sourde et aveugle | 1 400 € |
 
 **Source** : ameli p. 2 (tableau « depuis 2021 ») ; convention art. 29 § 1 et 2, p. 27.
@@ -134,7 +136,7 @@ Le champ `AGE_MAX` ne tranche pas : il vaut 0 sur les aides auditives.
 - Le plafond n'est pas absolu : le bénéficiaire peut refuser l'offre et choisir un appareil plus cher. Il reste remboursé au prix maximal C2S et paie la différence (art. 29 § 2, ameli p. 2). Le devis doit faire apparaître ce dépassement.
 - Les tests FR 201 n° 5 et 10 illustrent ce cas : 1 500 € facturés, AMO 840 €, AMC 560 €, reste 100 €.
 
-**Proposition** : option explicite `refusOffreC2S`. Sans elle, le plafond C2S s'applique. Avec elle, on revient au plafond général (950 € en classe I, art. 25 ; libre en classe II).
+**Décision** : option explicite `refusOffreC2S`. Sans elle, le plafond C2S s'applique. Avec elle, on revient au plafond général (950 € en classe I, art. 25 ; libre en classe II).
 
 **Cas limites** : classe I à 20 ans et plus, plafond C2S 800 € inférieur au PLV 950 € ; AMC à 20 ans et plus (800 − 240 = 560 €), déduit, aucun cas de test ne le montre. À VÉRIFIER.
 
@@ -142,11 +144,11 @@ Le champ `AGE_MAX` ne tranche pas : il vaut 0 sur les aides auditives.
 
 **Statut : Confirmé avec écart.**
 
-| Équipement | Gauche | Droite |
-|---|---|---|
-| Classe I | P1G | P1D |
-| Classe II | P2G | P2D |
-| C2S, classe I ou II | P2G | P2D |
+| Équipement          | Gauche | Droite |
+| ------------------- | ------ | ------ |
+| Classe I            | P1G    | P1D    |
+| Classe II           | P2G    | P2D    |
+| C2S, classe I ou II | P2G    | P2D    |
 
 Piles : `PIL`. Accessoires : `APA`.
 
@@ -177,7 +179,7 @@ Piles : `PIL`. Accessoires : `APA`.
 - Le délai concerne la prise en charge, pas la vente.
 - Notre historique ne voit que nos délivrances. Le téléservice de l'Assurance Maladie fait foi (art. 22 § 1) : un résultat « éligible » reste indicatif.
 
-**Cas limites** : jour anniversaire (éligible le jour même, proposé, À VÉRIFIER) ; oreilles à des dates différentes ; premier appareillage (éligible) ; plusieurs délivrances (la plus récente) ; 29 février.
+**Cas limites** : jour anniversaire (éligible le jour même, retenu, À VÉRIFIER) ; oreilles à des dates différentes ; premier appareillage (éligible) ; plusieurs délivrances (la plus récente) ; 29 février.
 
 ## R9 – Essai (`etatEssai`)
 
@@ -196,7 +198,7 @@ Piles : `PIL`. Accessoires : `APA`.
 - Un dépôt de garantie est possible (devis p. 2 § 3).
 - En cas d'échec, nouvelle période possible avec une autre aide (devis p. 2 § 3).
 
-**Cas limites** : le texte fixe un minimum, pas de maximum sans prolongation (essai de 38 jours sans demande écrite ?) ; décompte du jour de début (proposé : début + 30 jours, À VÉRIFIER) ; prolongation de plus de 15 jours ou sans demande écrite ; rendez-vous le jour même du début. Les seuils d'alerte avant échéance sont un choix applicatif, pas une règle.
+**Cas limites** : le texte fixe un minimum, pas de maximum sans prolongation (essai de 38 jours sans demande écrite ?) ; décompte du jour de début (retenu : début + 30 jours, À VÉRIFIER) ; prolongation de plus de 15 jours ou sans demande écrite ; rendez-vous le jour même du début. Une alerte se déclenche 7 jours avant l'échéance : choix applicatif, pas une règle. Une prolongation sans demande écrite n'est pas retenue ; au-delà de 15 jours, elle est ramenée à 15 ; les deux cas lèvent une alerte.
 
 ## R10 – Qualité du prescripteur (`prescriptionValide`)
 
@@ -204,14 +206,14 @@ Piles : `PIL`. Accessoires : `APA`.
 
 **Règle fournie, non sourcée** :
 
-| Type | Après 6 ans | À 6 ans ou moins |
-|---|---|---|
-| Primo-appareillage | ORL ou généraliste formé en otologie | ORL |
-| Renouvellement | Tout médecin | ORL |
+| Type               | Après 6 ans                          | À 6 ans ou moins |
+| ------------------ | ------------------------------------ | ---------------- |
+| Primo-appareillage | ORL ou généraliste formé en otologie | ORL              |
+| Renouvellement     | Tout médecin                         | ORL              |
 
-**Proposition** : implémenter cette table marquée `// À VÉRIFIER`, en **avertissement** et non en erreur bloquante tant que le texte n'est pas déposé.
+**Décision** : table codée, marquée `// À VÉRIFIER`, en **avertissement** et non en erreur bloquante tant que le texte n'est pas déposé. Âge en années révolues : « 6 ans ou moins » va jusqu'à la veille des 7 ans.
 
-**Cas limites** : 6e anniversaire et 6 ans révolus (même ambiguïté qu'en R1) ; généraliste dont la formation est inconnue ; spécialité `AUTRE` de la fiche prescripteur, qui ne garantit pas un médecin.
+**Cas limites** : 6e anniversaire et 6 ans révolus (même ambiguïté qu'en R1) ; généraliste dont la formation est inconnue ; spécialité `AUTRE` de la fiche prescripteur, qui ne garantit pas un médecin (avertissement dédié en renouvellement).
 
 ## R11 – Antériorité et validité de la prescription (`prescriptionValide`)
 
@@ -227,19 +229,20 @@ Piles : `PIL`. Accessoires : `APA`.
 
 **Statut : Confirmé.**
 
-**Bloquants proposés** (règle sourcée) :
+**Bloquants** (règle sourcée) :
 
-| Contrôle | Source |
-|---|---|
+| Contrôle                                       | Source                                                  |
+| ---------------------------------------------- | ------------------------------------------------------- |
 | Offre classe I pour chaque oreille appareillée | Convention art. 18 3°, p. 19 ; ameli p. 1 ; devis § 1.1 |
-| Prix classe I ≤ prix limite | Convention art. 25, p. 24 |
-| Prix ≤ plafond C2S, sauf refus de l'offre | Convention art. 29, p. 27 ; ameli p. 2 |
-| Prescription présente, antérieure au devis | Devis p. 1 |
-| Validité du devis d'au moins 2 mois | Devis p. 1 |
-| Présentation de la bobine T | Convention art. 18 3°, p. 19 ; devis p. 2 § 2 |
-| Fiche technique jointe | Convention art. 18 3°, p. 20 ; devis p. 1 |
+| Prix classe I ≤ prix limite                    | Convention art. 25, p. 24                               |
+| Prix ≤ plafond C2S, sauf refus de l'offre      | Convention art. 29, p. 27 ; ameli p. 2                  |
+| Prescription présente, antérieure au devis     | Devis p. 1                                              |
+| Validité du devis d'au moins 2 mois            | Devis p. 1                                              |
+| Présentation de la bobine T                    | Convention art. 18 3°, p. 19 ; devis p. 2 § 2           |
+| Fiche technique jointe                         | Convention art. 18 3°, p. 20 ; devis p. 1               |
+| Au moins une oreille à appareiller             | Contrôle de cohérence, pas une règle                    |
 
-**Avertissements proposés** :
+**Avertissements** :
 
 - renouvellement avant 4 ans (la vente reste possible, sans prise en charge) ;
 - tranche d'âge changeant avant la délivrance (R2) ;
@@ -257,17 +260,17 @@ Piles : `PIL`. Accessoires : `APA`.
 
 **Source** : FR 201v2, tests ci-dessous.
 
-| Test | Prix | Base | Taux | AMC fournie | AMO | AMC | Reste |
-|---|---|---|---|---|---|---|---|
-| n° 6, classe I | 950,00 | 400,00 | 60 | 0 | 240,00 | 0 | 710,00 |
-| n° 7, classe II | 1 500,00 | 1 400,00 | 60 | 0 | 840,00 | 0 | 660,00 |
-| n° 8, piles | 1,50 | 1,50 | 60 | 0 | 0,90 | 0 | 0,60 |
-| n° 9, embout | 4,91 | 4,91 | 60 | 0 | 2,95 | 0 | 1,96 |
-| n° 10, C2S | 1 500,00 | 1 400,00 | 60 | 560,00 | 840,00 | 560,00 | 100,00 |
+| Test            | Prix     | Base     | Taux | AMC fournie | AMO    | AMC    | Reste  |
+| --------------- | -------- | -------- | ---- | ----------- | ------ | ------ | ------ |
+| n° 6, classe I  | 950,00   | 400,00   | 60   | 0           | 240,00 | 0      | 710,00 |
+| n° 7, classe II | 1 500,00 | 1 400,00 | 60   | 0           | 840,00 | 0      | 660,00 |
+| n° 8, piles     | 1,50     | 1,50     | 60   | 0           | 0,90   | 0      | 0,60   |
+| n° 9, embout    | 4,91     | 4,91     | 60   | 0           | 2,95   | 0      | 1,96   |
+| n° 10, C2S      | 1 500,00 | 1 400,00 | 60   | 560,00      | 840,00 | 560,00 | 100,00 |
 
 Le reste n'est pas dans les tests : il est calculé. Dans ces cas de tiers payant AMO, il couvre aussi une éventuelle part complémentaire.
 
-**Cas limites** : prix inférieur à la base (ex. classe II à 1 000 € avant 20 ans). Aucun texte. Proposition : base retenue = min(prix, base), soit AMO 600 €. À VÉRIFIER. Une AMC supérieure au restant est écrêtée.
+**Cas limites** : prix inférieur à la base (ex. classe II à 1 000 € avant 20 ans). Aucun texte. Décision : base retenue = min(prix, base), soit AMO 600 €. À VÉRIFIER. Une AMC supérieure au restant est écrêtée.
 
 ## R14 – Contrat responsable
 
@@ -275,7 +278,7 @@ Le reste n'est pas dans les tests : il est calculé. Dans ces cas de tiers payan
 
 **Ce que les textes disent** : classe I intégralement prise en charge avec un contrat responsable (ameli p. 1 ; devis note 2 p. 1).
 
-**Proposition** : constante marquée `// À VÉRIFIER`, utilisée seulement en avertissement dans `controleDevis`.
+**Décision** : constante marquée `// À VÉRIFIER`, utilisée seulement en avertissement dans `controleDevis`.
 
 **Cas limites** : dépend de la classe, de l'âge et de la nature du contrat : à relire sur le texte.
 
@@ -287,7 +290,7 @@ Le reste n'est pas dans les tests : il est calculé. Dans ces cas de tiers payan
 
 **Autre constat** : `QTE_MAX` vaut 4 pour les embouts avant 2 ans (sauf 7353204, à 0) et 2 de 2 à 20 ans ou cécité, sans période indiquée.
 
-**Proposition** : aucun quota codé.
+**Décision** : aucun quota codé.
 
 ## R16 – Règles voisines, hors fonctions de cette étape
 
@@ -297,20 +300,20 @@ Le reste n'est pas dans les tests : il est calculé. Dans ces cas de tiers payan
 
 ## Points À VÉRIFIER
 
-| Point | Règle | Document qui trancherait |
-|---|---|---|
-| Borne de 20 ans | R1 | Nomenclature LPP |
-| Date de référence de l'âge | R2 | Nomenclature LPP |
-| Prix limite TTC | R3 | Nomenclature LPP |
-| Base en cas de cécité | R4 | Nomenclature LPP |
-| Taux ALD, AT, maternité, SNCF, Alsace-Moselle | R5 | Cahier des charges SESAM-Vitale ou AreaFSE |
-| Arrondi à ,5 centime | R5 | Cahier des charges SESAM-Vitale |
-| AMC C2S à 20 ans et plus | R6 | Texte C2S |
-| Code LPP à facturer, sens de `RJT` | R7 | Dictionnaire LPP ou caisse |
-| Jour anniversaire, conditions de R.165-24 | R8 | Nomenclature LPP, code de la sécurité sociale |
-| Décompte des jours d'essai, durée sans prolongation | R9 | Nomenclature LPP |
-| Qualité du prescripteur | R10 | Nomenclature LPP |
-| Validité de l'ordonnance | R11 | Nomenclature LPP |
-| Prix inférieur à la base | R13 | Nomenclature LPP ou cahier des charges |
-| 1 700 € | R14 | Texte sur les contrats responsables |
-| Quotas de piles et d'embouts, sens de `QTE_MAX` | R15 | Nomenclature LPP, dictionnaire LPP |
+| Point                                               | Règle | Document qui trancherait                      |
+| --------------------------------------------------- | ----- | --------------------------------------------- |
+| Borne de 20 ans                                     | R1    | Nomenclature LPP                              |
+| Date de référence de l'âge                          | R2    | Nomenclature LPP                              |
+| Prix limite TTC                                     | R3    | Nomenclature LPP                              |
+| Base en cas de cécité                               | R4    | Nomenclature LPP                              |
+| Taux ALD, AT, maternité, SNCF, Alsace-Moselle       | R5    | Cahier des charges SESAM-Vitale ou AreaFSE    |
+| Arrondi à ,5 centime                                | R5    | Cahier des charges SESAM-Vitale               |
+| AMC C2S à 20 ans et plus                            | R6    | Texte C2S                                     |
+| Code LPP à facturer, sens de `RJT`                  | R7    | Dictionnaire LPP ou caisse                    |
+| Jour anniversaire, conditions de R.165-24           | R8    | Nomenclature LPP, code de la sécurité sociale |
+| Décompte des jours d'essai, durée sans prolongation | R9    | Nomenclature LPP                              |
+| Qualité du prescripteur                             | R10   | Nomenclature LPP                              |
+| Validité de l'ordonnance                            | R11   | Nomenclature LPP                              |
+| Prix inférieur à la base                            | R13   | Nomenclature LPP ou cahier des charges        |
+| 1 700 €                                             | R14   | Texte sur les contrats responsables           |
+| Quotas de piles et d'embouts, sens de `QTE_MAX`     | R15   | Nomenclature LPP, dictionnaire LPP            |

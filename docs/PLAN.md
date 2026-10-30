@@ -52,7 +52,18 @@ Une étape est cochée quand ses tests sont verts, le typecheck OK et la CI vert
   - reporté à l'étape 6 : borne des 20 ans, plafonds C2S, éligibilité du prescripteur, contrôle du prix conseillé d'un modèle de classe I par rapport au prix limite, contrôles comp/incomp
   - reporté à l'étape 8 : branchement de `SelecteurPrescripteur` sur le dossier, RPPS exigé selon l'avancement du dossier
   - reporté à l'étape 11 : choix du code à facturer (générique ou spécifique), une fois `RJT` confirmé
-- [ ] **6** – Moteur de règles audio
+- [ ] **6** – Moteur de règles audio — terminée en local le 2026-10-30 (tests, typecheck, lint verts), à cocher quand la CI est verte
+  - [x] `docs/REGLES_AUDIO.md` : chaque règle vérifiée dans docs/ref, écarts et points À VÉRIFIER, décisions validées (ADR-009)
+  - [x] Domaine : `trancheAge`, `codePrestation`, `plafondPrixVente`, `baseRemboursement`, `partAMO`, `eligibiliteRenouvellement`, `prescriptionValide`, `etatEssai`, `controleDevis`, `ventilation`, dans `packages/domain/src/audio-rules`
+  - [x] Constantes réunies dans `audio-rules/constantes.ts`, chacune avec date d'effet et source ; prix limites et bases lus dans la LPP
+  - [x] Service `tarifsAudioEnVigueur` : tarifs lus dans la base importée à une date
+  - [x] Arithmétique calendaire pure dans `commun/date.ts`
+  - [x] Tests : domaine 100 %, tests table-driven reprenant les cas FR 201 n° 6 à 10, intégration sur l'extrait LPP 908
+  - À VÉRIFIER : voir la liste de `docs/REGLES_AUDIO.md` ; le texte de la nomenclature LPP en lèverait la plupart
+  - reporté à l'étape 8 : champs `surdicecite` et type d'appareillage par oreille sur le dossier
+  - reporté à l'étape 9 : branchement de `controleDevis`, contrôle du prix conseillé d'un modèle de classe I (reporté de l'étape 5), exigence des 3 options parmi 8 de l'offre 100 % santé (non modélisée)
+  - reporté à l'étape 10 : branchement de `etatEssai`
+  - reporté à l'étape 11 : branchement de `ventilation`, contrôles comp/incomp (reportés de l'étape 5, aucun document ne les définit)
 - [ ] **7** – Stock
 - [ ] **8** – Dossier et prescription
 - [ ] **9** – Devis normalisé
