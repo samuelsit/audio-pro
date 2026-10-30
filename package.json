@@ -19,7 +19,8 @@
     "db:migrate": "pnpm --filter @ha/db migrate",
     "db:deploy": "pnpm --filter @ha/db deploy",
     "db:seed": "pnpm --filter @ha/db seed",
-    "db:studio": "pnpm --filter @ha/db studio"
+    "db:studio": "pnpm --filter @ha/db studio",
+    "import:lpp": "pnpm --filter @ha/web exec tsx scripts/import-lpp.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

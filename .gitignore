@@ -27,6 +27,9 @@ blob-report/
 !.vscode/extensions.json
 .idea/
 
+# Bases LPP complètes : seul un extrait est versionné (fixtures/lpp).
+docs/ref/lpp/**/*.dbf
+
 # Exports Cosium : peuvent contenir des données patient réelles.
 # Seuls le README et le dossier demo/ (fichiers fictifs) sont versionnés.
 fixtures/import-cosium/*
