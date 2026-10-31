@@ -1,4 +1,4 @@
-import { FUSEAU_HORAIRE, type Clock } from '@ha/domain';
+import { decalageParisMs, FUSEAU_HORAIRE, type Clock } from '@ha/domain';
 
 /** Horloge réelle : instant courant, au format ISO 8601 avec le décalage Europe/Paris. */
 export class SystemClock implements Clock {
@@ -27,19 +27,6 @@ export function formaterInstantParis(instant: Date): string {
   const decalage = (parties.timeZoneName ?? 'GMT').replace('GMT', '') || '+00:00';
   const millisecondes = String(instant.getUTCMilliseconds()).padStart(3, '0');
   return `${parties.year}-${parties.month}-${parties.day}T${parties.hour}:${parties.minute}:${parties.second}.${millisecondes}${decalage}`;
-}
-
-const decalageParis = new Intl.DateTimeFormat('en-US', {
-  timeZone: FUSEAU_HORAIRE,
-  timeZoneName: 'longOffset',
-});
-
-/** Décalage de Paris par rapport à UTC à cet instant, en millisecondes (+1 h ou +2 h). */
-function decalageParisMs(instantMs: number): number {
-  const nom =
-    decalageParis.formatToParts(instantMs).find((p) => p.type === 'timeZoneName')?.value ?? 'GMT';
-  const [, signe = '+', heures = '0', minutes = '0'] = /GMT([+-])(\d{2}):(\d{2})/.exec(nom) ?? [];
-  return (signe === '-' ? -1 : 1) * (Number(heures) * 60 + Number(minutes)) * 60_000;
 }
 
 /** Instant de minuit, heure de Paris, du jour donné (le changement d'heure a lieu à 2 h ou 3 h, jamais à minuit). */

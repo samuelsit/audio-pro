@@ -1,4 +1,5 @@
 export * from './acces';
+export * from './agenda';
 export * from './audio-rules';
 export * from './audit';
 export * from './catalogue';
@@ -6,6 +7,7 @@ export * from './centre/centre';
 export * from './centre/horaires';
 export * from './commun/csv';
 export * from './commun/date';
+export * from './commun/fuseau';
 export * from './commun/pagination';
 export * from './commun/texte';
 export * from './devis';

@@ -33,7 +33,7 @@ function formaterDate(annee: number, mois: number, jour: number): string {
   return `${String(annee)}-${mm}-${jj}`;
 }
 
-/** `date` + `jours` (positif ou nul) jours calendaires. */
+/** `date` + `jours` jours calendaires, négatif pour reculer. */
 export function ajouterJours(date: string, jours: number): string {
   const [debutAnnee, debutMois, debutJour] = decomposerDate(date);
   let annee = debutAnnee;
@@ -43,6 +43,11 @@ export function ajouterJours(date: string, jours: number): string {
     jour -= joursDansLeMois(annee, mois);
     mois = mois === 12 ? 1 : mois + 1;
     annee = mois === 1 ? annee + 1 : annee;
+  }
+  while (jour < 1) {
+    mois = mois === 1 ? 12 : mois - 1;
+    annee = mois === 12 ? annee - 1 : annee;
+    jour += joursDansLeMois(annee, mois);
   }
   return formaterDate(annee, mois, jour);
 }

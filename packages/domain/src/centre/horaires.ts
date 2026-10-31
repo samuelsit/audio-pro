@@ -24,7 +24,7 @@ export const LIBELLES_JOURS: Readonly<Record<JourSemaine, string>> = {
 /** Matin et après-midi : deux plages par jour au plus. */
 export const PLAGES_PAR_JOUR = 2;
 
-const heureSchema = z
+export const heureSchema = z
   .string({ error: 'Heure invalide (HH:MM).' })
   .regex(/^(?:[01]\d|2[0-3]):[0-5]\d$/, 'Heure invalide (HH:MM).');
 

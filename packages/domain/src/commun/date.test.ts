@@ -35,6 +35,10 @@ describe('ajouterJours', () => {
     { date: '2024-02-01', jours: 29, attendu: '2024-03-01', cas: 'février bissextile' },
     { date: '2026-02-01', jours: 45, attendu: '2026-03-18', cas: 'février ordinaire' },
     { date: '2026-01-01', jours: 400, attendu: '2027-02-05', cas: 'plusieurs mois' },
+    { date: '2026-10-30', jours: -3, attendu: '2026-10-27', cas: 'recul dans le mois' },
+    { date: '2026-03-01', jours: -1, attendu: '2026-02-28', cas: 'recul sur février' },
+    { date: '2024-03-01', jours: -1, attendu: '2024-02-29', cas: 'recul sur février bissextile' },
+    { date: '2027-01-02', jours: -5, attendu: '2026-12-28', cas: 'recul sur l’année' },
   ])('$cas', ({ date, jours, attendu }) => {
     expect(ajouterJours(date, jours)).toBe(attendu);
   });
