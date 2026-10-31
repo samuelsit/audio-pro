@@ -154,7 +154,8 @@ describe('ChiffreurAesGcm : documents binaires', () => {
     { cas: 'gros', clair: randomBytes(1024 * 1024) },
   ])('aller-retour : $cas', ({ clair }) => {
     const enveloppe = aSeul.chiffrerOctets(clair, CONTEXTE);
-    expect(Buffer.from(aSeul.dechiffrerOctets(enveloppe, CONTEXTE))).toEqual(Buffer.from(clair));
+    // `equals` et non `toEqual` : comparer 1 Mo octet par octet dépasse le délai en CI.
+    expect(Buffer.from(aSeul.dechiffrerOctets(enveloppe, CONTEXTE)).equals(clair)).toBe(true);
   });
 
   it('accepte une vue partielle d’un tampon', () => {
