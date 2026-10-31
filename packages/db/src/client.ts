@@ -4,12 +4,16 @@ import { PrismaClient } from './generated/prisma/client';
 
 // Chaque requête hors transaction ouvre sa propre transaction (voir contexte.ts) : sous charge, elle doit
 // attendre une connexion plutôt qu'échouer (ADR-019).
+const CONNEXIONS_PAR_DEFAUT = 10;
 const ATTENTE_CONNEXION_MS = 10_000;
 const DUREE_TRANSACTION_MS = 15_000;
 
 export function creerPrismaClient(connectionString: string): PrismaClient {
   return new PrismaClient({
-    adapter: new PrismaPg({ connectionString }),
+    adapter: new PrismaPg({
+      connectionString,
+      max: Number(process.env.DATABASE_POOL_MAX ?? CONNEXIONS_PAR_DEFAUT),
+    }),
     transactionOptions: { maxWait: ATTENTE_CONNEXION_MS, timeout: DUREE_TRANSACTION_MS },
   });
 }

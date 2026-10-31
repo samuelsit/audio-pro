@@ -7,11 +7,15 @@ export interface RegleLimitation {
 }
 
 /**
- * Adresse du client derrière le proxy : la dernière de `x-forwarded-for`, celle que le proxy a ajoutée. Les
- * précédentes viennent du client, qui pourrait en changer à chaque essai pour échapper à la limite.
+ * Adresse du client dans `x-forwarded-for` : chaque proxy ajoute la sienne à la fin, et tout ce qui précède
+ * vient du client, qui pourrait en changer à chaque essai pour échapper à la limite. On remonte donc depuis
+ * la fin d'autant d'entrées que de proxys de confiance (`PROXIES_DE_CONFIANCE`, 1 par défaut).
  */
-export function adresseClient(entete: string | null): string {
-  return entete?.split(',').at(-1)?.trim() || 'inconnue';
+export function adresseClient(
+  entete: string | null,
+  proxies: number = Number(process.env.PROXIES_DE_CONFIANCE ?? 1),
+): string {
+  return entete?.split(',').at(-proxies)?.trim() || 'inconnue';
 }
 
 /** Tentatives de connexion : par adresse e-mail et par adresse IP. */

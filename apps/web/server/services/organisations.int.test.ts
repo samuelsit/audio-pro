@@ -199,12 +199,27 @@ describe('suspension', () => {
     await reactiverOrganisation(superadmin, d.organisation.id, 'ACTIF');
     const lignes = () => prisma().journalAudit.count({ where: { entiteType: 'ORGANISATION' } });
     const avant = await lignes();
-    await reactiverOrganisation(superadmin, d.organisation.id, 'ESSAI');
+    expect(await reactiverOrganisation(superadmin, d.organisation.id, 'ESSAI')).toBe(false);
     const { statut } = await prisma().organisation.findUniqueOrThrow({
       where: { id: d.organisation.id },
     });
     expect(statut).toBe('ACTIF');
     expect(await lignes()).toBe(avant);
+  });
+
+  it('de deux réactivations simultanées, une seule aboutit', async () => {
+    await suspendreOrganisation(superadmin, d.organisation.id);
+    const lignes = () =>
+      prisma().journalAudit.count({
+        where: { entiteType: 'ORGANISATION', action: 'UPDATE' },
+      });
+    const avant = await lignes();
+    const resultats = await Promise.all([
+      reactiverOrganisation(superadmin, d.organisation.id, 'ACTIF'),
+      reactiverOrganisation(superadmin, d.organisation.id, 'ESSAI'),
+    ]);
+    expect(resultats.filter(Boolean)).toHaveLength(1);
+    expect(await lignes()).toBe(avant + 1);
   });
 
   it('refuse de réactiver vers un statut inconnu', async () => {

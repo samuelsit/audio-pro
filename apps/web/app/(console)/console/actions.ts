@@ -49,9 +49,9 @@ export async function creerOrganisationAction(
 
 export async function suspendreOrganisationAction(organisationId: string): Promise<void> {
   const acteur = await requireSuperadmin();
-  await suspendreOrganisation(acteur, organisationId);
+  const change = await suspendreOrganisation(acteur, organisationId);
   revalidatePath(CHEMIN_CONSOLE);
-  await notifier('Client suspendu.');
+  await notifier(change ? 'Client suspendu.' : 'Ce client était déjà suspendu.');
 }
 
 export async function reactiverOrganisationAction(
@@ -59,7 +59,7 @@ export async function reactiverOrganisationAction(
   statut: 'ESSAI' | 'ACTIF',
 ): Promise<void> {
   const acteur = await requireSuperadmin();
-  await reactiverOrganisation(acteur, organisationId, statut);
+  const change = await reactiverOrganisation(acteur, organisationId, statut);
   revalidatePath(CHEMIN_CONSOLE);
-  await notifier('Client réactivé.');
+  await notifier(change ? 'Client réactivé.' : 'Ce client n’est plus suspendu : rien n’a changé.');
 }

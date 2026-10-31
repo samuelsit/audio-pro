@@ -40,6 +40,11 @@ describe('adresseClient', () => {
   ])('« $entete » → $attendu', ({ entete, attendu }) => {
     expect(adresseClient(entete)).toBe(attendu);
   });
+
+  it('remonte d’autant d’entrées que de proxys de confiance', () => {
+    expect(adresseClient('1.2.3.4, 198.51.100.7, 10.0.0.1', 2)).toBe('198.51.100.7');
+    expect(adresseClient('198.51.100.7', 2)).toBe('inconnue');
+  });
 });
 
 describe('accès simultanés', () => {

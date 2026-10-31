@@ -1,6 +1,9 @@
 import { prisma } from '@ha/db/admin';
 
 import { base } from '@/server/chiffrement';
+import { documents } from '@/server/documents';
+import { enregistrerPec } from '@/server/services/factures';
+import { aujourdhui } from '@/server/services/patients';
 
 import { creerCatalogueDevis, dossierJusquAchat, identifierCentreA, SCAN } from './devis';
 import { creerJeuDeDonnees } from './donnees';
@@ -77,23 +80,34 @@ export async function creerClientComplet(suffixe: string) {
       origine: 'REPRISE',
     },
   });
+  // Vrais fichiers : un refus ne doit pas pouvoir venir d'un document absent.
+  const justificatifCle = `prolongations/${organisationId}`;
+  await documents().put(justificatifCle, SCAN, 'application/pdf');
   await base({ organisationId }).prolongationEssai.create({
     data: {
       essaiId,
       dateDemande: new Date('2026-01-05T00:00:00.000Z'),
       jours: 15,
       motif: 'Prolongation fictive',
-      justificatifCle: `prolongations/${organisationId}`,
+      justificatifCle,
       justificatifType: 'application/pdf',
       justificatifTaille: SCAN.length,
       createdById: utilisateurId,
     },
   });
-  await prisma().priseEnCharge.upsert({
-    where: { dossierId },
-    create: { dossierId, statut: 'SANS_TIERS_PAYANT', saisieParId: utilisateurId },
-    update: {},
-  });
+  await enregistrerPec(
+    audio,
+    dossierId,
+    {
+      statut: 'ACCORDEE',
+      organisme: 'Mutuelle fictive',
+      plateforme: 'Plateforme fictive',
+      numeroAccord: 'ACC-001',
+      montantAccorde: '712,40',
+      datePec: aujourdhui(),
+    },
+    SCAN,
+  );
   await prisma().session.create({
     data: {
       token: `jeton${suffixe}`,

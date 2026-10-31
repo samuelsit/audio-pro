@@ -317,6 +317,7 @@ async function seedAFacturer(
       pdfCle: 'seed/devis-a-facturer-absent',
       pdfTaille: 1,
       emisParId: utilisateurId,
+      controles: { avertissements: [] },
       offreEssai: 'OFFRE_100_SANTE',
       offreRetenue: 'OFFRE_100_SANTE',
       totaux: {

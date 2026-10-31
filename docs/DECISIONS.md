@@ -586,7 +586,7 @@ La revue de la branche a montré trois limites de l'ADR-016 et de l'ADR-018. Le 
 - **`verifier_meme_organisation`** : un trigger par référence entre tables d'organisation, généré depuis le catalogue PostgreSQL, en `BEFORE INSERT OR UPDATE OF` la colonne. Il s'applique aussi au rôle propriétaire. Un test compare les triggers aux clés étrangères : une référence nouvelle sans contrôle le fait échouer. Les clés composites ne sont plus nécessaires.
 - **`organisation_id` est immuable** pour tous les rôles : une ligne ne change jamais de client.
 - **Une migration postérieure doit recréer ces boucles** pour toute table nouvelle, ou appeler `verifier_meme_organisation` sur ses références.
-- **Connexions** : taille de pool par défaut, attente de 10 s et transaction de 15 s, pour qu'une requête attende une connexion au lieu d'échouer. La taille se réglera au déploiement, selon `max_connections`.
+- **Connexions** : 10 par rôle (`DATABASE_POOL_MAX`), attente de 10 s et transaction de 15 s, pour qu'une requête attende une connexion au lieu d'échouer.
 - **Pas de lecture hors transaction dans `withAudit`** : `obtenirFicheAppareil` lit puis journalise, sans tenir une connexion.
 - **Clé d'idempotence** : préfixée par l'organisation.
 - **Travaux** : même chiffrement que l'application ; `CHAMPS_CHIFFRES` passe dans `@ha/adapters`.
@@ -599,6 +599,6 @@ La revue de la branche a montré trois limites de l'ADR-016 et de l'ADR-018. Le 
 - Chaque écriture relit ses parents : à mesurer avec les trois allers-retours de l'ADR-016, à l'étape 23.
 - Les lignes de journal sans organisation (compte inconnu, connexions de la console) ne sont lisibles que par le rôle propriétaire. Une tentative d'intrusion sur la console est donc tracée, mais sans écran. La console reste minimale : à traiter à l'étape 22.
 - Un travail n'écrit pas encore dans le journal d'audit : `withAudit` vit dans `apps/web`. À déplacer avec le premier travail qui touche un dossier patient.
-- L'adresse retenue pour la limitation est la dernière de `x-forwarded-for`, ajoutée par le proxy. Sans proxy devant l'application, le client la choisit : à imposer au déploiement, à l'étape 23.
+- L'adresse retenue pour la limitation se lit depuis la fin de `x-forwarded-for`, selon `PROXIES_DE_CONFIANCE`. Sans proxy devant l'application, le client la choisit : à imposer au déploiement, à l'étape 23.
 - Un travail n'a pas encore de transaction interactive avec contexte : à ajouter avec le premier qui écrit plusieurs lignes.
 - `limitation_debit` grossit sans purge : premier candidat pour `packages/jobs`.

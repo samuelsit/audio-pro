@@ -23,7 +23,6 @@ const CHEMINS_METIER = [
   `/dossiers/${DOSSIER_RESEAU}`,
   `/dossiers/${DOSSIER_RESEAU}/devis/nouveau`,
   `/dossiers/${DOSSIER_RESEAU}/devis/${DEVIS_RESEAU}`,
-  `/dossiers/${DOSSIER_RESEAU}/devis/${DEVIS_RESEAU}/modifier`,
   `/prescripteurs/${PRESCRIPTEUR_RESEAU}`,
 ];
 

@@ -12,7 +12,7 @@ import { base } from './chiffrement';
 import { importerLpp } from './lpp/importer';
 import { obtenirAccessoire, obtenirFabricant, obtenirModele } from './services/catalogue';
 import { modifierCentre, obtenirCentre } from './services/centres';
-import { lireScanDevis, obtenirDevis } from './services/devis';
+import { imprimerDevis, lireScanDevis, obtenirDevis } from './services/devis';
 import { lireScan, obtenirDossier } from './services/dossiers';
 import { compteRenduEssai, lireJustificatif, obtenirEssai } from './services/essais';
 import { lireJustificatifPec, obtenirFacture } from './services/factures';
@@ -389,6 +389,7 @@ describe('identifiant d’un autre client forcé dans l’URL', () => {
     { entite: 'dossier', appel: (x, c) => obtenirDossier(x, c.dossierId) },
     { entite: 'devis', appel: (x, c) => obtenirDevis(x, c.devisId) },
     { entite: 'scan du devis', appel: (x, c) => lireScanDevis(x, c.devisId) },
+    { entite: 'PDF du devis', appel: (x, c) => imprimerDevis(x, c.devisId) },
     { entite: 'scan de l’ordonnance', appel: (x, c) => lireScan(x, c.dossierId, c.prescriptionId) },
     { entite: 'essai', appel: (x, c) => obtenirEssai(x, c.dossierId) },
     { entite: 'justificatif d’essai', appel: (x, c) => lireJustificatif(x, c.dossierId) },
@@ -430,12 +431,11 @@ describe('identifiant d’un autre client forcé dans l’URL', () => {
     await expect(appel(a.d.acteurs.admin, b)).rejects.toBeInstanceOf(AccesRefuseError);
   });
 
-  /** Lectures dont le document ou la ligne existe chez soi : sans ce témoin, un refus ne prouverait rien. */
+  /** Les mêmes lectures chez soi, sur de vrais fichiers : sans ce témoin, un refus ne prouverait rien. */
   const TEMOINS = CAS.filter(
     ({ entite }) =>
       !entite.startsWith('modification') &&
-      !['désactivation de prescripteur', 'changement de statut d’appareil'].includes(entite) &&
-      !['justificatif d’essai', 'justificatif de PEC'].includes(entite),
+      !['désactivation de prescripteur', 'changement de statut d’appareil'].includes(entite),
   );
 
   it.each(TEMOINS)('témoin : $entite réussit chez soi', async ({ appel }) => {

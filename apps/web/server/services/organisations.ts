@@ -110,15 +110,16 @@ export async function creerOrganisation(
   }
 }
 
+/** `depuis` : statuts d'où ce changement part. Renvoie `false` s'il n'a rien changé. */
 async function changerStatut(
   acteur: SuperadminConnecte,
   organisationId: string,
   statut: StatutOrganisation,
-  applicable: (avant: StatutOrganisation) => boolean,
+  depuis: readonly StatutOrganisation[],
   apresChangement: (tx: Prisma.TransactionClient) => Promise<unknown>,
-): Promise<void> {
+): Promise<boolean> {
   verifierSuperadmin(acteur);
-  await withAuditPlateforme(
+  const { change } = await withAuditPlateforme(
     acteur,
     async (tx) => {
       const avant = await tx.organisation.findUnique({
@@ -128,55 +129,52 @@ async function changerStatut(
       if (!avant) {
         throw new AccesRefuseError();
       }
-      const change = applicable(avant.statut);
-      if (change) {
-        await tx.organisation.update({ where: { id: organisationId }, data: { statut } });
+      // Conditionnée au statut lu : de deux actions simultanées, une seule aboutit.
+      const { count } = depuis.includes(avant.statut)
+        ? await tx.organisation.updateMany({
+            where: { id: organisationId, statut: avant.statut },
+            data: { statut },
+          })
+        : { count: 0 };
+      if (count > 0) {
         await apresChangement(tx);
       }
-      return { ...avant, change };
+      return { avant, change: count > 0 };
     },
     () => organisationId,
-    ({ change, statut: statutAvant }) =>
-      change
+    ({ avant, change: aChange }) =>
+      aChange
         ? {
             action: 'UPDATE',
             entiteType: 'ORGANISATION',
             entiteId: organisationId,
-            champs: differencesAuditees('ORGANISATION', { statut: statutAvant }, { statut }),
+            champs: differencesAuditees('ORGANISATION', avant, { statut }),
           }
         : null,
   );
+  return change;
 }
 
 /** Suspend un client : plus de connexion, et ses sessions ouvertes tombent tout de suite. */
 export async function suspendreOrganisation(
   acteur: SuperadminConnecte,
   organisationId: string,
-): Promise<void> {
-  await changerStatut(
-    acteur,
-    organisationId,
-    'SUSPENDU',
-    (avant) => avant !== 'SUSPENDU',
-    (tx) => tx.session.deleteMany({ where: { utilisateur: { organisationId } } }),
+): Promise<boolean> {
+  return changerStatut(acteur, organisationId, 'SUSPENDU', ['ESSAI', 'ACTIF'], (tx) =>
+    tx.session.deleteMany({ where: { utilisateur: { organisationId } } }),
   );
 }
 
 /**
  * Réactive un client suspendu, en essai ou actif : le statut d'avant la suspension n'est pas conservé.
- * Sans effet sur un client qui ne l'est plus : une page restée ouverte ne le rétrograde pas.
+ * Renvoie `false` pour un client qui ne l'est plus : une page restée ouverte ne le rétrograde pas.
  */
 export async function reactiverOrganisation(
   acteur: SuperadminConnecte,
   organisationId: string,
   statut: unknown,
-): Promise<void> {
+): Promise<boolean> {
   verifierSuperadmin(acteur);
-  await changerStatut(
-    acteur,
-    organisationId,
-    valider(statutClientSchema, statut),
-    (avant) => avant === 'SUSPENDU',
-    async () => undefined,
-  );
+  const cible = valider(statutClientSchema, statut);
+  return changerStatut(acteur, organisationId, cible, ['SUSPENDU'], async () => undefined);
 }
