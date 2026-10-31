@@ -13,6 +13,7 @@
   "dependencies": {
     "@ha/adapters": "workspace:*",
     "@ha/db": "workspace:*",
+    "@ha/domain": "workspace:*",
     "dotenv": "^17.2.3",
     "pg-boss": "^12.38.0",
     "tsx": "^4.23.15",

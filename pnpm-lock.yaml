@@ -188,6 +188,9 @@ importers:
       '@ha/db':
         specifier: workspace:*
         version: link:../db
+      '@ha/domain':
+        specifier: workspace:*
+        version: link:../domain
       dotenv:
         specifier: ^17.2.3
         version: 17.4.2

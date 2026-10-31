@@ -172,13 +172,12 @@ export async function modifierTypeRdv(
   if (!actuel) {
     throw new AccesRefuseError();
   }
-  const { id: _id, actif: _actif, ...avant } = actuel;
   try {
     await withAudit(acteur, (tx) => tx.typeRdv.update({ where: { id }, data: donnees }), {
       action: 'UPDATE',
       entiteType: 'TYPE_RDV',
       entiteId: id,
-      champs: differencesAuditees('TYPE_RDV', avant, donnees),
+      champs: differencesAuditees('TYPE_RDV', actuel, { ...actuel, ...donnees }),
     });
   } catch (erreur) {
     traduireDoublon(erreur, DOUBLON_TYPE, 'Ce type de rendez-vous existe déjà.');

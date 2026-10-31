@@ -1,3 +1,4 @@
+import { FUSEAU_HORAIRE } from '@ha/domain';
 import { PgBoss } from 'pg-boss';
 import type { z } from 'zod';
 
@@ -38,6 +39,22 @@ export class FileTravaux {
     // La clé est portée par client : deux clients peuvent utiliser la même sans se gêner.
     const singletonKey = `${valide.organisationId}:${valide.cleIdempotence}`;
     return this.boss.send(travail.nom, valide, { singletonKey });
+  }
+
+  /**
+   * Tâche planifiée sans client : elle ne touche à aucune donnée métier, et sert à mettre en file des travaux
+   * par organisation (ADR-020). Au-delà, tout passe par l'enveloppe.
+   */
+  async planifierTransverse(
+    nom: string,
+    cron: string,
+    executer: () => Promise<void>,
+  ): Promise<void> {
+    await this.boss.createQueue(nom, { policy: 'stately' });
+    await this.boss.schedule(nom, cron, null, { tz: FUSEAU_HORAIRE });
+    await this.boss.work(nom, async () => {
+      await executer();
+    });
   }
 
   async ecouter<S extends z.ZodType>(
