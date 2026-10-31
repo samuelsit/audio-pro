@@ -1,4 +1,5 @@
 import { clientPlateforme } from '@ha/db';
+import { z } from 'zod';
 
 export interface RegleLimitation {
   /** Nombre maximal de tentatives dans la fenêtre. */
@@ -6,14 +7,22 @@ export interface RegleLimitation {
   readonly fenetreSecondes: number;
 }
 
+/** `PROXIES_DE_CONFIANCE` : entier d'au moins 1, sinon la configuration est refusée. */
+const proxiesDeConfianceSchema = z.coerce.number().int().min(1).default(1);
+
+function proxiesDeConfiance(): number {
+  const { PROXIES_DE_CONFIANCE: valeur } = process.env;
+  return proxiesDeConfianceSchema.parse(valeur === undefined ? undefined : valeur || 'invalide');
+}
+
 /**
- * Adresse du client dans `x-forwarded-for` : chaque proxy ajoute la sienne à la fin, et tout ce qui précède
- * vient du client, qui pourrait en changer à chaque essai pour échapper à la limite. On remonte donc depuis
- * la fin d'autant d'entrées que de proxys de confiance (`PROXIES_DE_CONFIANCE`, 1 par défaut).
+ * Adresse du client dans `x-forwarded-for` : chaque proxy ajoute à la fin l'adresse de son pair, et tout ce
+ * qui précède vient du client, qui pourrait en changer à chaque essai pour échapper à la limite. On remonte
+ * donc depuis la fin d'autant d'entrées que de proxys de confiance.
  */
 export function adresseClient(
   entete: string | null,
-  proxies: number = Number(process.env.PROXIES_DE_CONFIANCE ?? 1),
+  proxies: number = proxiesDeConfiance(),
 ): string {
   return entete?.split(',').at(-proxies)?.trim() || 'inconnue';
 }

@@ -1,5 +1,5 @@
 import { prisma } from '@ha/db/admin';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { viderBase } from '@/test/donnees';
 
@@ -39,6 +39,18 @@ describe('adresseClient', () => {
     { entete: null, attendu: 'inconnue' },
   ])('« $entete » → $attendu', ({ entete, attendu }) => {
     expect(adresseClient(entete)).toBe(attendu);
+  });
+
+  it.each(['0', '', 'abc', '-1', '1.5'])('refuse PROXIES_DE_CONFIANCE=« %s »', (valeur) => {
+    vi.stubEnv('PROXIES_DE_CONFIANCE', valeur);
+    expect(() => adresseClient('1.2.3.4')).toThrow();
+    vi.unstubAllEnvs();
+  });
+
+  it('lit PROXIES_DE_CONFIANCE', () => {
+    vi.stubEnv('PROXIES_DE_CONFIANCE', '2');
+    expect(adresseClient('1.2.3.4, 198.51.100.7, 10.0.0.1')).toBe('198.51.100.7');
+    vi.unstubAllEnvs();
   });
 
   it('remonte d’autant d’entrées que de proxys de confiance', () => {

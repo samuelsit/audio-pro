@@ -23,7 +23,6 @@ const CHEMINS_METIER = [
   `/dossiers/${DOSSIER_RESEAU}`,
   `/dossiers/${DOSSIER_RESEAU}/devis/nouveau`,
   `/dossiers/${DOSSIER_RESEAU}/devis/${DEVIS_RESEAU}`,
-  `/prescripteurs/${PRESCRIPTEUR_RESEAU}`,
 ];
 
 /**
@@ -32,13 +31,22 @@ const CHEMINS_METIER = [
  */
 const DOCUMENT = `/dossiers/${DOSSIER_ESSAI}/essai/compte-rendu`;
 
-/** Pages d'Administration : seul un ADMIN_CLIENT les atteint, donc lui seul prouve l'isolation. */
+/** Pages réservées à l'ADMIN_CLIENT : lui seul prouve l'isolation, un autre rôle a 404 à cause du rôle. */
 const CHEMINS_ADMIN = [
   `/admin/centres/${CENTRE_RESEAU}`,
   `/admin/utilisateurs/${UTILISATEUR_RESEAU}`,
   `/admin/praticiens/${PRATICIEN_RESEAU}`,
   `/admin/fabricants/${FABRICANT_RESEAU}`,
   `/admin/accessoires/${ACCESSOIRE_RESEAU}`,
+  `/prescripteurs/${PRESCRIPTEUR_RESEAU}`,
+];
+
+/** Témoin : ces mêmes pages répondent pour les fiches de son propre client. */
+const CHEMINS_ADMIN_INDEPENDANT = [
+  '/admin/centres/019a3000-0000-7000-8000-0000000000d1',
+  '/admin/utilisateurs/019a3000-0000-7000-8000-000000000203',
+  '/admin/praticiens/019a3000-0000-7000-8000-000000000303',
+  '/admin/fabricants/019a4000-0000-7000-8000-000000000011',
 ];
 
 // Une seule connexion par test : les connexions sont limitées par adresse IP.
@@ -89,6 +97,12 @@ test('un admin du centre indépendant ne voit rien du réseau, même en Administ
     await test.step(`page ${chemin}`, async () => {
       const reponse = await page.goto(chemin);
       expect(reponse?.status()).toBe(404);
+    });
+  }
+  for (const chemin of CHEMINS_ADMIN_INDEPENDANT) {
+    await test.step(`témoin ${chemin}`, async () => {
+      const reponse = await page.goto(chemin);
+      expect(reponse?.status()).toBe(200);
     });
   }
   await page.goto('/admin/centres');

@@ -586,7 +586,7 @@ La revue de la branche a montré trois limites de l'ADR-016 et de l'ADR-018. Le 
 - **`verifier_meme_organisation`** : un trigger par référence entre tables d'organisation, généré depuis le catalogue PostgreSQL, en `BEFORE INSERT OR UPDATE OF` la colonne. Il s'applique aussi au rôle propriétaire. Un test compare les triggers aux clés étrangères : une référence nouvelle sans contrôle le fait échouer. Les clés composites ne sont plus nécessaires.
 - **`organisation_id` est immuable** pour tous les rôles : une ligne ne change jamais de client.
 - **Une migration postérieure doit recréer ces boucles** pour toute table nouvelle, ou appeler `verifier_meme_organisation` sur ses références.
-- **Connexions** : 10 par rôle (`DATABASE_POOL_MAX`), attente de 10 s et transaction de 15 s, pour qu'une requête attende une connexion au lieu d'échouer.
+- **Connexions** : 10 par client Prisma et par processus (`DATABASE_POOL_MAX`, sans effet sur pg-boss), attente de 10 s et transaction de 15 s, pour qu'une requête attende une connexion au lieu d'échouer.
 - **Pas de lecture hors transaction dans `withAudit`** : `obtenirFicheAppareil` lit puis journalise, sans tenir une connexion.
 - **Clé d'idempotence** : préfixée par l'organisation.
 - **Travaux** : même chiffrement que l'application ; `CHAMPS_CHIFFRES` passe dans `@ha/adapters`.
