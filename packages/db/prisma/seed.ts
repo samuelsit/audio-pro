@@ -215,7 +215,7 @@ async function main(): Promise<void> {
       await db.appMeta.upsert({ where: { key }, create: { key, value }, update: { value } });
     }
     console.log(
-      `Seed terminé (schema_version=${SCHEMA_VERSION}) : ${CENTRES.length} centres, ${UTILISATEURS.length} utilisateurs, ${NOMBRE_PATIENTS_DEMO} patients, ${NOMBRE_FABRICANTS_DEMO} fabricants, ${NOMBRE_MODELES_DEMO} modèles, ${nombreAppareilsDemo(CENTRES.length)} appareils, ${NOMBRE_DOSSIERS_DEMO} dossier.`,
+      `Seed terminé (schema_version=${SCHEMA_VERSION}) : ${CENTRES.length} centres, ${UTILISATEURS.length} utilisateurs, ${NOMBRE_PATIENTS_DEMO} patients, ${NOMBRE_FABRICANTS_DEMO} fabricants, ${NOMBRE_MODELES_DEMO} modèles, ${nombreAppareilsDemo(CENTRES.length)} appareils, ${NOMBRE_DOSSIERS_DEMO} dossiers.`,
     );
   } finally {
     await db.$disconnect();
