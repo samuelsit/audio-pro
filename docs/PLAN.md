@@ -62,7 +62,7 @@ Une étape est cochée quand ses tests sont verts, le typecheck OK et la CI vert
   - À VÉRIFIER : voir la liste de `docs/REGLES_AUDIO.md` ; le texte de la nomenclature LPP en lèverait la plupart
   - reporté à l'étape 8 : champs `surdicecite` et type d'appareillage par oreille sur le dossier
   - reporté à l'étape 9 : branchement de `controleDevis`, contrôle du prix conseillé d'un modèle de classe I (reporté de l'étape 5), exigence des 3 options parmi 8 de l'offre 100 % santé (non modélisée)
-  - reporté à l'étape 10 : branchement de `etatEssai`
+  - fait à l'étape 10 : branchement de `etatEssai`
   - reporté à l'étape 11 : branchement de `ventilation`, contrôles comp/incomp (reportés de l'étape 5, aucun document ne les définit)
 - [ ] **7** – Stock — terminée en local le 2026-10-31 (tests, typecheck, lint, E2E verts), à cocher quand la CI est verte
   - [x] Domaine : machine à états des appareils, normalisation et doublons de numéros de série, droits, saisies, filtres, CSV, dans `packages/domain/src/stock`
@@ -75,7 +75,7 @@ Une étape est cochée quand ses tests sont verts, le typecheck OK et la CI vert
   - [x] Seed : 12 appareils et 3 accessoires fictifs, stock dans chaque centre
   - [x] Tests : domaine 100 % (matrice complète des transitions), intégration (unicité, transfert, réservations et réceptions simultanées, atomicité, droits, audit, CSV, accessoires), E2E (réception, recherche, transfert, réservation, accessoires)
   - reporté à l'étape 8 : clé étrangère et saisie de `dossierId`
-  - reporté aux étapes 10 et 11 : essai et vente pilotés par le dossier, branchement sur `changerStatut`
+  - fait à l'étape 10 : essai piloté par le dossier ; reporté à l'étape 11 : vente pilotée par le dossier
   - reporté à l'étape 13 : reprise des appareils de Cosium, sans passer par la machine à états
   - à planifier : recherche des détenteurs par modèle ou par lot pour la matériovigilance (art. 21), numéro de lot à décider
 - [ ] **8** – Dossier et prescription — terminée en local le 2026-10-31 (tests, typecheck, lint, E2E verts), à cocher quand la CI est verte
@@ -89,7 +89,7 @@ Une étape est cochée quand ses tests sont verts, le typecheck OK et la CI vert
   - [x] Tests : domaine 100 % (100 couples de transitions, renouvellement par oreille), adaptateurs (S3 contre MinIO, hors CI), intégration (droits, cloisonnement, forçage, audit, atomicité du scan, conflits, ajout seul, fusion), E2E (dossier mixte, refus et acceptation par oreille, forçage, abandon)
   - À VÉRIFIER : date de comparaison des 4 ans, exigence du RPPS du prescripteur, effet de la mention de renouvellement (voir `docs/REGLES_AUDIO.md`)
   - reporté à l'étape 9 : passage à DEVIS_EMIS et DEVIS_SIGNE, type par oreille et date du précédent appareillage sur le devis ; retour arrière après un devis refusé, à arbitrer
-  - reporté à l'étape 10 : saisie de `dossierId` depuis le dossier (reportée de l'étape 7) ; nouvel essai, à arbitrer ; passage à EN_ESSAI fait à l'étape 9
+  - fait à l'étape 10 : saisie de `dossierId` depuis le dossier (reportée de l'étape 7) ; passage à EN_ESSAI fait à l'étape 9 ; nouvel essai, toujours à arbitrer
   - reporté à l'étape 11 : écriture de `Delivrance`, passage à A_FACTURER, blocage éventuel sans RPPS du prescripteur
   - reporté à l'étape 13 : reprise des délivrances Cosium ; d'ici là, un patient sans ligne ressort éligible
   - reporté à l'étape 14 : liste `/dossiers` du menu
@@ -105,10 +105,22 @@ Une étape est cochée quand ses tests sont verts, le typecheck OK et la CI vert
   - [x] Tests : domaine 100 %, instantané du HTML, intégration (droits, cloisonnement, audit, blocage, gel, versions, signature, concurrence), adaptateur Chromium (hors CI), E2E (parcours complet)
   - À VÉRIFIER : TVA, code de regroupement, identifiants d'entreprise, départ de la garantie, mentions anciennes du modèle (voir `docs/REGLES_AUDIO.md`)
   - abandonné : contrôle du prix conseillé d'un modèle de classe I (reporté des étapes 5 et 6), `controleDevis` bloque le prix réel
-  - reporté à l'étape 10 : rendez-vous, échéance et stock de l'essai, nouvel essai après échec (le dépôt et la signature ne contrôlent pas encore la fin de l'essai)
+  - fait à l'étape 10 : rendez-vous, échéance et stock de l'essai, contrôle de la fin d'essai à la signature ; nouvel essai après échec, toujours à arbitrer
   - reporté à l'étape 15 : fichier du logo commercial (cadre vide au PDF), image Docker avec Chromium et `PDF_CHROMIUM_CHEMIN`
   - à planifier : fiche technique stockée au catalogue (case déclarative pour le MVP), signature électronique
-- [ ] **10** – Essai
+- [ ] **10** – Essai — terminée en local le 2026-10-31 (tests, typecheck, lint, E2E verts), à cocher quand la CI est verte
+  - [x] Ordre de l'ADR-012 conservé : démarrage sur `DEVIS_EMIS`, signature en fin d'essai, achat depuis `DEVIS_SIGNE`
+  - [x] Domaine : `refusAppareilEssai`, `blocagesSignature`, `peutConfirmerAchat`, saisies et `rendreCompteRenduEssaiHtml` dans `packages/domain/src/essai` ; alerte `ECHEANCE_DEPASSEE` ; `EN_ESSAI` → `RESERVE` et `verifierTransitionManuelle` au stock
+  - [x] Modèle : `Essai`, `EssaiAppareil`, `EssaiRdv` en ajout seul, `ProlongationEssai` ; index partiels, un essai actif par appareil ; textes libres chiffrés ; migration `essai`
+  - [x] Service : démarrage par numéro de série, rendez-vous, prolongation avec justificatif, changement d'appareil, achat, abandon relié au stock, compte rendu, liste par centre, `dossierId` saisi sur les mouvements (reporté des étapes 7 et 8)
+  - [x] Signature refusée avant l'échéance, sans 2 rendez-vous ou sur un appareil hors de l'offre retenue (reporté de l'étape 9)
+  - [x] Fiche appareil : changements de statut retirés tant qu'un essai le tient, lien vers le dossier
+  - [x] Écrans : « Essais en cours », bloc Essai du dossier, numéros de série au démarrage, justificatif et compte rendu au prescripteur (PDF)
+  - [x] Seed : un essai fictif à une semaine de son échéance
+  - [x] Tests : domaine 100 %, intégration (cycle complet, changement, alertes, refus dont concurrence, abandon, droits, audit, chiffrement, atomicité du justificatif), E2E (parcours complet, PDF réel)
+  - À VÉRIFIER : autre modèle en cours d'essai, nombre de prolongations et demande après l'échéance, contenu du compte rendu (voir `docs/REGLES_AUDIO.md`)
+  - reporté à l'étape 11 : `RESERVE` → `VENDU`, fermeture du lien à la vente, retrait du `VENDU` manuel, écriture de `Delivrance`, embouts sur mesure facturés à l'abandon
+  - à arbitrer : nouvelle période d'essai après un échec (un dossier n'a qu'un essai), correction d'un rendez-vous saisi par erreur
 - [ ] **11** – Facture préparée
 - [ ] **12** – Export Cosium
 - [ ] **13** – Reprise des données Cosium

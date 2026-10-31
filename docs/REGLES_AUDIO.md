@@ -202,6 +202,12 @@ Piles : `PIL`. Accessoires : `APA`.
 
 **Cas limites** : le texte fixe un minimum, pas de maximum sans prolongation (essai de 38 jours sans demande écrite ?) ; décompte du jour de début (retenu : début + 30 jours, À VÉRIFIER) ; prolongation de plus de 15 jours ou sans demande écrite ; rendez-vous le jour même du début. Une alerte se déclenche 7 jours avant l'échéance : choix applicatif, pas une règle. Une prolongation sans demande écrite n'est pas retenue ; au-delà de 15 jours, elle est ramenée à 15 ; les deux cas lèvent une alerte.
 
+**Fin d'essai** (`blocagesSignature`, ADR-013) : la signature est refusée tant que l'échéance n'est pas atteinte à la date de signature et que 2 rendez-vous ne sont pas tenus, sans forçage (devis p. 2 § 3 et § 5 ; convention art. 18 3°, p. 20). Passé l'échéance, `ECHEANCE_DEPASSEE` alerte sans interdire, faute de maximum dans le texte. `RDV_INSUFFISANTS` ne se lève que 7 jours avant l'échéance : avant, un essai qui commence n'a rien d'anormal.
+
+**Prolongation** : une seule par essai, de 1 à 15 jours, justificatif obligatoire, ce qui vaut demande écrite. N'avoir qu'une prolongation et accepter une demande après l'échéance sont des choix, À VÉRIFIER.
+
+**Changement d'appareil** : l'essai continue et sa date de début ne bouge pas. Le devis ne prévoit une nouvelle période qu'« à l'issue » d'un échec (p. 2 § 3) ; pour un autre modèle en cours d'essai, le départ des 30 jours est À VÉRIFIER.
+
 ## R10 – Qualité du prescripteur (`prescriptionValide`)
 
 **Statut : À VÉRIFIER en totalité.** Aucun document ne mentionne l'ORL, le généraliste, l'otologie ni le seuil de 6 ans.
@@ -351,6 +357,20 @@ Le reste n'est pas dans les tests : il est calculé. Dans ces cas de tiers payan
 
 **Écart** : le modèle ne fixe pas le point de départ. La délivrance est retenue, À VÉRIFIER. La date de fin s'affiche à l'écran ; le PDF garde le texte officiel, sans rubrique ajoutée.
 
+## R20 – Compte rendu au prescripteur (`rendreCompteRenduEssaiHtml`)
+
+**Statut : Confirmé avec écart.**
+
+**Règle** : l'entreprise remet au prescripteur un compte-rendu de la prestation délivrée.
+
+**Source** : convention art. 18 6°, p. 20 ; devis p. 2 § 4 (« compte(s) rendu(s) de votre appareillage au médecin prescripteur et au médecin traitant »).
+
+**Écarts** :
+
+- Aucun texte ne fixe le contenu ni le délai du compte rendu. Le courrier reprend le déroulé de l'essai (appareils, rendez-vous, prolongation, issue) : modèle applicatif, À VÉRIFIER.
+- Le devis cite aussi le médecin traitant, que le dossier ne connaît pas : seul le prescripteur est destinataire.
+- Le courrier ne contient ni NIR ni montant. Il se télécharge pour le MVP, sans preuve de remise.
+
 ## Points À VÉRIFIER
 
 | Point                                                    | Règle | Document qui trancherait                      |
@@ -366,6 +386,9 @@ Le reste n'est pas dans les tests : il est calculé. Dans ces cas de tiers payan
 | Jour anniversaire, conditions de R.165-24                | R8    | Nomenclature LPP, code de la sécurité sociale |
 | Date de comparaison du délai avant la délivrance         | R8    | Nomenclature LPP                              |
 | Décompte des jours d'essai, durée sans prolongation      | R9    | Nomenclature LPP                              |
+| Plusieurs prolongations, demande après l'échéance        | R9    | Nomenclature LPP                              |
+| Autre modèle en cours d'essai : les 30 jours repartent ? | R9    | Nomenclature LPP                              |
+| Contenu et délai du compte rendu au prescripteur         | R20   | Nomenclature LPP                              |
 | Qualité du prescripteur                                  | R10   | Nomenclature LPP                              |
 | RPPS du prescripteur exigé, sens du « N° prescripteur »  | R10   | Cahier des charges SESAM-Vitale ou AreaFSE    |
 | Validité de l'ordonnance                                 | R11   | Nomenclature LPP                              |

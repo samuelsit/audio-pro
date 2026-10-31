@@ -402,3 +402,39 @@ L'étape 9 crée, contrôle et imprime le devis. Le modèle officiel (Annexe I) 
 - Sans base LPP importée, un brouillon s'enregistre mais ne se calcule pas et ne s'émet pas.
 - Un dépassement de page (nombreux consommables, mentions très longues) ferait passer le PDF à 3 pages : les deux pages du modèle ne tiennent qu'avec un contenu raisonnable, vérifié sur la démonstration.
 - Une notification ne s'affiche qu'à un changement de chemin (ADR-011) : l'émission et la signature se voient au statut du devis.
+
+## ADR-013 – Période d'essai
+
+- **Date** : 2026-10-31
+- **Statut** : acceptée
+
+### Contexte
+
+L'étape 10 branche `etatEssai`, jusqu'ici inutilisé, et pilote le stock depuis le dossier. Son énoncé démarrait l'essai depuis `DEVIS_SIGNE`, ce que l'ADR-012 a écarté : le devis n'engage pas « jusqu'à la signature du point 5 » (p. 1) et la signature vient « à l'issue de la période d'essai » (p. 2 § 5). L'énoncé demande aussi des appareils « réservés au patient » après l'achat, alors que l'ADR-010 ne connaissait pas de retour de l'essai vers `RESERVE`.
+
+### Décision
+
+- **Ordre** : celui de l'ADR-012, validé pour cette étape. `DEVIS_EMIS` → démarrage avec les numéros de série → `EN_ESSAI` → signature → `DEVIS_SIGNE` → achat → `A_FACTURER`. La machine à états du dossier ne change pas.
+- **Modèle** : `Essai` (un par dossier), `EssaiAppareil`, `EssaiRdv`, `ProlongationEssai` (migration `essai`). Le patient et le centre se lisent sur le dossier : la fusion de patients n'a rien à faire. Compte rendu, motif de prolongation et motif de retrait sont chiffrés, jamais recopiés dans le journal.
+- **Un appareil, un essai** : deux index uniques partiels sur `essai_appareil` (`retire_le IS NULL`), par oreille et par appareil. Le perdant d'une concurrence échoue d'abord sur le `updateMany` conditionné d'`appliquerMouvement` ; l'index reste le dernier rempart.
+- **Lien actif** : il subsiste après l'achat, jusqu'à la vente. Il tient l'appareil : `changerStatut` refuse tout changement manuel, et la fiche renvoie vers le dossier. Un appareil en panne passe par un changement, puis part au SAV depuis le stock.
+- **Stock** (complète l'ADR-010) : ajout de `EN_ESSAI` → `RESERVE`, patient conservé, pour l'achat. `verifierTransitionManuelle` réserve au dossier l'entrée en essai et cette réservation. `dossierId` est enfin saisi sur les mouvements (reporté des ADR-010 et 011). Le mouvement d'un appareil rendu garde le patient qui le détenait.
+- **Choix de l'appareil** : numéro de série saisi ou lu à la douchette, avec une aide à la saisie (`datalist`). Modèle de la ligne de l'offre d'essai, stock du centre du dossier, `EN_STOCK` ou `RESERVE` pour ce patient. Le centre se contrôle en premier : le statut d'un appareil hors du centre n'est pas révélé (ADR-010).
+- **Date de début** : le jour du démarrage, sans saisie. Elle ne bouge plus, même après un changement d'appareil.
+- **Signature** (annoncée par l'ADR-012) : `blocagesSignature` refuse avant l'échéance et sans 2 rendez-vous, jugés à la date de signature, sans forçage car ce sont des minimums du texte. Elle refuse aussi un appareil actif d'un autre modèle que l'offre retenue, contrôle de cohérence : un changement de modèle impose de retenir l'offre qui le porte ou d'émettre une version. Le dépôt du scan reste libre.
+- **Changement** : possible en `EN_ESSAI` seulement. Après la signature, une nouvelle version rouvre l'essai (ADR-012).
+- **Achat** : depuis `DEVIS_SIGNE`, réservé à ADMIN et AUDIO, même partage que la signature. Aucune `Delivrance` n'est écrite : la date de délivrance sera celle de la facturation (devis p. 2 § 5).
+- **Abandon** : `abandonnerDossier` reste le point d'entrée unique. Il clôt l'essai ouvert et remet ses appareils en stock dans la même transaction.
+- **Rendez-vous** : traces en ajout seul, datées entre le début de l'essai et aujourd'hui, sans agenda : Doctolib le reste. Compte rendu obligatoire.
+- **Droits** : démarrage, rendez-vous, prolongation et changement ouverts aux 3 rôles, comme le stock (ADR-010).
+- **Compte rendu** : PDF rendu à la demande, non stocké, à la différence du devis : il n'est pas figé tant que l'essai vit. Une ligne PRINT, écrite après le rendu. Nom de fichier sans identité, ni NIR ni montant.
+- **Dépendances** : `essais-socle.ts` ne dépend pas de `dossiers.ts`, qui l'appelle à l'abandon. Un import circulaire est ainsi évité.
+
+### Conséquences
+
+- L'étape 11 doit ajouter `RESERVE` → `VENDU`, fermer le lien à la vente et retirer le `VENDU` manuel de la fiche. Sans fermeture, le lien bloquerait une annulation de vente suivie d'un nouvel essai.
+- Depuis la fiche, `EN_ESSAI` → `VENDU` ne reste possible que pour un appareil sans lien : aucun ne peut plus entrer dans cet état par l'application.
+- Un dossier n'a qu'un essai : la nouvelle période après un échec (devis p. 2 § 3) reste à arbitrer. `dossierId` unique serait à lever.
+- Un rendez-vous saisi par erreur ne se supprime pas et compte dans les 2 rendez-vous.
+- Les embouts sur mesure facturables en cas d'abandon (devis p. 2 § 3) relèvent de la facture.
+- Le dossier de démonstration en essai n'a pas de devis : il montre l'écran et le courrier, pas la signature. Son ordonnance n'a pas de scan.
