@@ -48,6 +48,7 @@ model Organisation {
   devis                Devis[]
   compteursDevis       CompteurDevis[]
   essais               Essai[]
+  facturesPreparees    FacturePreparee[]
 
   @@map("organisation")
 }
@@ -130,6 +131,9 @@ model Utilisateur {
   appareilsRetires      EssaiAppareil[]       @relation("EssaiAppareilRetire")
   rdvEssai              EssaiRdv[]
   prolongationsEssai    ProlongationEssai[]
+  facturesCreees        FacturePreparee[]     @relation("FactureCreee")
+  couverturesConfirmees FacturePreparee[]     @relation("CouvertureConfirmee")
+  priseEnChargeSaisies  PriseEnCharge[]
 
   @@index([organisationId])
   @@map("utilisateur")
@@ -816,6 +820,8 @@ model Dossier {
   mouvementsAppareil MouvementAppareil[]
   devis              Devis[]
   essai              Essai?
+  facturePreparee    FacturePreparee?
+  priseEnCharge      PriseEnCharge?
 
   @@index([patientId])
   @@index([centreId, statut])
@@ -1140,6 +1146,64 @@ model ProlongationEssai {
   createdBy          Utilisateur @relation(fields: [createdById], references: [id], onDelete: Restrict)
 
   @@map("prolongation_essai")
+}
+
+// ---------------------------------------------------------------------------
+// Facture préparée
+// ---------------------------------------------------------------------------
+
+enum StatutPec {
+  DEMANDEE
+  ACCORDEE
+  REFUSEE
+  SANS_TIERS_PAYANT
+}
+
+/// Préparation de la facture d'un dossier à facturer. Seul ce qui ne se déduit pas est stocké : les lignes
+/// se calculent à la lecture et se figeront à l'export (ADR-014). Volontairement sans numéro de facture ni
+/// encaissement : ils restent dans Cosium.
+model FacturePreparee {
+  id                String       @id @default(uuid(7))
+  organisationId    String       @map("organisation_id")
+  dossierId         String       @unique @map("dossier_id")
+  /// Le jour de l'achat par défaut. Base, âge, droits et tarifs s'apprécient à cette date (R2, art. 27).
+  dateDelivrance    DateTime     @map("date_delivrance") @db.Date
+  /// Renseignés ensemble (contrainte CHECK) : saisie de la couverture AMO confirmée.
+  amoConfirmeeLe    DateTime?    @map("amo_confirmee_le")
+  amoConfirmeeParId String?      @map("amo_confirmee_par_id")
+  createdById       String       @map("created_by_id")
+  createdAt         DateTime     @default(now()) @map("created_at")
+  updatedAt         DateTime     @updatedAt @map("updated_at")
+  organisation      Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  dossier           Dossier      @relation(fields: [dossierId], references: [id], onDelete: Restrict)
+  createdBy         Utilisateur  @relation("FactureCreee", fields: [createdById], references: [id], onDelete: Restrict)
+  amoConfirmeePar   Utilisateur? @relation("CouvertureConfirmee", fields: [amoConfirmeeParId], references: [id], onDelete: Restrict)
+
+  @@map("facture_preparee")
+}
+
+/// Prise en charge complémentaire saisie à la main. Rattachée au dossier : elle pourra précéder l'achat.
+model PriseEnCharge {
+  id                     String      @id @default(uuid(7))
+  dossierId              String      @unique @map("dossier_id")
+  statut                 StatutPec
+  /// Vides sans tiers payant ; organisme, numéro et montant requis si accordée (contraintes CHECK).
+  organisme              String?
+  plateforme             String?
+  numeroAccord           String?     @map("numero_accord")
+  montantAccordeCentimes Int?        @map("montant_accorde_centimes")
+  datePec                DateTime?   @map("date_pec") @db.Date
+  /// Clé opaque dans le DocumentStore. Le nom du fichier d'origine n'est pas conservé.
+  justificatifCle        String?     @unique @map("justificatif_cle")
+  justificatifType       String?     @map("justificatif_type")
+  justificatifTaille     Int?        @map("justificatif_taille")
+  saisieParId            String      @map("saisie_par_id")
+  createdAt              DateTime    @default(now()) @map("created_at")
+  updatedAt              DateTime    @updatedAt @map("updated_at")
+  dossier                Dossier     @relation(fields: [dossierId], references: [id], onDelete: Restrict)
+  saisiePar              Utilisateur @relation(fields: [saisieParId], references: [id], onDelete: Restrict)
+
+  @@map("prise_en_charge")
 }
 
 // ---------------------------------------------------------------------------
