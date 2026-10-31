@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 114" width="300" height="114" role="img" aria-label="Légende des symboles" font-family="Arial, Helvetica, sans-serif" style="max-width:100%;height:auto;background:#fff">
+<text x="120" y="12" font-size="10" fill="#333a45" text-anchor="middle">Droite</text>
+<text x="170" y="12" font-size="10" fill="#333a45" text-anchor="middle">Gauche</text>
+<text x="0" y="31" font-size="10" fill="#333a45" >Aérienne</text>
+<circle cx="120" cy="28" r="6" fill="none" stroke="#c8102e" stroke-width="1.6"/>
+<line x1="164" y1="22" x2="176" y2="34" stroke="#0b4fa8" stroke-width="1.6"/><line x1="164" y1="34" x2="176" y2="22" stroke="#0b4fa8" stroke-width="1.6"/>
+<text x="0" y="49" font-size="10" fill="#333a45" >Aérienne masquée</text>
+<polygon points="120,40 126,52 114,52" fill="none" stroke="#c8102e" stroke-width="1.6"/>
+<rect x="164" y="40" width="12" height="12" fill="none" stroke="#0b4fa8" stroke-width="1.6"/>
+<text x="0" y="67" font-size="10" fill="#333a45" >Osseuse</text>
+<polyline points="126,58 120,64 126,70" fill="none" stroke="#c8102e" stroke-width="1.6"/>
+<polyline points="164,58 170,64 164,70" fill="none" stroke="#0b4fa8" stroke-width="1.6"/>
+<text x="0" y="85" font-size="10" fill="#333a45" >Osseuse masquée</text>
+<polyline points="126,76 120,76 120,88 126,88" fill="none" stroke="#c8102e" stroke-width="1.6"/>
+<polyline points="164,76 170,76 170,88 164,88" fill="none" stroke="#0b4fa8" stroke-width="1.6"/>
+<text x="0" y="106" font-size="10" fill="#333a45" >U : seuil d’inconfort. Flèche : pas de réponse.</text>
+</svg>

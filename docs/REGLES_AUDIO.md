@@ -451,7 +451,7 @@ Le reste n'est pas dans les tests : il est calculé. Dans ces cas de tiers payan
 
 - Une fréquence manquante rend la moyenne non calculable : on n'estime jamais un seuil.
 - Aucun arrondi avant le classement, le texte n'en prévoit pas. L'affichage est à une décimale.
-- Le grade ne se calcule qu'avec une perte confirmée (grade 1 ou plus) pour dire « unilatérale ».
+- « Perte confirmée » de la définition d'une perte unilatérale : grade 1 ou plus à la moins bonne oreille.
 - Hors asymétrie, la recommandation ne définit pas de grade global : seuls les grades par oreille s'affichent.
 - Le grade n'alimente aucune règle de `audio-rules`.
 - La 02/1 bis, retirée, n'est pas codée.
@@ -473,7 +473,7 @@ Symboles : O et X en conduction aérienne, triangle et carré si masquée, < et 
 
 **Statut : À VÉRIFIER.** Le modèle de devis mentionne l'analyse des antécédents, l'examen des conduits et la mesure de l'audition, de la tolérance aux sons forts et de la compréhension de la parole, sans en fixer le contenu (`modele-devis-audio.pdf` p. 2 § 4).
 
-L'anamnèse et le questionnaire livrés sont des propositions, à relire par un audioprothésiste. Aucun questionnaire validé (COSI, APHAB, HHIE, IOI-HA) n'est livré : ni leur texte, ni leurs droits d'usage, ni leur cotation ne figurent dans docs/ref.
+L'anamnèse, les questionnaires livrés et la synthèse en PDF sont des propositions, à relire par un audioprothésiste. Aucun questionnaire validé (COSI, APHAB, HHIE, IOI-HA) n'est livré : ni leur texte, ni leurs droits d'usage, ni leur cotation ne figurent dans docs/ref.
 
 ## Points À VÉRIFIER
 

@@ -1,6 +1,7 @@
 export * from './acces';
 export * from './agenda';
 export * from './audio-rules';
+export * from './audiologie';
 export * from './audit';
 export * from './catalogue';
 export * from './centre/centre';

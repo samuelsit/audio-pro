@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 288" width="420" height="288" role="img" aria-label="Audiométrie vocale dans le calme" font-family="Arial, Helvetica, sans-serif" style="max-width:100%;height:auto;background:#fff">
+<text x="44" y="16" font-size="12" font-weight="700" fill="#333a45">Audiométrie vocale dans le calme</text>
+<text x="44" y="32" font-size="10" fill="#333a45" >Intensité (dB)</text>
+<line x1="44" y1="230" x2="400" y2="230" stroke="#c9ced6"/>
+<text x="38" y="233" font-size="10" fill="#333a45" text-anchor="end">0 %</text>
+<line x1="44" y1="183.5" x2="400" y2="183.5" stroke="#c9ced6"/>
+<text x="38" y="186.5" font-size="10" fill="#333a45" text-anchor="end">25 %</text>
+<line x1="44" y1="137" x2="400" y2="137" stroke="#c9ced6"/>
+<text x="38" y="140" font-size="10" fill="#333a45" text-anchor="end">50 %</text>
+<line x1="44" y1="90.5" x2="400" y2="90.5" stroke="#c9ced6"/>
+<text x="38" y="93.5" font-size="10" fill="#333a45" text-anchor="end">75 %</text>
+<line x1="44" y1="44" x2="400" y2="44" stroke="#c9ced6"/>
+<text x="38" y="47" font-size="10" fill="#333a45" text-anchor="end">100 %</text>
+<line x1="44" y1="44" x2="44" y2="230" stroke="#c9ced6"/>
+<text x="44" y="243" font-size="10" fill="#333a45" text-anchor="middle">0</text>
+<line x1="103.33" y1="44" x2="103.33" y2="230" stroke="#c9ced6"/>
+<text x="103.33" y="243" font-size="10" fill="#333a45" text-anchor="middle">20</text>
+<line x1="162.67" y1="44" x2="162.67" y2="230" stroke="#c9ced6"/>
+<text x="162.67" y="243" font-size="10" fill="#333a45" text-anchor="middle">40</text>
+<line x1="222" y1="44" x2="222" y2="230" stroke="#c9ced6"/>
+<text x="222" y="243" font-size="10" fill="#333a45" text-anchor="middle">60</text>
+<line x1="281.33" y1="44" x2="281.33" y2="230" stroke="#c9ced6"/>
+<text x="281.33" y="243" font-size="10" fill="#333a45" text-anchor="middle">80</text>
+<line x1="340.67" y1="44" x2="340.67" y2="230" stroke="#c9ced6"/>
+<text x="340.67" y="243" font-size="10" fill="#333a45" text-anchor="middle">100</text>
+<line x1="400" y1="44" x2="400" y2="230" stroke="#c9ced6"/>
+<text x="400" y="243" font-size="10" fill="#333a45" text-anchor="middle">120</text>
+<g><polyline points="162.67,174.2 222,81.2 281.33,44" fill="none" stroke="#c8102e" stroke-width="1.6"/><circle cx="162.67" cy="174.2" r="3" fill="#c8102e"/><circle cx="222" cy="81.2" r="3" fill="#c8102e"/><circle cx="281.33" cy="44" r="3" fill="#c8102e"/><line x1="44" y1="257" x2="66" y2="257" stroke="#c8102e" stroke-width="1.6"/><text x="72" y="260" font-size="10" fill="#333a45" >Oreille droite, casque, sans appareil</text></g>
+<g><polyline points="133,174.2 192.33,62.6" fill="none" stroke="#333a45" stroke-width="1.6" stroke-dasharray="6 3"/><circle cx="133" cy="174.2" r="3" fill="#333a45"/><circle cx="192.33" cy="62.6" r="3" fill="#333a45"/><line x1="44" y1="271" x2="66" y2="271" stroke="#333a45" stroke-width="1.6" stroke-dasharray="6 3"/><text x="72" y="274" font-size="10" fill="#333a45" >Binaural, champ libre, avec appareil</text></g>
+</svg>
