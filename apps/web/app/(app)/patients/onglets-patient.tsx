@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 const ONGLETS = [
   { cle: 'fiche', libelle: 'Fiche', suffixe: '' },
   { cle: 'dossiers', libelle: 'Dossiers', suffixe: '/dossiers' },
+  { cle: 'rendez-vous', libelle: 'Rendez-vous', suffixe: '/rendez-vous' },
 ] as const;
 
 /** Onglets par routes : chaque ouverture passe par le service, donc par le journal d'audit. */

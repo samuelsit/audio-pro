@@ -10,6 +10,17 @@ export interface LienSousNavigation {
   readonly libelle: string;
 }
 
+const LIENS_AGENDA: readonly LienSousNavigation[] = [
+  { href: '/agenda', libelle: 'Agenda' },
+  { href: '/agenda/salle-attente', libelle: 'Salle d’attente' },
+  { href: '/agenda/creneaux', libelle: 'Prochain créneau' },
+];
+
+const LIEN_PARAMETRES_AGENDA: LienSousNavigation = {
+  href: '/agenda/parametres',
+  libelle: 'Paramètres',
+};
+
 export const LIENS_PATIENTS: readonly LienSousNavigation[] = [
   { href: '/patients', libelle: 'Patients' },
   { href: '/prescripteurs', libelle: 'Prescripteurs' },
@@ -36,12 +47,19 @@ export const LIENS_ADMINISTRATION: readonly LienSousNavigation[] = [
 ];
 
 /** Onglets d'une entrée du menu latéral. */
-export function SousNavigation({ liens }: { liens: readonly LienSousNavigation[] }) {
+export function SousNavigation({
+  liens,
+  racine,
+}: {
+  liens: readonly LienSousNavigation[];
+  /** Lien d'une entrée dont les sous-pages ont leur propre onglet : actif sur sa seule adresse. */
+  racine?: string;
+}) {
   const chemin = usePathname();
   return (
     <nav aria-label="Sous-navigation" className="flex flex-wrap gap-1 border-b pb-2">
       {liens.map(({ href, libelle }) => {
-        const actif = chemin === href || chemin.startsWith(`${href}/`);
+        const actif = chemin === href || (href !== racine && chemin.startsWith(`${href}/`));
         return (
           <Link
             key={href}
@@ -57,5 +75,15 @@ export function SousNavigation({ liens }: { liens: readonly LienSousNavigation[]
         );
       })}
     </nav>
+  );
+}
+
+/** Onglets de l'agenda ; les paramètres sont réservés aux rôles de gestion. */
+export function SousNavigationAgenda({ gestion }: { gestion: boolean }) {
+  return (
+    <SousNavigation
+      liens={gestion ? [...LIENS_AGENDA, LIEN_PARAMETRES_AGENDA] : LIENS_AGENDA}
+      racine="/agenda"
+    />
   );
 }

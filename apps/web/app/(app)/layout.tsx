@@ -8,6 +8,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 
 import { BarreLaterale, MenuMobile } from '@/components/barre-laterale';
+import { ConteneurPage } from '@/components/conteneur-page';
 import { MenuUtilisateur } from '@/components/menu-utilisateur';
 import { PageCentree } from '@/components/page-centree';
 import { SelecteurCentre, VALEUR_TOUS } from '@/components/selecteur-centre';
@@ -69,7 +70,7 @@ export default async function LayoutApplication({ children }: { children: ReactN
       <div className="flex flex-1">
         <BarreLaterale estAdmin={estAdmin} />
         <main className="min-w-0 flex-1 px-4 py-8 md:px-8">
-          <div className="mx-auto max-w-6xl">{children}</div>
+          <ConteneurPage>{children}</ConteneurPage>
         </main>
       </div>
     </div>
