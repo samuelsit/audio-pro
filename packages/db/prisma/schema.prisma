@@ -662,7 +662,7 @@ model MouvementAppareil {
   centreAvantId  String?               @map("centre_avant_id")
   centreApresId  String                @map("centre_apres_id")
   patientId      String?               @map("patient_id")
-  /// Dossier qui a provoqué le mouvement : essai, puis vente à l'étape 11.
+  /// Dossier qui a provoqué le mouvement : essai, puis vente à l'étape 12.
   dossierId      String?               @map("dossier_id")
   /// Chiffré (contexte « mouvement_appareil.motif ») : texte libre. Null pour la réception.
   motif          String?
@@ -877,7 +877,7 @@ model Prescription {
 }
 
 /// Délivrance d'une aide sur une oreille : l'historique du renouvellement (convention art. 22).
-/// Écrite à la facturation (étape 11) et par la reprise Cosium (étape 13).
+/// Écrite à la confirmation de la facture Cosium (étape 12) et par la reprise Cosium (étape 13).
 model Delivrance {
   id             String            @id @default(uuid(7))
   organisationId String            @map("organisation_id")
@@ -1096,7 +1096,7 @@ model EssaiAppareil {
   oreille      Oreille
   poseLe       DateTime     @map("pose_le") @db.Date
   poseParId    String       @map("pose_par_id")
-  /// Nul tant que le lien est actif. Reste nul après l'achat, jusqu'à la vente (étape 11).
+  /// Nul tant que le lien est actif. Reste nul après l'achat, jusqu'à la vente (étape 12).
   retireLe     DateTime?    @map("retire_le") @db.Date
   retireParId  String?      @map("retire_par_id")
   /// Chiffré (contexte « essai_appareil.motif_retrait ») : changement d'appareil uniquement.

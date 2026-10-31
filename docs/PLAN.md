@@ -51,7 +51,7 @@ Une étape est cochée quand ses tests sont verts, le typecheck OK et la CI vert
   - [x] Tests : domaine 100 %, adaptateur, intégration (import, historisation, réimport, recherche, droits, audit, CSV), E2E (modèle, CSV, création à la volée)
   - reporté à l'étape 6 : borne des 20 ans, plafonds C2S, éligibilité du prescripteur, contrôle du prix conseillé d'un modèle de classe I par rapport au prix limite, contrôles comp/incomp
   - reporté à l'étape 8 : branchement de `SelecteurPrescripteur` sur le dossier, RPPS exigé selon l'avancement du dossier
-  - reporté à l'étape 11 : choix du code à facturer (générique ou spécifique), une fois `RJT` confirmé
+  - fait à l'étape 11 : choix du code à facturer (spécifique, sinon générique avec avertissement) ; `RJT` reste à confirmer
 - [ ] **6** – Moteur de règles audio — terminée en local le 2026-10-30 (tests, typecheck, lint verts), à cocher quand la CI est verte
   - [x] `docs/REGLES_AUDIO.md` : chaque règle vérifiée dans docs/ref, écarts et points À VÉRIFIER, décisions validées (ADR-009)
   - [x] Domaine : `trancheAge`, `codePrestation`, `plafondPrixVente`, `baseRemboursement`, `partAMO`, `eligibiliteRenouvellement`, `prescriptionValide`, `etatEssai`, `controleDevis`, `ventilation`, dans `packages/domain/src/audio-rules`
@@ -63,7 +63,7 @@ Une étape est cochée quand ses tests sont verts, le typecheck OK et la CI vert
   - reporté à l'étape 8 : champs `surdicecite` et type d'appareillage par oreille sur le dossier
   - reporté à l'étape 9 : branchement de `controleDevis`, contrôle du prix conseillé d'un modèle de classe I (reporté de l'étape 5), exigence des 3 options parmi 8 de l'offre 100 % santé (non modélisée)
   - fait à l'étape 10 : branchement de `etatEssai`
-  - reporté à l'étape 11 : branchement de `ventilation`, contrôles comp/incomp (reportés de l'étape 5, aucun document ne les définit)
+  - fait à l'étape 11 : branchement de `ventilation` ; contrôles comp/incomp toujours en attente, aucun document ne les définit
 - [ ] **7** – Stock — terminée en local le 2026-10-31 (tests, typecheck, lint, E2E verts), à cocher quand la CI est verte
   - [x] Domaine : machine à états des appareils, normalisation et doublons de numéros de série, droits, saisies, filtres, CSV, dans `packages/domain/src/stock`
   - [x] Modèle : `Appareil`, `MouvementAppareil`, `StockAccessoire`, `MouvementAccessoire` ; unicité par fabricant, clé composite modèle-fabricant, mouvements en ajout seul et motifs chiffrés (contraintes CHECK) ; migration `stock`
@@ -75,7 +75,7 @@ Une étape est cochée quand ses tests sont verts, le typecheck OK et la CI vert
   - [x] Seed : 12 appareils et 3 accessoires fictifs, stock dans chaque centre
   - [x] Tests : domaine 100 % (matrice complète des transitions), intégration (unicité, transfert, réservations et réceptions simultanées, atomicité, droits, audit, CSV, accessoires), E2E (réception, recherche, transfert, réservation, accessoires)
   - reporté à l'étape 8 : clé étrangère et saisie de `dossierId`
-  - fait à l'étape 10 : essai piloté par le dossier ; reporté à l'étape 11 : vente pilotée par le dossier
+  - fait à l'étape 10 : essai piloté par le dossier ; reporté à l'étape 12 : vente pilotée par le dossier (ADR-014)
   - reporté à l'étape 13 : reprise des appareils de Cosium, sans passer par la machine à états
   - à planifier : recherche des détenteurs par modèle ou par lot pour la matériovigilance (art. 21), numéro de lot à décider
 - [ ] **8** – Dossier et prescription — terminée en local le 2026-10-31 (tests, typecheck, lint, E2E verts), à cocher quand la CI est verte
@@ -90,7 +90,7 @@ Une étape est cochée quand ses tests sont verts, le typecheck OK et la CI vert
   - À VÉRIFIER : date de comparaison des 4 ans, exigence du RPPS du prescripteur, effet de la mention de renouvellement (voir `docs/REGLES_AUDIO.md`)
   - reporté à l'étape 9 : passage à DEVIS_EMIS et DEVIS_SIGNE, type par oreille et date du précédent appareillage sur le devis ; retour arrière après un devis refusé, à arbitrer
   - fait à l'étape 10 : saisie de `dossierId` depuis le dossier (reportée de l'étape 7) ; passage à EN_ESSAI fait à l'étape 9 ; nouvel essai, toujours à arbitrer
-  - reporté à l'étape 11 : écriture de `Delivrance`, passage à A_FACTURER, blocage éventuel sans RPPS du prescripteur
+  - fait à l'étape 10 : passage à A_FACTURER ; fait à l'étape 11 : RPPS du prescripteur, qui reste un avertissement ; reporté à l'étape 12 : écriture de `Delivrance` (ADR-014)
   - reporté à l'étape 13 : reprise des délivrances Cosium ; d'ici là, un patient sans ligne ressort éligible
   - reporté à l'étape 14 : liste `/dossiers` du menu
   - à planifier : avertissement si deux dossiers ouverts portent sur la même oreille, service S3 en CI
@@ -119,9 +119,20 @@ Une étape est cochée quand ses tests sont verts, le typecheck OK et la CI vert
   - [x] Seed : un essai fictif à une semaine de son échéance
   - [x] Tests : domaine 100 %, intégration (cycle complet, changement, alertes, refus dont concurrence, abandon, droits, audit, chiffrement, atomicité du justificatif), E2E (parcours complet, PDF réel)
   - À VÉRIFIER : autre modèle en cours d'essai, nombre de prolongations et demande après l'échéance, contenu du compte rendu (voir `docs/REGLES_AUDIO.md`)
-  - reporté à l'étape 11 : `RESERVE` → `VENDU`, fermeture du lien à la vente, retrait du `VENDU` manuel, écriture de `Delivrance`, embouts sur mesure facturés à l'abandon
+  - reporté à l'étape 12 (ADR-014) : `RESERVE` → `VENDU`, fermeture du lien à la vente, retrait du `VENDU` manuel, écriture de `Delivrance`
+  - à arbitrer : embouts sur mesure facturés à l'abandon
   - à arbitrer : nouvelle période d'essai après un échec (un dossier n'a qu'un essai), correction d'un rendez-vous saisi par erreur
-- [ ] **11** – Facture préparée
+- [ ] **11** – Facture préparée — terminée en local le 2026-10-31 (tests, typecheck, lint, E2E verts), à cocher quand la CI est verte
+  - [x] Ni numéro de facture ni encaissement, volontairement : ils restent dans Cosium (ADR-014)
+  - [x] Domaine : `preparerFacture`, `repartirAmc`, `controlerFacture`, saisie de la PEC dans `packages/domain/src/facture` ; `choisirCodeLpp`, `partAMCC2S`, `couvertureAmoAJour` dans `audio-rules`
+  - [x] Modèle : `FacturePreparee` et `PriseEnCharge` ; lignes calculées à la lecture, seuls la date de délivrance, la confirmation AMO et la PEC sont stockés ; migration `facture_preparee`
+  - [x] Service : préparation ouverte à l'achat, évaluation groupée, PEC avec justificatif chiffré, confirmation AMO, date de délivrance, file par centre, tous journalisés
+  - [x] Écrans : file « À facturer » (prêts et bloqués, avec motifs), bloc Facture préparée du dossier, justificatif
+  - [x] Seed : un dossier fictif à facturer, bloqué faute de PEC
+  - [x] Tests : domaine 100 % (ventilation adulte classe I et II, moins de 20 ans, C2S, un cas par contrôle bloquant), intégration (droits, cloisonnement, audit, justificatif, atomicité, file), E2E (de l'achat à la file)
+  - À VÉRIFIER : sens de `RJT`, délai de lecture Vitale, confirmation manuelle, procédure de PEC et répartition, part AMC C2S sur les consommables, logiciels de caisse (voir `docs/REGLES_AUDIO.md`)
+  - reporté à l'étape 12 : gel du contenu exporté, nouveau contrôle à l'export, vente, `Delivrance`, sortie de stock des piles et accessoires
+  - à planifier : saisie de la PEC avant l'achat (la table le permet), codes `7xxxxxx` reliés au catalogue, port `BillingEngine` (étape 17)
 - [ ] **12** – Export Cosium
 - [ ] **13** – Reprise des données Cosium
 - [ ] **14** – Renouvellements et tableau de bord

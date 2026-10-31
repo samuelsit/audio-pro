@@ -438,3 +438,37 @@ L'étape 10 branche `etatEssai`, jusqu'ici inutilisé, et pilote le stock depuis
 - Un rendez-vous saisi par erreur ne se supprime pas et compte dans les 2 rendez-vous.
 - Les embouts sur mesure facturables en cas d'abandon (devis p. 2 § 3) relèvent de la facture.
 - Le dossier de démonstration en essai n'a pas de devis : il montre l'écran et le courrier, pas la signature. Son ordonnance n'a pas de scan.
+
+## ADR-014 – Facture préparée, sans facturer
+
+- **Date** : 2026-10-31
+- **Statut** : acceptée
+
+### Contexte
+
+L'étape 11 branche `ventilation` et `codePrestation` sur le dossier `A_FACTURER`. Pendant le MVP, la FSE, la facture patient et l'encaissement se font dans Cosium : notre logiciel produit un dossier contrôlé, rien de plus. Le devis ne porte pas le code LPP d'une aide, et ses montants sont calculés à une délivrance prévue. La date de facturation marque la délivrance (devis p. 2 § 5), or cette facturation a lieu hors de notre logiciel. L'ADR-013 attendait la vente et l'écriture de `Delivrance` à cette étape.
+
+### Décision
+
+- **Ni numéro de facture ni encaissement, volontairement.** `FacturePreparee` n'a ni numéro, ni mode de règlement, ni montant encaissé. Ces données relèvent des obligations des logiciels de caisse, que seul Cosium assume pendant le MVP. Le texte qui les fixe n'est pas dans docs/ref (À VÉRIFIER). Ajouter un tel champ exige une nouvelle ADR.
+- **Port `BillingEngine`** : non implémenté. Rien n'est facturé avant l'étape 17.
+- **Lignes calculées à la lecture** : une ligne stockée deviendrait fausse après une relecture Vitale ou un changement de droits. `preparerFacture` recalcule tout, le devis signé ne fournissant que les articles, les prix et le taux AMO. Sont stockés : la date de délivrance, la confirmation AMO et la PEC. L'étape 12 figera le contenu exporté. `VENTILATION_INCOHERENTE` est un filet de sécurité : `ventilation` garantit déjà la somme.
+- **« Prêt à exporter » est calculé**, sans colonne ni bouton : aucune erreur = prêt. Un état stocké vieillirait avec les droits et la lecture. L'export relancera les contrôles.
+- **Date de délivrance** : stockée, le jour de l'achat par défaut, entre la signature et aujourd'hui. Base, âge, droits et tarifs s'y lisent (art. 27, R2).
+- **Vente reportée à l'étape 12** (modifie la conséquence de l'ADR-013) : `RESERVE` → `VENDU`, fermeture du lien d'essai, retrait du `VENDU` manuel, écriture de `Delivrance` et sortie de stock des piles et accessoires, au passage à `FACTURE_EXTERNE`, quand Cosium confirme la facture. Écrire une délivrance avant annoncerait à l'historique des 4 ans une facture qui n'existe pas. Choix validé le 2026-10-31.
+- **Code LPP** : voir R21. Un code générique lève un avertissement, pas une erreur, tant que le sens de `RJT` n'est pas confirmé (même principe que l'ADR-009).
+- **Couverture à jour** : lecture de moins de 30 jours avant la délivrance, ou saisie confirmée (R22). La confirmation est portée par la facture, pas par la couverture : elle vaut pour ce dossier.
+- **PEC** : une par dossier, modifiable tant que le dossier est `A_FACTURER`, rattachée à `dossierId` pour pouvoir précéder l'achat plus tard. Pas de chiffrement : ni NIR ni donnée de santé, comme `CouvertureAmc`. Le justificatif passe par `DocumentStoreChiffre`. Le journal note le statut, jamais le montant ni l'accord.
+- **Contrôles ajoutés à l'énoncé** : prix au-dessus du plafond à la délivrance (un patient peut atteindre 20 ans pendant l'essai ou devenir C2S) et tarif LPP indisponible.
+- **Lecture groupée** : `evaluerFactures` charge une page de dossiers en quelques requêtes `in` et sert la fiche comme la file. La file n'écrit pas de READ (ADR-006). Elle est évaluée en entier à chaque affichage, puis paginée : les compteurs Prêts et Bloqués en ont besoin, et un dossier n'y reste pas longtemps.
+- **Droits** : les 3 rôles agissent dans leurs centres, comme l'essai.
+
+### Conséquences
+
+- Sans code `7xxxxxx` relié au modèle, chaque aide lève `CODE_LPP_GENERIQUE`. Si `RJT` signifie un rejet à la facturation, il faudra relier ces codes au catalogue avant l'étape 12, ou faire de cet avertissement une erreur.
+- Un appareil de classe I vendu à un bénéficiaire C2S n'a pas de code de classe II sur sa fiche : il prend le générique, donc l'avertissement.
+- La part AMC se calcule par dossier : une PEC accordée oreille par oreille est saisie en total et répartie au prorata.
+- Le taux AMO reste celui du devis : un changement de régime après la signature ne le met pas à jour. `ECART_AMO_DEVIS` ne couvre que la base.
+- Un patient reste `RESERVE` et absent de `Delivrance` tant que l'étape 12 n'existe pas. Son éligibilité au renouvellement n'en tient pas compte.
+- Une `FacturePreparee` n'existe qu'à partir de cette étape : un dossier déjà `A_FACTURER` avant la migration n'aurait pas de ligne. Aucune base n'en contient.
+- Les embouts sur mesure facturables après un abandon (devis p. 2 § 3) restent sans traitement : la préparation n'existe qu'après un achat.

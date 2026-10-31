@@ -158,7 +158,7 @@ Piles : `PIL`. Accessoires : `APA`.
 
 - L'art. 29 vise la délivrance à un prix inférieur ou égal au maximum. Ameli écrit « quelle que soit la classe » sans condition. Lecture retenue : P2 aussi en cas de refus de l'offre (R6).
 - `SUI` existe aussi : suivi, code LPP 2305927, 0,01 € (ameli p. 3 ; convention art. 20, p. 21). Hors `codePrestation`.
-- Depuis le 07/07/2023, les codes génériques ont la nature `RJT`, et seuls les codes 7xxxxxx portent P1D, P1G, etc. Les tests FR 201 de 2021 facturaient encore les génériques. Le code LPP à facturer reste à confirmer (étape 11, ADR-008).
+- Depuis le 07/07/2023, les codes génériques ont la nature `RJT`, et seuls les codes 7xxxxxx portent P1D, P1G, etc. Les tests FR 201 de 2021 facturaient encore les génériques. Le code LPP à facturer reste à confirmer (R21, ADR-008).
 
 **Autre point** : une prescription est requise pour les six codes, piles et accessoires compris (FR 201v2, table 4 p. 4).
 
@@ -371,38 +371,104 @@ Le reste n'est pas dans les tests : il est calculé. Dans ces cas de tiers payan
 - Le devis cite aussi le médecin traitant, que le dossier ne connaît pas : seul le prescripteur est destinataire.
 - Le courrier ne contient ni NIR ni montant. Il se télécharge pour le MVP, sans preuve de remise.
 
+## R21 – Facture préparée (`preparerFacture`, `choisirCodeLpp`, `partAMCC2S`)
+
+**Statut : Confirmé avec écart.**
+
+**Règle** : une ligne par oreille, plus les piles et accessoires de l'offre retenue. Base, âge et code LPP se lisent à la date de délivrance, pas sur le devis. L'AMO reprend R5 et R13 ; le reste à charge est ce qui reste.
+
+**Source** : convention art. 27, p. 26 (date de délivrance) ; art. 28, p. 26 (facturation, prescription jointe) ; devis p. 2 § 5 ; FR 201v2, tests n° 5 à 10.
+
+**Code LPP** : le devis n'en porte pas pour les aides. On prend le code du modèle dont `NAT_PREST` est le code prestation et dont la base est celle de la tranche. Sinon, le code générique de la grille (8 codes), avec un avertissement : ces codes portent `RJT` (R7).
+
+**C2S** : codes de la classe II quelle que soit la classe de l'aide (art. 29 § 2 ; test n° 5). AMC = min(prix, prix maximal C2S) − AMO, sans PEC. Piles et accessoires : pris en charge à 100 % (ameli p. 2), soit AMC = min(prix, tarif) − AMO, déduit, À VÉRIFIER.
+
+**Écart** : les tests FR 201 de 2021 facturent les codes génériques, que la LPP 908 marque `RJT` depuis le 07/07/2023.
+
+**Aucune numérotation ni encaissement** : voir ADR-014.
+
+## R22 – Contrôles avant export (`controlerFacture`, `couvertureAmoAJour`)
+
+**Statut : Confirmé avec écart.** Une erreur bloque, un avertissement n'empêche rien. L'état se recalcule à chaque lecture.
+
+| Erreur bloquante                                                      | Source                                       |
+| --------------------------------------------------------------------- | -------------------------------------------- |
+| Couverture AMO absente ou à confirmer                                 | Convention art. 27, p. 26 ; délai À VÉRIFIER |
+| Droits non ouverts à la date de délivrance                            | Convention art. 27, p. 26                    |
+| Prescription absente, postérieure au devis, oreille non prescrite     | Devis p. 1 ; convention art. 28, p. 26       |
+| Renouvellement avant 4 ans à la délivrance réelle, sauf forçage ADMIN | Convention art. 22 § 1, p. 22                |
+| Devis non signé ou sans offre retenue                                 | Devis p. 2 § 5                               |
+| Numéro de série manquant                                              | Convention art. 21, p. 21                    |
+| Ventilation incohérente                                               | Contrôle de cohérence (R13)                  |
+| Prix au-dessus du plafond à la délivrance                             | Convention art. 25, p. 24 et art. 29, p. 27  |
+| Tarif LPP indisponible à la date de délivrance                        | Contrôle de cohérence                        |
+| PEC manquante ou en attente, si un tiers payant AMC est attendu       | Choix applicatif, voir R23                   |
+
+**Avertissements** : fin de droits inconnue, prescripteur (R10), RPPS manquant, renouvellement forcé, code LPP générique, article sans tarif, AMO différente du devis signé, PEC refusée, sans justificatif ou supérieure au reste, reste à charge sur une classe I avec contrat responsable et PEC accordée (ameli p. 1).
+
+**Couverture à jour** : `origine = VITALE` et lecture à 30 jours au plus de la délivrance, ou confirmation postérieure à la dernière modification. `origine = SAISIE` écarte une lecture : la fiche a été retouchée après la carte. Le délai de 30 jours et la confirmation manuelle ne sont dans aucun texte (choix du 2026-10-31, À VÉRIFIER).
+
+**Écart** : la date de début des droits n'est pas stockée (ADR-007) : seule leur fin est contrôlée.
+
+**Non contrôlé** : durée de validité de l'ordonnance (R11), contrôles comp/incomp de la LPP (aucun document ne les définit).
+
+## R23 – Prise en charge complémentaire (`pecSaisieSchema`, `repartirAmc`)
+
+**Statut : À VÉRIFIER.** Aucun document de docs/ref ne décrit une PEC.
+
+**Règle retenue** : un tiers payant AMC est attendu, hors C2S, si le patient a une couverture complémentaire ou si le devis annonce une part AMC.
+
+| Statut               | Bloque | Part AMC                                      |
+| -------------------- | ------ | --------------------------------------------- |
+| Aucune PEC, attendue | Oui    | 0                                             |
+| `DEMANDEE`           | Oui    | 0                                             |
+| `ACCORDEE`           | Non    | Montant accordé, réparti                      |
+| `REFUSEE`            | Non    | 0, avertissement                              |
+| `SANS_TIERS_PAYANT`  | Non    | 0, le reste à charge couvre la part AMC (R13) |
+
+**Répartition** : au prorata du reste après AMO, arrondis cumulés, le dernier centime sur la dernière ligne. Un excédent n'est pas affecté et lève un avertissement. Choix applicatif, la saisie ne donnant qu'un montant par dossier.
+
+**Justificatif** : facultatif, avertissement s'il manque sur un accord.
+
+**Cas limite** : C2S gérée par un organisme complémentaire, aucun texte de docs/ref. Traitée comme la C2S gérée par la caisse, sans PEC.
+
 ## Points À VÉRIFIER
 
-| Point                                                    | Règle | Document qui trancherait                      |
-| -------------------------------------------------------- | ----- | --------------------------------------------- |
-| Borne de 20 ans                                          | R1    | Nomenclature LPP                              |
-| Date de référence de l'âge                               | R2    | Nomenclature LPP                              |
-| Prix limite TTC                                          | R3    | Nomenclature LPP                              |
-| Base en cas de cécité                                    | R4    | Nomenclature LPP                              |
-| Taux ALD, AT, maternité, SNCF, Alsace-Moselle            | R5    | Cahier des charges SESAM-Vitale ou AreaFSE    |
-| Arrondi à ,5 centime                                     | R5    | Cahier des charges SESAM-Vitale               |
-| AMC C2S à 20 ans et plus                                 | R6    | Texte C2S                                     |
-| Code LPP à facturer, sens de `RJT`                       | R7    | Dictionnaire LPP ou caisse                    |
-| Jour anniversaire, conditions de R.165-24                | R8    | Nomenclature LPP, code de la sécurité sociale |
-| Date de comparaison du délai avant la délivrance         | R8    | Nomenclature LPP                              |
-| Décompte des jours d'essai, durée sans prolongation      | R9    | Nomenclature LPP                              |
-| Plusieurs prolongations, demande après l'échéance        | R9    | Nomenclature LPP                              |
-| Autre modèle en cours d'essai : les 30 jours repartent ? | R9    | Nomenclature LPP                              |
-| Contenu et délai du compte rendu au prescripteur         | R20   | Nomenclature LPP                              |
-| Qualité du prescripteur                                  | R10   | Nomenclature LPP                              |
-| RPPS du prescripteur exigé, sens du « N° prescripteur »  | R10   | Cahier des charges SESAM-Vitale ou AreaFSE    |
-| Validité de l'ordonnance                                 | R11   | Nomenclature LPP                              |
-| Effet de la mention de renouvellement                    | R11   | Nomenclature LPP                              |
-| Prix inférieur à la base                                 | R13   | Nomenclature LPP ou cahier des charges        |
-| 1 700 €                                                  | R14   | Texte sur les contrats responsables           |
-| Taux de TVA des aides, piles et accessoires              | R18   | Code général des impôts ou comptable          |
-| Sens de « code de regroupement » (P1D… PIL, APA retenus) | R12   | Arrêté du devis normalisé                     |
-| Identifiants d'entreprise obligatoires                   | R12   | Arrêté du devis normalisé                     |
-| Point de départ de la garantie de 4 ans                  | R19   | Nomenclature LPP                              |
-| Mentions « CMU-c », « Dès 2020 », « votre opticien »     | R12   | Version à jour du devis normalisé             |
-| « Date de Naissance », cachée dans le modèle PDF         | R12   | Version à jour du devis normalisé             |
-| Quotas de piles et d'embouts, sens de `QTE_MAX`          | R15   | Nomenclature LPP, dictionnaire LPP            |
-| Durée de l'article L. 332-1 CSS                          | R17   | Code de la sécurité sociale                   |
-| Numéro de lot à conserver                                | R17   | Vigilance ANSM                                |
-| Format des numéros et codes lus à la douchette           | R17   | Étiquettes réelles des fabricants             |
-| Consignation                                             | R17   | Contrats fabricants                           |
+| Point                                                    | Règle   | Document qui trancherait                      |
+| -------------------------------------------------------- | ------- | --------------------------------------------- |
+| Borne de 20 ans                                          | R1      | Nomenclature LPP                              |
+| Date de référence de l'âge                               | R2      | Nomenclature LPP                              |
+| Prix limite TTC                                          | R3      | Nomenclature LPP                              |
+| Base en cas de cécité                                    | R4      | Nomenclature LPP                              |
+| Taux ALD, AT, maternité, SNCF, Alsace-Moselle            | R5      | Cahier des charges SESAM-Vitale ou AreaFSE    |
+| Arrondi à ,5 centime                                     | R5      | Cahier des charges SESAM-Vitale               |
+| AMC C2S à 20 ans et plus                                 | R6      | Texte C2S                                     |
+| Code LPP à facturer, sens de `RJT`                       | R7      | Dictionnaire LPP ou caisse                    |
+| Jour anniversaire, conditions de R.165-24                | R8      | Nomenclature LPP, code de la sécurité sociale |
+| Date de comparaison du délai avant la délivrance         | R8      | Nomenclature LPP                              |
+| Décompte des jours d'essai, durée sans prolongation      | R9      | Nomenclature LPP                              |
+| Plusieurs prolongations, demande après l'échéance        | R9      | Nomenclature LPP                              |
+| Autre modèle en cours d'essai : les 30 jours repartent ? | R9      | Nomenclature LPP                              |
+| Contenu et délai du compte rendu au prescripteur         | R20     | Nomenclature LPP                              |
+| Qualité du prescripteur                                  | R10     | Nomenclature LPP                              |
+| RPPS du prescripteur exigé, sens du « N° prescripteur »  | R10     | Cahier des charges SESAM-Vitale ou AreaFSE    |
+| Validité de l'ordonnance                                 | R11     | Nomenclature LPP                              |
+| Effet de la mention de renouvellement                    | R11     | Nomenclature LPP                              |
+| Prix inférieur à la base                                 | R13     | Nomenclature LPP ou cahier des charges        |
+| 1 700 €                                                  | R14     | Texte sur les contrats responsables           |
+| Taux de TVA des aides, piles et accessoires              | R18     | Code général des impôts ou comptable          |
+| Sens de « code de regroupement » (P1D… PIL, APA retenus) | R12     | Arrêté du devis normalisé                     |
+| Identifiants d'entreprise obligatoires                   | R12     | Arrêté du devis normalisé                     |
+| Point de départ de la garantie de 4 ans                  | R19     | Nomenclature LPP                              |
+| Mentions « CMU-c », « Dès 2020 », « votre opticien »     | R12     | Version à jour du devis normalisé             |
+| « Date de Naissance », cachée dans le modèle PDF         | R12     | Version à jour du devis normalisé             |
+| Quotas de piles et d'embouts, sens de `QTE_MAX`          | R15     | Nomenclature LPP, dictionnaire LPP            |
+| Part AMC C2S sur piles et accessoires                    | R21     | Texte C2S                                     |
+| Délai de la lecture Vitale, confirmation manuelle        | R22     | Convention, cahier des charges SESAM-Vitale   |
+| Procédure de PEC, répartition d'un montant global        | R23     | Conventions des complémentaires               |
+| C2S gérée par un organisme complémentaire                | R23     | Texte C2S                                     |
+| Obligations des logiciels de caisse                      | ADR-014 | Code général des impôts ou comptable          |
+| Durée de l'article L. 332-1 CSS                          | R17     | Code de la sécurité sociale                   |
+| Numéro de lot à conserver                                | R17     | Vigilance ANSM                                |
+| Format des numéros et codes lus à la douchette           | R17     | Étiquettes réelles des fabricants             |
+| Consignation                                             | R17     | Contrats fabricants                           |
