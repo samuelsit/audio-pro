@@ -12,7 +12,7 @@ export default async function PageTableauDeBord() {
   return (
     <div className="grid gap-6">
       <SousNavigation liens={LIENS_PILOTAGE} />
-      <EntetePage titre="Tableau de bord">Indicateurs du réseau et des centres.</EntetePage>
+      <EntetePage titre="Tableau de bord">Indicateurs de vos centres.</EntetePage>
       <EtatVide titre="Écran en préparation">
         Disponible à l’étape 20 du plan de réalisation.
       </EtatVide>

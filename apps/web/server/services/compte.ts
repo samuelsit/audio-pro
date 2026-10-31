@@ -1,7 +1,6 @@
-import { clientPlateforme } from '@ha/db';
 import { ROLE_SUPERADMIN } from '@ha/domain';
 
-import { auteurDepuisActeur, journaliser, withAudit, type EvenementAudit } from '../audit/journal';
+import { withAudit, withAuditPlateforme, type EvenementAudit } from '../audit/journal';
 import type { CompteConnecte } from '../auth/acces';
 
 /** Assez pour écrire sur son propre compte, dans une transaction de l'un ou l'autre rôle. */
@@ -24,10 +23,22 @@ async function surSonCompte(
     await withAudit(acteur, async (tx) => operation(tx), evenement);
     return;
   }
-  await clientPlateforme().$transaction(async (tx) => {
-    await operation(tx);
-    await journaliser(tx, auteurDepuisActeur(acteur), evenement);
-  });
+  await withAuditPlateforme(
+    acteur,
+    (tx) => Promise.resolve(operation(tx)),
+    () => null,
+    () => evenement,
+  );
+}
+
+/** Compte « e-mail et mot de passe » d'un utilisateur (table `account` de Better Auth). */
+export function identifiants(utilisateurId: string, hash: string) {
+  return {
+    accountId: utilisateurId,
+    providerId: 'credential',
+    userId: utilisateurId,
+    password: hash,
+  };
 }
 
 /** Le mot de passe provisoire a été remplacé par l'utilisateur lui-même. */

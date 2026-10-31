@@ -1,3 +1,9 @@
+import {
+  CHAMPS_CHIFFRES,
+  chargerTrousseau,
+  ChiffreurAesGcm,
+  extensionChampsChiffres,
+} from '@ha/adapters';
 import { clientOrganisation } from '@ha/db';
 import { z } from 'zod';
 
@@ -12,10 +18,19 @@ export const enveloppeSchema = z.object({
 });
 export type Enveloppe = z.infer<typeof enveloppeSchema>;
 
+let chiffreur: ChiffreurAesGcm | undefined;
+
+/** Client soumis à la RLS, avec le même chiffrement que l'application. */
+function clientChiffre(organisationId: string) {
+  chiffreur ??= new ChiffreurAesGcm(chargerTrousseau(process.env));
+  return clientOrganisation(organisationId).$extends(
+    extensionChampsChiffres(chiffreur, CHAMPS_CHIFFRES),
+  );
+}
+
 export interface ContexteTravail {
   readonly organisationId: string;
-  /** Client soumis à la RLS, dans le contexte de l'organisation. */
-  readonly client: ReturnType<typeof clientOrganisation>;
+  readonly client: ReturnType<typeof clientChiffre>;
 }
 
 export interface Travail<S extends z.ZodType> {
@@ -36,7 +51,7 @@ export async function executerEnveloppe<S extends z.ZodType>(
 ): Promise<void> {
   const { organisationId, charge } = enveloppeSchema.parse(donnees);
   await travail.executer(
-    { organisationId, client: clientOrganisation(organisationId) },
+    { organisationId, client: clientChiffre(organisationId) },
     travail.charge.parse(charge),
   );
 }

@@ -11,14 +11,15 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@ha/adapters": "workspace:*",
     "@ha/db": "workspace:*",
+    "dotenv": "^17.2.3",
     "pg-boss": "^12.38.0",
+    "tsx": "^4.23.15",
     "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/node": "^24.19.2",
-    "dotenv": "^17.2.3",
-    "tsx": "^4.23.15",
     "vitest": "^5.0.5"
   }
 }

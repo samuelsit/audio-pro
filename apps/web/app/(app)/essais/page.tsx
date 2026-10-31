@@ -59,7 +59,7 @@ export default async function PageEssais({
       <SousNavigation liens={LIENS_DOSSIERS} />
       <EntetePage titre="Essais en cours">
         {perimetre.type === 'tous'
-          ? 'Périodes d’essai de tout le réseau, les plus anciennes d’abord.'
+          ? 'Périodes d’essai de tous vos centres, les plus anciennes d’abord.'
           : 'Périodes d’essai du centre courant, les plus anciennes d’abord.'}
       </EntetePage>
       <TableauPagine

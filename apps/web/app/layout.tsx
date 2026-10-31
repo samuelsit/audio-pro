@@ -12,7 +12,7 @@ const geist = Geist({ subsets: ['latin'], variable: '--font-sans' });
 
 export const metadata: Metadata = {
   title: 'HA-Gestion',
-  description: 'Gestion interne du réseau de centres d’audioprothèse',
+  description: 'Logiciel de gestion pour centres d’audioprothèse',
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

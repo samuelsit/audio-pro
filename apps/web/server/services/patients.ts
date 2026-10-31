@@ -802,7 +802,7 @@ export interface PreparationFusion {
   champs: { champ: ChampFusion; parDefaut: SourceFusion }[];
 }
 
-/** Fusion : ADMIN_CLIENT ou AUDIO, avec accès aux centres des deux fiches, toutes deux non fusionnées. */
+/** Fusion : ADMIN_CLIENT, RESPONSABLE_CENTRE ou AUDIO, avec accès aux centres des deux fiches, toutes deux non fusionnées. */
 async function lireCouple(
   client: Client,
   acteur: UtilisateurConnecte,

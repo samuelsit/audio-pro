@@ -107,7 +107,7 @@ export default async function PageJournal({
       <div className="flex flex-wrap items-start justify-between gap-4">
         <EntetePage titre="Journal d’audit">
           {perimetre.type === 'tous'
-            ? 'Toutes les actions tracées du réseau, les plus récentes d’abord.'
+            ? 'Toutes les actions tracées, les plus récentes d’abord.'
             : 'Actions rattachées au centre courant (les comptes et les connexions apparaissent avec « Tous mes centres »).'}
         </EntetePage>
         {etat.erreurs ? null : (

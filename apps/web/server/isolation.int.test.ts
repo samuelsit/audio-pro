@@ -278,7 +278,7 @@ describe.each(TABLES_ISOLEES)('isolation de %s', (table) => {
           JSON.stringify(source?.ligne),
         ),
       ),
-    ).rejects.toThrow(/row-level security|null value|permission denied/);
+    ).rejects.toThrow(/row-level security|null value|permission denied|hors organisation/);
     expect(await compter(prisma(), table)).toBe(avant);
   });
 });
@@ -304,6 +304,59 @@ describe('garanties propres à certaines tables', () => {
     expect(await sousContexte(idA, (tx) => compter(tx, 'journal_audit', 'id = $1', ligne.id))).toBe(
       0,
     );
+  });
+
+  it('chaque référence entre tables d’organisation est contrôlée par la base', async () => {
+    const references = await prisma().$queryRaw<{ enfant: string; colonne: string }[]>`
+      SELECT DISTINCT e.relname AS enfant, a.attname AS colonne
+      FROM pg_constraint c
+      JOIN pg_class e ON e.oid = c.conrelid
+      CROSS JOIN LATERAL unnest(c.conkey, c.confkey) AS k(enfant_att, parent_att)
+      JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = k.enfant_att
+      JOIN pg_attribute pa ON pa.attrelid = c.confrelid AND pa.attnum = k.parent_att
+      WHERE c.contype = 'f' AND pa.attname = 'id'
+        AND c.confrelid <> 'organisation'::regclass
+        AND EXISTS (SELECT 1 FROM pg_attribute x WHERE x.attrelid = c.conrelid AND x.attname = 'organisation_id')
+        AND EXISTS (SELECT 1 FROM pg_attribute x WHERE x.attrelid = c.confrelid AND x.attname = 'organisation_id')`;
+    const triggers = await prisma().$queryRaw<{ enfant: string; nom: string }[]>`
+      SELECT tgrelid::regclass::text AS enfant, tgname AS nom FROM pg_trigger
+      WHERE tgname LIKE 'zz_meme_organisation_%'`;
+    expect(references.length).toBeGreaterThan(50);
+    expect(triggers.map((t) => `${t.enfant}.${t.nom}`).sort()).toEqual(
+      references.map((r) => `${r.enfant}.zz_meme_organisation_${r.colonne}`).sort(),
+    );
+  });
+
+  it('une table à plusieurs parents refuse un parent d’un autre client', async () => {
+    await expect(
+      base(a.d.acteurs.admin).stockAccessoire.create({
+        data: { accessoireId: a.catalogue.kit, centreId: b.d.centres.a.id, quantite: 1 },
+      }),
+    ).rejects.toMatchObject({ code: 'P2003' });
+  });
+
+  it('un UPDATE ne peut pas rattacher une ligne au parent d’un autre client', async () => {
+    await expect(
+      base(a.d.acteurs.admin).couvertureAmc.updateMany({
+        where: { patientId: a.patientId },
+        data: { patientId: b.patientId },
+      }),
+    ).rejects.toMatchObject({ code: 'P2003' });
+    await expect(
+      base(a.d.acteurs.admin).appareil.update({
+        where: { id: a.appareilId },
+        data: { centreId: b.d.centres.a.id },
+      }),
+    ).rejects.toMatchObject({ code: 'P2003' });
+  });
+
+  it('même le rôle propriétaire ne peut pas croiser deux clients', async () => {
+    await expect(
+      prisma().couvertureAmc.updateMany({
+        where: { patientId: a.patientId },
+        data: { patientId: b.patientId },
+      }),
+    ).rejects.toMatchObject({ code: 'P2003' });
   });
 
   it('un enfant rattaché au parent d’un autre client est refusé par la base', async () => {

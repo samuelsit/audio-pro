@@ -46,7 +46,7 @@ test('crée un client, le suspend : son compte ne se connecte plus', async ({ pa
   const ligne = page.getByRole('row', { name: /Audition E2E SAS/ });
   await expect(ligne).toBeVisible();
   await ligne.getByRole('button', { name: 'Suspendre' }).click();
-  await expect(ligne.getByRole('button', { name: 'Réactiver' })).toBeVisible();
+  await expect(ligne.getByRole('button', { name: 'Réactiver en essai' })).toBeVisible();
 
   const contexte = await browser.newContext({ baseURL: 'http://localhost:3100' });
   const autre = await contexte.newPage();

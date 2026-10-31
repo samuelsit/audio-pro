@@ -66,7 +66,7 @@ export default async function PageAFacturer({
     <div className="grid gap-6">
       <EntetePage titre="À facturer">
         {perimetre.type === 'tous'
-          ? 'Dossiers de tout le périmètre prêts à être facturés.'
+          ? 'Dossiers de tous vos centres prêts à être facturés.'
           : 'Dossiers du centre courant prêts à être facturés.'}
       </EntetePage>
       <nav aria-label="État des dossiers" className="flex flex-wrap gap-2">

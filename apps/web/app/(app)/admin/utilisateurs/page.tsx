@@ -27,7 +27,7 @@ export default async function PageUtilisateurs() {
         action={{ href: '/admin/utilisateurs/nouveau', libelle: 'Nouvel utilisateur' }}
       >
         {perimetre.type === 'tous'
-          ? 'Tous les comptes du réseau.'
+          ? 'Tous les comptes de votre organisation.'
           : 'Comptes rattachés au centre courant (les administrateurs apparaissent avec « Tous mes centres »).'}
       </EntetePage>
       <Table>

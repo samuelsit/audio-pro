@@ -61,7 +61,7 @@ export default async function PagePatients({
         action={{ href: '/patients/nouveau', libelle: 'Nouveau patient' }}
       >
         {perimetre.type === 'tous'
-          ? 'Patients de tous les centres du réseau.'
+          ? 'Patients de tous vos centres.'
           : 'Patients rattachés au centre courant.'}
       </EntetePage>
 

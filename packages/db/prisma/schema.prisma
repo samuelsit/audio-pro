@@ -1389,7 +1389,7 @@ enum ActionAudit {
 }
 
 /// Journal d'audit, en ajout seul : UPDATE et DELETE sont refusés par un trigger (voir la migration).
-/// Aucune clé étrangère : une ligne survit à l'entité ou au compte qu'elle décrit.
+/// Pas de clé étrangère hors organisation : une ligne survit à l'entité ou au compte qu'elle décrit.
 /// Valeurs déjà masquées par le serveur (jamais de NIR ni de donnée de santé en clair).
 model JournalAudit {
   id                 String      @id @default(uuid(7))

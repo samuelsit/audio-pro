@@ -1,6 +1,7 @@
 export { FakeClock } from './clock/fake-clock';
 export { bornesJourneeParis, formaterInstantParis, SystemClock } from './clock/system-clock';
 export { ChiffreurAesGcm } from './crypto/aes-gcm';
+export { CHAMPS_CHIFFRES } from './crypto/champs';
 export {
   ErreurConfigurationChiffrement,
   ErreurDechiffrement,

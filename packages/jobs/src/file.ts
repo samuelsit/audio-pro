@@ -23,19 +23,21 @@ export class FileTravaux {
     await this.boss.stop({ graceful: true });
   }
 
-  /** `stately` : une seule occurrence de chaque `cleIdempotence` en attente à la fois. */
+  /** `stately` : une seule occurrence de chaque clé en attente à la fois. */
   async declarer<S extends z.ZodType>(travail: Travail<S>): Promise<void> {
     await this.boss.createQueue(travail.nom, { policy: 'stately' });
   }
 
-  /** Met un travail en file ; `null` si la même `cleIdempotence` y est déjà. */
+  /** Met un travail en file ; `null` si ce client y a déjà la même `cleIdempotence`. */
   async envoyer<S extends z.ZodType>(
     travail: Travail<S>,
     enveloppe: Enveloppe,
   ): Promise<string | null> {
     const valide = enveloppeSchema.parse(enveloppe);
     travail.charge.parse(valide.charge);
-    return this.boss.send(travail.nom, valide, { singletonKey: valide.cleIdempotence });
+    // La clé est portée par client : deux clients peuvent utiliser la même sans se gêner.
+    const singletonKey = `${valide.organisationId}:${valide.cleIdempotence}`;
+    return this.boss.send(travail.nom, valide, { singletonKey });
   }
 
   async ecouter<S extends z.ZodType>(

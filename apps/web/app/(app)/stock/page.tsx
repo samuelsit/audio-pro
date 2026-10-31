@@ -81,7 +81,7 @@ export default async function PageStock({
       <div className="flex flex-wrap items-start justify-between gap-4">
         <EntetePage titre="Stock">
           {perimetre.type === 'tous'
-            ? 'Aides auditives de tout le réseau, au numéro de série.'
+            ? 'Aides auditives de tous vos centres, au numéro de série.'
             : 'Aides auditives du centre courant, au numéro de série.'}
         </EntetePage>
         <div className="flex flex-wrap gap-2">

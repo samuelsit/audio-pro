@@ -11,6 +11,7 @@ export const COMPTES = {
   assistanteNord: 'sacha.assistante@exemple.test',
   audioNordCentre: 'camille.audio@exemple.test',
   responsable: 'noa.responsable@exemple.test',
+  adminIndependant: 'robin.admin@independant.exemple.test',
   audioIndependant: 'maxime.audio@independant.exemple.test',
   assistantIndependant: 'sam.assistant@independant.exemple.test',
   superadmin: 'console@exemple.test',

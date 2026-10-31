@@ -315,7 +315,7 @@ export async function transfererAppareil(
   );
 }
 
-/** VENDU → EN_STOCK : seule voie de retour d'un appareil vendu, réservée à l'ADMIN_CLIENT, motif obligatoire. */
+/** VENDU → EN_STOCK : seule voie de retour d'un appareil vendu, réservée aux rôles de gestion, motif obligatoire. */
 export async function annulerVente(
   acteur: UtilisateurConnecte,
   appareilId: string,
@@ -666,104 +666,107 @@ function afficherPatient(
 }
 
 /** Fiche et historique complet. Une ligne READ par patient affiché, car la fiche révèle son appareillage. */
+async function lireFicheAppareil(
+  acteur: UtilisateurConnecte,
+  appareilId: string,
+): Promise<FicheAppareil> {
+  const client = base(acteur);
+  const a = await client.appareil.findFirst({
+    where: { id: appareilId, organisationId: acteur.organisationId },
+    include: {
+      centre: { select: { nom: true } },
+      fabricant: { select: { nom: true } },
+      modele: { select: { gamme: true, nom: true } },
+      patient: { select: selectionPatientSuivi },
+    },
+  });
+  if (!a) {
+    throw new AccesRefuseError();
+  }
+  verifierAccesCentre(acteur, a.centreId);
+  const lignes = await client.mouvementAppareil.findMany({
+    where: { appareilId },
+    include: {
+      utilisateur: { select: { prenom: true, nom: true } },
+      centreAvant: { select: { nom: true } },
+      centreApres: { select: { nom: true } },
+      patient: { select: selectionPatientSuivi },
+    },
+    orderBy: [{ horodatage: 'desc' }, { id: 'desc' }],
+  });
+  const mouvements = lignes.map((m): MouvementAffiche => {
+    const affiche = afficherPatient(acteur, m.patient);
+    return {
+      id: m.id,
+      type: m.type,
+      horodatage: m.horodatage,
+      utilisateur: `${m.utilisateur.prenom} ${m.utilisateur.nom}`,
+      statutAvant: m.statutAvant,
+      statutApres: m.statutApres,
+      centreAvant: m.centreAvant?.nom ?? null,
+      centreApres: m.centreApres.nom,
+      ...affiche,
+      dossierId: m.dossierId,
+      motif: affiche.patientMasque ? null : m.motif,
+    };
+  });
+  const etat = { statut: a.statut, patientRattache: a.patientId !== null };
+  const voitPrix = peutVoirPrixAchat(acteur.role);
+  const lienEssai = await client.essaiAppareil.findFirst({
+    where: { appareilId, retireLe: null },
+    select: { essai: { select: { dossierId: true } } },
+  });
+  const fiche: FicheAppareil = {
+    id: a.id,
+    numeroSerie: a.numeroSerie,
+    fabricant: a.fabricant.nom,
+    modeleId: a.modeleId,
+    modele: `${a.modele.gamme} ${a.modele.nom}`,
+    centreId: a.centreId,
+    centre: a.centre.nom,
+    statut: a.statut,
+    ...afficherPatient(acteur, a.patient),
+    dateReception: depuisDate(a.dateReception),
+    referenceBonLivraison: a.referenceBonLivraison,
+    referenceFactureFabricant: a.referenceFactureFabricant,
+    prixAchatCentimes: voitPrix ? a.prixAchatCentimes : null,
+    enConsignation: a.enConsignation,
+    mouvements,
+    transitions: lienEssai
+      ? []
+      : transitionsPossibles(etat).map((statut) => ({
+          statut,
+          patientAChoisir: patientAChoisir(etat, statut),
+        })),
+    dossierEssaiId: lienEssai?.essai.dossierId ?? null,
+    transferable: peutTransferer(a.statut),
+    annulable: verifierAnnulationVente(a.statut) && peutAnnulerVente(acteur.role),
+    corrigeable: lignes.length === 1 && peutCorrigerIdentite(acteur.role),
+    voitPrix,
+  };
+  return fiche;
+}
+
+/**
+ * Lit la fiche puis journalise, sans transaction : Prisma charge ces relations en parallèle, sur d'autres
+ * connexions. Rien n'est renvoyé si le journal échoue.
+ */
 export async function obtenirFicheAppareil(
   acteur: UtilisateurConnecte,
   appareilId: string,
 ): Promise<FicheAppareil> {
-  return withAudit(
-    acteur,
-    async () => {
-      // Lecture sur le client, pas sur la connexion de la transaction : Prisma charge ces relations en
-      // parallèle. Rien n'est renvoyé si le journal échoue.
-      const client = base(acteur);
-      const a = await client.appareil.findFirst({
-        where: { id: appareilId, organisationId: acteur.organisationId },
-        include: {
-          centre: { select: { nom: true } },
-          fabricant: { select: { nom: true } },
-          modele: { select: { gamme: true, nom: true } },
-          patient: { select: selectionPatientSuivi },
-        },
-      });
-      if (!a) {
-        throw new AccesRefuseError();
-      }
-      verifierAccesCentre(acteur, a.centreId);
-      const lignes = await client.mouvementAppareil.findMany({
-        where: { appareilId },
-        include: {
-          utilisateur: { select: { prenom: true, nom: true } },
-          centreAvant: { select: { nom: true } },
-          centreApres: { select: { nom: true } },
-          patient: { select: selectionPatientSuivi },
-        },
-        orderBy: [{ horodatage: 'desc' }, { id: 'desc' }],
-      });
-      const mouvements = lignes.map((m): MouvementAffiche => {
-        const affiche = afficherPatient(acteur, m.patient);
-        return {
-          id: m.id,
-          type: m.type,
-          horodatage: m.horodatage,
-          utilisateur: `${m.utilisateur.prenom} ${m.utilisateur.nom}`,
-          statutAvant: m.statutAvant,
-          statutApres: m.statutApres,
-          centreAvant: m.centreAvant?.nom ?? null,
-          centreApres: m.centreApres.nom,
-          ...affiche,
-          dossierId: m.dossierId,
-          motif: affiche.patientMasque ? null : m.motif,
-        };
-      });
-      const etat = { statut: a.statut, patientRattache: a.patientId !== null };
-      const voitPrix = peutVoirPrixAchat(acteur.role);
-      const lienEssai = await client.essaiAppareil.findFirst({
-        where: { appareilId, retireLe: null },
-        select: { essai: { select: { dossierId: true } } },
-      });
-      const fiche: FicheAppareil = {
-        id: a.id,
-        numeroSerie: a.numeroSerie,
-        fabricant: a.fabricant.nom,
-        modeleId: a.modeleId,
-        modele: `${a.modele.gamme} ${a.modele.nom}`,
-        centreId: a.centreId,
-        centre: a.centre.nom,
-        statut: a.statut,
-        ...afficherPatient(acteur, a.patient),
-        dateReception: depuisDate(a.dateReception),
-        referenceBonLivraison: a.referenceBonLivraison,
-        referenceFactureFabricant: a.referenceFactureFabricant,
-        prixAchatCentimes: voitPrix ? a.prixAchatCentimes : null,
-        enConsignation: a.enConsignation,
-        mouvements,
-        transitions: lienEssai
-          ? []
-          : transitionsPossibles(etat).map((statut) => ({
-              statut,
-              patientAChoisir: patientAChoisir(etat, statut),
-            })),
-        dossierEssaiId: lienEssai?.essai.dossierId ?? null,
-        transferable: peutTransferer(a.statut),
-        annulable: verifierAnnulationVente(a.statut) && peutAnnulerVente(acteur.role),
-        corrigeable: lignes.length === 1 && peutCorrigerIdentite(acteur.role),
-        voitPrix,
-      };
-      return fiche;
-    },
-    (fiche): EvenementAudit[] => {
-      const patients = new Set(
-        [fiche.patient, ...fiche.mouvements.map((m) => m.patient)].flatMap((p) =>
-          p ? [p.id] : [],
-        ),
-      );
-      const lecture = { action: 'READ', entiteType: 'APPAREIL', entiteId: fiche.id } as const;
-      const centreId = fiche.centreId;
-      return patients.size === 0
-        ? [{ ...lecture, centreId }]
-        : [...patients].map((patientId) => ({ ...lecture, centreId, patientId }));
-    },
+  const fiche = await lireFicheAppareil(acteur, appareilId);
+  const patients = new Set(
+    [fiche.patient, ...fiche.mouvements.map((m) => m.patient)].flatMap((p) => (p ? [p.id] : [])),
   );
+  const lecture = { action: 'READ', entiteType: 'APPAREIL', entiteId: fiche.id } as const;
+  const centreId = fiche.centreId;
+  const evenements: EvenementAudit[] =
+    patients.size === 0
+      ? [{ ...lecture, centreId }]
+      : [...patients].map((patientId) => ({ ...lecture, centreId, patientId }));
+  await journaliser(base(acteur), auteurDepuisActeur(acteur), evenements);
+  return fiche;
 }
 
 // --- Liste et export ----------------------------------------------------------------------------
@@ -850,7 +853,7 @@ export async function listerStock(
   };
 }
 
-/** Export CSV journalisé, produit par lots. Aucune identité de patient ; prix réservé à l'ADMIN_CLIENT. */
+/** Export CSV journalisé, produit par lots. Aucune identité de patient ; prix réservé aux rôles de gestion. */
 export async function exporterStock(
   acteur: UtilisateurConnecte,
   perimetre: Perimetre,

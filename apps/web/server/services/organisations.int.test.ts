@@ -173,12 +173,28 @@ describe('suspension', () => {
       }),
     ).toBe(1);
 
-    await reactiverOrganisation(superadmin, d.organisation.id);
+    await reactiverOrganisation(superadmin, d.organisation.id, 'ACTIF');
     expect(await chargerCompteConnecte(utilisateurId)).not.toBeNull();
     const statut = await prisma().organisation.findUniqueOrThrow({
       where: { id: d.organisation.id },
     });
     expect(statut.statut).toBe('ACTIF');
+  });
+
+  it('un client en essai peut le rester à sa réactivation', async () => {
+    await suspendreOrganisation(superadmin, d.organisation.id);
+    await reactiverOrganisation(superadmin, d.organisation.id, 'ESSAI');
+    const { statut } = await prisma().organisation.findUniqueOrThrow({
+      where: { id: d.organisation.id },
+    });
+    expect(statut).toBe('ESSAI');
+  });
+
+  it('refuse de réactiver vers un statut inconnu', async () => {
+    await suspendreOrganisation(superadmin, d.organisation.id);
+    await expect(
+      reactiverOrganisation(superadmin, d.organisation.id, 'SUSPENDU'),
+    ).rejects.toBeInstanceOf(ErreurSaisie);
   });
 
   it('ne journalise pas un changement sans effet', async () => {

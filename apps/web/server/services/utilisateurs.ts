@@ -22,6 +22,7 @@ import {
 } from '../auth/acces';
 import { withAudit } from '../audit/journal';
 import { ErreurSaisie, traduireDoublon, valider } from '../erreurs';
+import { identifiants } from './compte';
 import { filtreParCentre } from '../perimetre';
 
 export interface UtilisateurResume {
@@ -160,9 +161,7 @@ export async function creerUtilisateur(
           },
           select: { id: true },
         });
-        await tx.compte.create({
-          data: { accountId: u.id, providerId: 'credential', userId: u.id, password: hash },
-        });
+        await tx.compte.create({ data: identifiants(u.id, hash) });
         return u;
       },
       (u) => ({

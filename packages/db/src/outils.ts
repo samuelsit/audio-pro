@@ -17,6 +17,18 @@ export function urlDuRole(urlAdmin: string, role: RoleConnexion): string {
   return url.toString();
 }
 
+/** Rôles encore sans droit de connexion : ceux que `configurerRoles` doit initialiser. */
+async function rolesSansConnexion(urlAdmin: string): Promise<boolean> {
+  const admin = creerPrismaClient(urlAdmin);
+  try {
+    const roles = await admin.$queryRaw<{ rolname: string }[]>`
+      SELECT rolname FROM pg_roles WHERE rolname = ANY(${[...ROLES_CONNEXION]}) AND NOT rolcanlogin`;
+    return roles.length > 0;
+  } finally {
+    await admin.$disconnect();
+  }
+}
+
 /** Autorise la connexion des rôles, avec le mot de passe de chacun. Rejouable. */
 export async function configurerRoles(
   urlAdmin: string,
@@ -67,11 +79,14 @@ export async function preparerBaseJetable(url: string): Promise<void> {
     env: { ...process.env, DATABASE_URL_ADMIN: url },
     stdio: 'pipe',
   });
-  await configurerRoles(url, {
-    ha_app: 'ha_app',
-    ha_plateforme: 'ha_plateforme',
-    ha_jobs: 'ha_jobs',
-  });
+  // Les rôles valent pour tout le cluster : on ne touche jamais à des mots de passe déjà posés.
+  if (await rolesSansConnexion(url)) {
+    await configurerRoles(url, {
+      ha_app: 'ha_app',
+      ha_plateforme: 'ha_plateforme',
+      ha_jobs: 'ha_jobs',
+    });
+  }
 }
 
 /** Vide toutes les tables métier et d'authentification. */

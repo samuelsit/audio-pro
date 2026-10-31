@@ -5,13 +5,15 @@ import {
   nomAffiche,
   organisationSaisieSchema,
   ROLE_SUPERADMIN,
+  statutClientSchema,
   type StatutOrganisation,
 } from '@ha/domain';
 import { hashPassword } from 'better-auth/crypto';
 
-import { auteurDepuisActeur, journaliser } from '../audit/journal';
+import { withAuditPlateforme } from '../audit/journal';
 import { AccesRefuseError, type SuperadminConnecte } from '../auth/acces';
 import { ErreurSaisie, traduireDoublon, valider } from '../erreurs';
+import { identifiants } from './compte';
 
 // Console éditeur. Le rôle plateforme ne lit que les clients et leurs comptes, aucune donnée patient.
 
@@ -76,35 +78,33 @@ export async function creerOrganisation(
   }
   const hash = await hashPassword(motDePasse.data);
   try {
-    return await clientPlateforme().$transaction(async (tx) => {
-      const { id } = await tx.organisation.create({ data: organisation, select: { id: true } });
-      const admin = await tx.utilisateur.create({
-        data: {
-          organisationId: id,
-          prenom: adminPrenom,
-          nom: adminNom,
-          name: nomAffiche(adminPrenom, adminNom),
-          email: adminEmail,
-          role: 'ADMIN_CLIENT',
-          doitChangerMotDePasse: true,
-        },
-        select: { id: true },
-      });
-      await tx.compte.create({
-        data: { accountId: admin.id, providerId: 'credential', userId: admin.id, password: hash },
-      });
-      await journaliser(
-        tx,
-        { ...auteurDepuisActeur(acteur), organisationId: id },
-        {
-          action: 'CREATE',
-          entiteType: 'ORGANISATION',
-          entiteId: id,
-          champs: differencesAuditees('ORGANISATION', null, organisation),
-        },
-      );
-      return id;
-    });
+    return await withAuditPlateforme(
+      acteur,
+      async (tx) => {
+        const { id } = await tx.organisation.create({ data: organisation, select: { id: true } });
+        const admin = await tx.utilisateur.create({
+          data: {
+            organisationId: id,
+            prenom: adminPrenom,
+            nom: adminNom,
+            name: nomAffiche(adminPrenom, adminNom),
+            email: adminEmail,
+            role: 'ADMIN_CLIENT',
+            doitChangerMotDePasse: true,
+          },
+          select: { id: true },
+        });
+        await tx.compte.create({ data: identifiants(admin.id, hash) });
+        return id;
+      },
+      (id) => id,
+      (id) => ({
+        action: 'CREATE',
+        entiteType: 'ORGANISATION',
+        entiteId: id,
+        champs: differencesAuditees('ORGANISATION', null, organisation),
+      }),
+    );
   } catch (erreur) {
     traduireDoublon(erreur, MESSAGES_DOUBLON, 'Ce client existe déjà.');
   }
@@ -117,30 +117,33 @@ async function changerStatut(
   apresChangement: (tx: Prisma.TransactionClient) => Promise<unknown>,
 ): Promise<void> {
   verifierSuperadmin(acteur);
-  await clientPlateforme().$transaction(async (tx) => {
-    const avant = await tx.organisation.findUnique({
-      where: { id: organisationId },
-      select: { statut: true },
-    });
-    if (!avant) {
-      throw new AccesRefuseError();
-    }
-    if (avant.statut === statut) {
-      return;
-    }
-    await tx.organisation.update({ where: { id: organisationId }, data: { statut } });
-    await apresChangement(tx);
-    await journaliser(
-      tx,
-      { ...auteurDepuisActeur(acteur), organisationId },
-      {
-        action: 'UPDATE',
-        entiteType: 'ORGANISATION',
-        entiteId: organisationId,
-        champs: differencesAuditees('ORGANISATION', avant, { statut }),
-      },
-    );
-  });
+  await withAuditPlateforme(
+    acteur,
+    async (tx) => {
+      const avant = await tx.organisation.findUnique({
+        where: { id: organisationId },
+        select: { statut: true },
+      });
+      if (!avant) {
+        throw new AccesRefuseError();
+      }
+      if (avant.statut !== statut) {
+        await tx.organisation.update({ where: { id: organisationId }, data: { statut } });
+        await apresChangement(tx);
+      }
+      return avant;
+    },
+    () => organisationId,
+    (avant) =>
+      avant.statut === statut
+        ? null
+        : {
+            action: 'UPDATE',
+            entiteType: 'ORGANISATION',
+            entiteId: organisationId,
+            champs: differencesAuditees('ORGANISATION', avant, { statut }),
+          },
+  );
 }
 
 /** Suspend un client : plus de connexion, et ses sessions ouvertes tombent tout de suite. */
@@ -153,9 +156,16 @@ export async function suspendreOrganisation(
   );
 }
 
+/** Réactive un client, en essai ou actif : son statut d'avant la suspension n'est pas conservé. */
 export async function reactiverOrganisation(
   acteur: SuperadminConnecte,
   organisationId: string,
+  statut: unknown,
 ): Promise<void> {
-  await changerStatut(acteur, organisationId, 'ACTIF', async () => undefined);
+  await changerStatut(
+    acteur,
+    organisationId,
+    valider(statutClientSchema, statut),
+    async () => undefined,
+  );
 }

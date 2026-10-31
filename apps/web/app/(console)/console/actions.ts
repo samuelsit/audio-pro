@@ -54,9 +54,12 @@ export async function suspendreOrganisationAction(organisationId: string): Promi
   await notifier('Client suspendu.');
 }
 
-export async function reactiverOrganisationAction(organisationId: string): Promise<void> {
+export async function reactiverOrganisationAction(
+  organisationId: string,
+  statut: 'ESSAI' | 'ACTIF',
+): Promise<void> {
   const acteur = await requireSuperadmin();
-  await reactiverOrganisation(acteur, organisationId);
+  await reactiverOrganisation(acteur, organisationId, statut);
   revalidatePath(CHEMIN_CONSOLE);
   await notifier('Client réactivé.');
 }

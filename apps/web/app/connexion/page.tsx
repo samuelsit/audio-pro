@@ -13,7 +13,7 @@ export default async function PageConnexion() {
     redirect('/');
   }
   return (
-    <PageCentree titre="Connexion" description="Accès réservé aux équipes du réseau.">
+    <PageCentree titre="Connexion" description="Accès réservé aux équipes des centres.">
       <FormulaireConnexion />
     </PageCentree>
   );

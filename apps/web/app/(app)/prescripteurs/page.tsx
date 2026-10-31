@@ -68,7 +68,7 @@ export default async function PagePrescripteurs({
         titre="Prescripteurs"
         action={{ href: `${CHEMIN}/nouveau`, libelle: 'Nouveau prescripteur' }}
       >
-        Médecins prescripteurs, communs à tout le réseau.
+        Médecins prescripteurs, communs à toute votre organisation.
       </EntetePage>
 
       <section className="grid gap-2 rounded-lg border p-4">

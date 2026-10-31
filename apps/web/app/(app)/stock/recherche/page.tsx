@@ -28,7 +28,7 @@ export default async function PageRechercheSerie({
     <div className="grid gap-6">
       <EntetePage titre="Recherche par numéro de série">{numero}</EntetePage>
       {resultats.length === 0 ? (
-        <EtatVide titre="Aucun appareil">Ce numéro de série n’est pas connu du réseau.</EtatVide>
+        <EtatVide titre="Aucun appareil">Ce numéro de série n’est pas connu.</EtatVide>
       ) : (
         <ul className="grid gap-2">
           {resultats.map((r) => (

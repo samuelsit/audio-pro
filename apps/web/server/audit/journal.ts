@@ -1,4 +1,4 @@
-import type { Prisma } from '@ha/db';
+import { clientPlateforme, type Prisma } from '@ha/db';
 import {
   assainirPourAudit,
   contientNir,
@@ -84,6 +84,28 @@ export async function journaliser(
       ...(e.champs && e.champs.length > 0 ? { champs: json(e.champs) } : {}),
       ...(e.details ? { details: json(e.details) } : {}),
     })),
+  });
+}
+
+/**
+ * `withAudit` pour le rôle plateforme : compte éditeur ou console, sans contexte client.
+ * `cible` : client concerné, qui verra la ligne dans son journal ; `null` si aucun.
+ * `evenement` peut renvoyer `null` : l'opération n'a rien changé, rien à journaliser.
+ */
+export async function withAuditPlateforme<T>(
+  acteur: CompteConnecte,
+  operation: (tx: Prisma.TransactionClient) => Promise<T>,
+  cible: (resultat: T) => string | null,
+  evenement: (resultat: T) => Evenements | null,
+): Promise<T> {
+  return clientPlateforme().$transaction(async (tx) => {
+    const resultat = await operation(tx);
+    const evenements = evenement(resultat);
+    if (evenements !== null) {
+      const auteur = { ...auteurDepuisActeur(acteur), organisationId: cible(resultat) };
+      await journaliser(tx, auteur, evenements);
+    }
+    return resultat;
   });
 }
 

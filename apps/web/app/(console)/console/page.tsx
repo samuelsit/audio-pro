@@ -56,16 +56,26 @@ export default async function PageConsole() {
                 <TableCell>{o.centres}</TableCell>
                 <TableCell>{o.utilisateurs}</TableCell>
                 <TableCell>
-                  <form
-                    action={(suspendu
-                      ? reactiverOrganisationAction
-                      : suspendreOrganisationAction
-                    ).bind(null, o.id)}
-                  >
-                    <Button type="submit" variant="outline" size="sm">
-                      {suspendu ? 'Réactiver' : 'Suspendre'}
-                    </Button>
-                  </form>
+                  {suspendu ? (
+                    <div className="flex flex-wrap gap-2">
+                      <form action={reactiverOrganisationAction.bind(null, o.id, 'ACTIF')}>
+                        <Button type="submit" variant="outline" size="sm">
+                          Réactiver
+                        </Button>
+                      </form>
+                      <form action={reactiverOrganisationAction.bind(null, o.id, 'ESSAI')}>
+                        <Button type="submit" variant="outline" size="sm">
+                          Réactiver en essai
+                        </Button>
+                      </form>
+                    </div>
+                  ) : (
+                    <form action={suspendreOrganisationAction.bind(null, o.id)}>
+                      <Button type="submit" variant="outline" size="sm">
+                        Suspendre
+                      </Button>
+                    </form>
+                  )}
                 </TableCell>
               </TableRow>
             );

@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
+import { chargerTrousseau, ChiffreurAesGcm } from '@ha/adapters';
 import { prisma, viderBaseJetable } from '@ha/db/admin';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
@@ -88,6 +89,42 @@ describe('exécution', () => {
   });
 });
 
+it('lit les champs chiffrés en clair, comme l’application', async () => {
+  const { id: centreId } = await prisma().centre.findFirstOrThrow({
+    where: { organisationId: organisationB },
+  });
+  const chiffreur = new ChiffreurAesGcm(chargerTrousseau(process.env));
+  const { id: patientId } = await prisma().patient.create({
+    data: {
+      organisationId: organisationB,
+      centreId,
+      civilite: 'MME',
+      nomNaissance: 'Essai',
+      prenoms: 'Camille',
+      dateNaissance: new Date('1950-03-15T00:00:00.000Z'),
+      sexe: 'FEMININ',
+      nomNaissanceRecherche: 'ESSAI',
+      prenomsRecherche: 'CAMILLE',
+      notes: chiffreur.chiffrer('Note fictive', 'patient.notes'),
+    },
+  });
+  let lue: string | null | undefined;
+  const travail = definirTravail({
+    nom: 'lecture',
+    charge: z.object({}),
+    async executer({ client }) {
+      const patient = await client.patient.findUniqueOrThrow({ where: { id: patientId } });
+      lue = patient.notes;
+    },
+  });
+  await executerEnveloppe(travail, {
+    organisationId: organisationB,
+    cleIdempotence: 'lecture',
+    charge: {},
+  });
+  expect(lue).toBe('Note fictive');
+});
+
 describe('idempotence', () => {
   it('ne met pas deux fois en file la même clé', async () => {
     const travail = travailComptage(nomUnique('doublon'), new Map());
@@ -102,6 +139,15 @@ describe('idempotence', () => {
     expect(await file.envoyer(travail, { ...enveloppe, cleIdempotence: 'autre-cle' })).toEqual(
       expect.any(String),
     );
+  });
+
+  it('une même clé chez deux clients ne se gêne pas', async () => {
+    const travail = travailComptage(nomUnique('deux-clients'), new Map());
+    await file.declarer(travail);
+    const envoyer = (organisationId: string) =>
+      file.envoyer(travail, { organisationId, cleIdempotence: 'cle', charge: { libelle: 'x' } });
+    expect(await envoyer(organisationA)).toEqual(expect.any(String));
+    expect(await envoyer(organisationB)).toEqual(expect.any(String));
   });
 });
 
