@@ -88,7 +88,7 @@ export const ETATS_FACTURE = ['PRET', 'BLOQUE'] as const;
 export type EtatFacture = (typeof ETATS_FACTURE)[number];
 
 export const LIBELLES_ETATS_FACTURE: Readonly<Record<EtatFacture, string>> = {
-  PRET: 'Prêts à exporter',
+  PRET: 'Prêts à facturer',
   BLOQUE: 'Bloqués',
 };
 

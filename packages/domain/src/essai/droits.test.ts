@@ -4,7 +4,8 @@ import { peutConfirmerAchat } from './droits';
 
 describe('droits sur l’essai', () => {
   it.each([
-    { role: 'ADMIN', attendu: true },
+    { role: 'ADMIN_CLIENT', attendu: true },
+    { role: 'RESPONSABLE_CENTRE', attendu: true },
     { role: 'AUDIO', attendu: true },
     { role: 'ASSISTANT', attendu: false },
   ] as const)('$role', ({ role, attendu }) => {

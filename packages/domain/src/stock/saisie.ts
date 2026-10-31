@@ -73,7 +73,7 @@ export type TransfertSaisie = z.infer<typeof transfertSaisieSchema>;
 export const annulationVenteSaisieSchema = z.object({ motif: motifSchema });
 export type AnnulationVenteSaisie = z.infer<typeof annulationVenteSaisieSchema>;
 
-/** `numeroSerie` et `modeleId` ne sont fournis que par une correction de l'ADMIN. */
+/** `numeroSerie` et `modeleId` ne sont fournis que par une correction de l'ADMIN_CLIENT. */
 export const modificationAppareilSaisieSchema = z.object({
   referenceBonLivraison: referenceSchema('La référence du bon de livraison est obligatoire.'),
   referenceFactureFabricant: referenceFactureSchema,

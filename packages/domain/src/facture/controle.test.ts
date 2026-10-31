@@ -221,7 +221,7 @@ describe('situations qui ne bloquent pas', () => {
     expect(resultat.erreurs).toEqual([]);
   });
 
-  it('un renouvellement forcé par un ADMIN passe en avertissement', () => {
+  it('un renouvellement forcé par un ADMIN_CLIENT passe en avertissement', () => {
     const base = faits().prescription;
     const prescription = {
       ...base,

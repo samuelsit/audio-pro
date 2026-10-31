@@ -71,7 +71,7 @@ export interface TotauxFacture {
   readonly resteACharge: Centimes;
 }
 
-/** Dossier prêt à reporter dans Cosium. Volontairement sans numéro ni encaissement (ADR-014). */
+/** Dossier prêt à facturer. Sans numéro ni encaissement : ils arrivent aux étapes 14 et 15 (ADR-015). */
 export interface FacturePreparee {
   readonly dateDelivrance: string;
   readonly lignes: readonly LigneFacture[];
@@ -186,7 +186,7 @@ function partsAmc(lignes: readonly LigneAvecAmo[], { c2s, montantAccorde }: Entr
 
 /**
  * Lignes de la facture à la date de délivrance : base, AMO et code LPP s'y recalculent, le devis signé ne
- * fournit que les articles et leurs prix. Aucune écriture : le contenu se fige à l'export (ADR-014).
+ * fournit que les articles et leurs prix. Aucune écriture : le contenu se figera à la facture (ADR-015).
  * Source : voir `ventilation`, `baseRemboursement`, `codePrestation`, `choisirCodeLpp`, `partAMCC2S`
  * (R4 à R7, R13) ; convention-audioprothesistes.pdf, art. 27, p. 26 (date de délivrance).
  */

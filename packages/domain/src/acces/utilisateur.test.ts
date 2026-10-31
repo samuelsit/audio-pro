@@ -49,7 +49,11 @@ describe('utilisateurSaisieSchema', () => {
       saisie: { ...base, centreIds: ['A', 'B', 'A'] },
       centreIds: ['A', 'B'],
     },
-    { cas: 'admin sans centre', saisie: { ...base, role: 'ADMIN', centreIds: [] }, centreIds: [] },
+    {
+      cas: 'admin sans centre',
+      saisie: { ...base, role: 'ADMIN_CLIENT', centreIds: [] },
+      centreIds: [],
+    },
   ])('accepte : $cas', ({ saisie, centreIds }) => {
     const resultat = utilisateurSaisieSchema.parse(saisie);
     expect(resultat.prenom).toBe('Claire');

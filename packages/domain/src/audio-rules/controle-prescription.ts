@@ -50,7 +50,7 @@ export function premiereDelivrancePossible(dateDuJour: string): string {
 
 /**
  * Contrôle d'une prescription à son enregistrement, avant tout devis. Les erreurs bloquent, sauf forçage
- * par un ADMIN ; les avertissements sont conservés sur la prescription.
+ * par un ADMIN_CLIENT ; les avertissements sont conservés sur la prescription.
  * Le renouvellement avant 4 ans, simple avertissement dans `controleDevis`, est ici une erreur : le
  * dossier doit s'arrêter avant le devis (décision du 2026-10-31, ADR-011).
  * Le délai s'apprécie à la première délivrance possible, l'âge à la même date (R2).

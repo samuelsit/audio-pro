@@ -5,8 +5,7 @@ export const STATUTS_DOSSIER = [
   'EN_ESSAI',
   'DEVIS_SIGNE',
   'A_FACTURER',
-  'EXPORTE',
-  'FACTURE_EXTERNE',
+  'FACTURE',
   'CLOS',
   'ABANDONNE',
 ] as const;
@@ -19,8 +18,7 @@ export const LIBELLES_STATUTS_DOSSIER: Readonly<Record<StatutDossier, string>> =
   EN_ESSAI: 'En essai',
   DEVIS_SIGNE: 'Devis signé',
   A_FACTURER: 'À facturer',
-  EXPORTE: 'Exporté',
-  FACTURE_EXTERNE: 'Facturé (Cosium)',
+  FACTURE: 'Facturé',
   CLOS: 'Clos',
   ABANDONNE: 'Abandonné',
 };

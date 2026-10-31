@@ -1,10 +1,10 @@
 import { z } from 'zod';
 
-import type { Role } from '../acces/roles';
+import type { RoleCompte } from '../acces/roles';
 import { adeliOptionnelSchema, rppsSchema } from './identifiants';
 
 /** Seul un utilisateur AUDIO peut porter une fiche praticien (audioprothésiste). */
-export function peutEtrePraticien(role: Role): boolean {
+export function peutEtrePraticien(role: RoleCompte): boolean {
   return role === 'AUDIO';
 }
 

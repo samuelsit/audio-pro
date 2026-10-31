@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { centreSaisieSchema } from './centre';
+import { HORAIRES_VIDES } from './horaires';
 
 const base = {
   nom: 'Centre Démo Nord',
@@ -30,6 +31,7 @@ describe('centreSaisieSchema', () => {
       siret: '00000000000000',
       tvaIntracommunautaire: 'FR00000000000',
       telephone: '0300000001',
+      horairesOuverture: HORAIRES_VIDES,
     });
   });
 
@@ -61,6 +63,8 @@ describe('centreSaisieSchema', () => {
     },
     { champ: 'telephone', saisie: undefined, message: 'Le téléphone est obligatoire.' },
     { champ: 'email', saisie: 'nord', message: 'Adresse e-mail invalide.' },
+    { champ: 'siret', saisie: '123', message: 'Le SIRET doit comporter 14 chiffres.' },
+    { champ: 'siret', saisie: undefined, message: 'Le SIRET est obligatoire.' },
   ])('refuse $champ « $saisie »', ({ champ, saisie, message }) => {
     const resultat = centreSaisieSchema.safeParse({ ...base, [champ]: saisie });
     expect(resultat.error?.issues[0]?.path).toEqual([champ]);

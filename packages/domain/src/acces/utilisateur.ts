@@ -26,7 +26,7 @@ export const emailSchema = z
 
 const idsCentresSchema = z.array(z.string().min(1)).transform((ids) => [...new Set(ids)]);
 
-/** Données saisies par l'ADMIN pour créer ou modifier un utilisateur (hors mot de passe). */
+/** Données saisies par l'ADMIN_CLIENT pour créer ou modifier un utilisateur (hors mot de passe). */
 export const utilisateurSaisieSchema = z
   .object({
     prenom: texteObligatoire('Le prénom est obligatoire.', 100),

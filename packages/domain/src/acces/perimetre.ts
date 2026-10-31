@@ -1,4 +1,4 @@
-import type { Role } from './roles';
+import { peutChoisirTousLesCentres, type Role } from './roles';
 
 /**
  * Ce qui détermine les droits d'un utilisateur sur les centres.
@@ -9,11 +9,11 @@ export interface ProfilAcces {
   readonly centreIds: readonly string[];
 }
 
-/** Périmètre de travail courant : un centre, ou tout le réseau (ADMIN seulement). */
+/** Périmètre de travail courant : un centre, ou tous les centres accessibles (« Tous mes centres »). */
 export type Perimetre =
   { readonly type: 'tous' } | { readonly type: 'centre'; readonly centreId: string };
 
-/** Valeur du sélecteur de centre courant pour « Tous les centres ». */
+/** Valeur du sélecteur de centre courant pour « Tous mes centres ». */
 export const CHOIX_TOUS_LES_CENTRES = 'tous';
 
 export class AucunCentreAccessibleError extends Error {
@@ -24,7 +24,7 @@ export class AucunCentreAccessibleError extends Error {
 }
 
 export function peutAccederAuCentre(profil: ProfilAcces, centreId: string): boolean {
-  return profil.role === 'ADMIN' || profil.centreIds.includes(centreId);
+  return profil.role === 'ADMIN_CLIENT' || profil.centreIds.includes(centreId);
 }
 
 /** Centres qu'un profil peut voir ou choisir, dans l'ordre fourni. */
@@ -38,7 +38,7 @@ export function centresAccessibles<C extends { readonly id: string }>(
 /**
  * Résout le choix du sélecteur (cookie, donc non fiable) en un périmètre autorisé.
  * `centresSelectionnables` : ids des centres actifs accessibles au profil.
- * Un choix invalide ou interdit est ignoré : on retombe sur « tous » (ADMIN) ou le premier centre.
+ * Un choix invalide ou interdit est ignoré : on retombe sur « tous » ou sur le premier centre.
  */
 export function resoudrePerimetre(
   profil: ProfilAcces,
@@ -49,7 +49,10 @@ export function resoudrePerimetre(
   if (choix !== undefined && autorises.includes(choix)) {
     return { type: 'centre', centreId: choix };
   }
-  if (profil.role === 'ADMIN') {
+  if (profil.role === 'ADMIN_CLIENT') {
+    return { type: 'tous' };
+  }
+  if (peutChoisirTousLesCentres(profil.role) && autorises.length > 0) {
     return { type: 'tous' };
   }
   const premier = autorises[0];

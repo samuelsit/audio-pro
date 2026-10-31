@@ -11,16 +11,15 @@ import {
   type StatutDossier,
 } from './etats';
 
-/** Statuts atteignables, écrits à la main : tout autre couple des 100 possibles est refusé. */
+/** Statuts atteignables, écrits à la main : tout autre couple des 81 possibles est refusé. */
 const AUTORISEES: Readonly<Record<StatutDossier, readonly StatutDossier[]>> = {
   BROUILLON: ['PRESCRIPTION_OK', 'ABANDONNE'],
   PRESCRIPTION_OK: ['DEVIS_EMIS', 'ABANDONNE'],
   DEVIS_EMIS: ['EN_ESSAI', 'ABANDONNE'],
   EN_ESSAI: ['DEVIS_SIGNE', 'ABANDONNE'],
   DEVIS_SIGNE: ['A_FACTURER', 'EN_ESSAI', 'ABANDONNE'],
-  A_FACTURER: ['EXPORTE'],
-  EXPORTE: ['FACTURE_EXTERNE'],
-  FACTURE_EXTERNE: ['CLOS'],
+  A_FACTURER: ['FACTURE'],
+  FACTURE: ['CLOS'],
   CLOS: [],
   ABANDONNE: [],
 };
@@ -28,8 +27,8 @@ const AUTORISEES: Readonly<Record<StatutDossier, readonly StatutDossier[]>> = {
 const COUPLES = STATUTS_DOSSIER.flatMap((de) => STATUTS_DOSSIER.map((vers) => ({ de, vers })));
 
 describe('transitionDossierAutorisee', () => {
-  it('couvre les 100 couples', () => {
-    expect(COUPLES).toHaveLength(100);
+  it('couvre les 81 couples', () => {
+    expect(COUPLES).toHaveLength(81);
   });
 
   it.each(COUPLES)('$de → $vers', ({ de, vers }) => {
@@ -47,7 +46,7 @@ describe('transitionDossierAutorisee', () => {
   it.each([
     { de: 'DEVIS_EMIS', vers: 'BROUILLON' },
     { de: 'EN_ESSAI', vers: 'DEVIS_EMIS' },
-    { de: 'CLOS', vers: 'FACTURE_EXTERNE' },
+    { de: 'CLOS', vers: 'FACTURE' },
     { de: 'ABANDONNE', vers: 'BROUILLON' },
   ] as const)('refuse le retour arrière $de → $vers', ({ de, vers }) => {
     expect(transitionDossierAutorisee(de, vers)).toBe(false);
@@ -60,7 +59,7 @@ describe('libellés et étapes', () => {
   });
 
   it('ABANDONNE est hors du parcours', () => {
-    expect(ETAPES_DOSSIER).toHaveLength(9);
+    expect(ETAPES_DOSSIER).toHaveLength(8);
     expect(ETAPES_DOSSIER).not.toContain('ABANDONNE');
   });
 });

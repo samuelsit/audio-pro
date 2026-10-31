@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { emailSchema } from '../acces/utilisateur';
 import { retirerEspaces, texteObligatoire, texteOptionnelSchema } from '../commun/texte';
+import { HORAIRES_VIDES, horairesOuvertureSchema } from './horaires';
 
 // Format postal (pas une règle réglementaire) : 5 chiffres.
 export const codePostalSchema = z
@@ -30,6 +31,12 @@ const identifiantAdministratifSchema = texteOptionnelSchema.transform((valeur) =
   valeur === null ? null : retirerEspaces(valeur),
 );
 
+// À VÉRIFIER : la clé de contrôle du SIRET est absente de docs/ref ; seul le format est contrôlé.
+const siretSchema = z
+  .string({ error: 'Le SIRET est obligatoire.' })
+  .transform(retirerEspaces)
+  .pipe(z.string().regex(/^\d{14}$/, 'Le SIRET doit comporter 14 chiffres.'));
+
 export const centreSaisieSchema = z.object({
   nom: texteObligatoire('Le nom du centre est obligatoire.', 100),
   adresseLigne1: texteObligatoire('L’adresse est obligatoire.'),
@@ -39,11 +46,12 @@ export const centreSaisieSchema = z.object({
   finess: identifiantAdministratifSchema,
   numeroFacturationAm: identifiantAdministratifSchema,
   raisonSociale: texteOptionnelSchema,
-  siret: identifiantAdministratifSchema,
+  siret: siretSchema,
   rcs: texteOptionnelSchema,
   tvaIntracommunautaire: identifiantAdministratifSchema,
   email: emailSchema,
   telephone: telephoneSchema,
+  horairesOuverture: horairesOuvertureSchema.default(HORAIRES_VIDES),
   actif: z.boolean(),
 });
 export type CentreSaisie = z.infer<typeof centreSaisieSchema>;

@@ -4,7 +4,8 @@ import { peutAbandonnerDossier, peutForcerPrescription } from './droits';
 
 describe('droits sur le dossier', () => {
   it.each([
-    { role: 'ADMIN', forcer: true, abandonner: true },
+    { role: 'ADMIN_CLIENT', forcer: true, abandonner: true },
+    { role: 'RESPONSABLE_CENTRE', forcer: false, abandonner: true },
     { role: 'AUDIO', forcer: false, abandonner: true },
     { role: 'ASSISTANT', forcer: false, abandonner: false },
   ] as const)('$role', ({ role, forcer, abandonner }) => {

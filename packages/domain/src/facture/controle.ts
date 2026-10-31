@@ -23,7 +23,7 @@ export interface PrescriptionFacture {
   readonly datePrescription: string;
   readonly oreilles: readonly Oreille[];
   readonly prescripteur: PrescripteurAControler & { readonly rpps: string | null };
-  /** Erreurs forcées par un ADMIN à l'enregistrement : elles ne bloquent plus. */
+  /** Erreurs forcées par un ADMIN_CLIENT à l'enregistrement : elles ne bloquent plus. */
   readonly erreursForcees: readonly Constat[];
 }
 
@@ -92,7 +92,7 @@ function controlerCouverture(
 
 /**
  * Prescription jointe à la facturation, et délai de renouvellement à la délivrance réelle : une délivrance
- * reprise après l'enregistrement de la prescription compte (ADR-011). Une erreur forcée par un ADMIN reste
+ * reprise après l'enregistrement de la prescription compte (ADR-011). Une erreur forcée par un ADMIN_CLIENT reste
  * visible, en avertissement.
  * Source : convention-audioprothesistes.pdf, art. 22 § 1, p. 22 et art. 28, p. 26 ;
  * modele-devis-audio.pdf p. 1.
@@ -232,8 +232,8 @@ function controlerPec(
 }
 
 /**
- * Contrôles avant « prêt à exporter ». Les erreurs bloquent, les avertissements n'empêchent rien. L'état se
- * recalcule à chaque lecture, et l'export les relancera (ADR-014).
+ * Contrôles avant « prêt à facturer ». Les erreurs bloquent, les avertissements n'empêchent rien. L'état se
+ * recalcule à chaque lecture, et la validation de la facture les relancera (ADR-015).
  * Sources : voir chaque famille de contrôles.
  */
 export function controlerFacture(

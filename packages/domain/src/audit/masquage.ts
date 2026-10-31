@@ -61,6 +61,7 @@ export const CHAMPS_VISIBLES_AUDIT: Readonly<Record<TypeEntite, readonly string[
     'tvaIntracommunautaire',
     'email',
     'telephone',
+    'horairesOuverture',
     'actif',
   ],
   UTILISATEUR: [

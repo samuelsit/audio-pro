@@ -59,7 +59,8 @@ describe('devisEchu', () => {
 
 describe('droits', () => {
   it.each([
-    { role: 'ADMIN', autorise: true },
+    { role: 'ADMIN_CLIENT', autorise: true },
+    { role: 'RESPONSABLE_CENTRE', autorise: true },
     { role: 'AUDIO', autorise: true },
     { role: 'ASSISTANT', autorise: false },
   ] as const)('$role', ({ role, autorise }) => {
