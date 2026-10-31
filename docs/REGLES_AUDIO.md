@@ -15,6 +15,7 @@ Statuts : **Confirmé** (le texte dit exactement cela), **Confirmé avec écart*
 | `fr201-codes-prestation.pdf`       | Fiche d'évolution réglementaire FR 201v2 et cas de tests     | Application 01/01/2021, CDC 1.40                                                                                                                                                            |
 | `modele-devis-audio.pdf`           | Annexe I, devis normalisé                                    | Fichier de 2019 ; encore rédigé avec « CMU-c » et « Dès 2020 »                                                                                                                              |
 | `lpp/908/`                         | Base LPP                                                     | Version 908, actualisée au 16/10/2026                                                                                                                                                       |
+| `biap-rec-02-2-en.pdf`             | BIAP, Recommandation 02/2, classification audiométrique      | Version anglaise, langue d'origine, publiée le 01/09/2026, acceptée en juillet 2026 ; retire la 02/1 bis (p. 6). Recommandation professionnelle, pas un texte opposable                     |
 
 Les pages citées sont celles du PDF (identiques à la numérotation imprimée pour la convention).
 
@@ -432,6 +433,48 @@ Le reste n'est pas dans les tests : il est calculé. Dans ces cas de tiers payan
 
 **Cas limite** : C2S gérée par un organisme complémentaire, aucun texte de docs/ref. Traitée comme la C2S gérée par la caisse, sans PEC.
 
+## R24 – Perte moyenne et grade audiométrique (`perteMoyenneTonale`, `gradeAudiometrique`)
+
+**Statut : Confirmé** pour les bornes, la formule et le grade global ; **À VÉRIFIER** pour les points listés ci-dessous. La source est une recommandation professionnelle, pas un texte opposable.
+
+| Règle                                                                                                    | Source                         |
+| -------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| Perte moyenne : moyenne des seuils en conduction aérienne à 500, 1000, 2000, 4000 Hz, par oreille        | `biap-rec-02-2-en.pdf` p. 2, 4 |
+| Pas de réponse mesurable : 120 dB HL                                                                     | `biap-rec-02-2-en.pdf` p. 2    |
+| Grades : 0 < 20 ; 1 : 20–<35 ; 2 : 35–<50 ; 3 : 50–<65 ; 4 : 65–<80 ; 5 : 80–<95 ; 6 ≥ 95                | `biap-rec-02-2-en.pdf` p. 3-4  |
+| Unilatérale : moyenne < 20 à la meilleure oreille, perte confirmée à l'autre                             | `biap-rec-02-2-en.pdf` p. 5    |
+| Asymétrique : écart de plus de 15 dB en moyenne ou sur trois fréquences consécutives                     | `biap-rec-02-2-en.pdf` p. 5    |
+| Grade global d'une perte asymétrique : (7 × meilleure oreille + 3 × moins bonne) / 10                    | `biap-rec-02-2-en.pdf` p. 5    |
+| Sans appareil uniquement ; indicateur descriptif, sans effet sur l'éligibilité ou le choix d'un appareil | `biap-rec-02-2-en.pdf` p. 2-3  |
+
+**Décisions** (2026-10-31, ADR-022) :
+
+- Une fréquence manquante rend la moyenne non calculable : on n'estime jamais un seuil.
+- Aucun arrondi avant le classement, le texte n'en prévoit pas. L'affichage est à une décimale.
+- Le grade ne se calcule qu'avec une perte confirmée (grade 1 ou plus) pour dire « unilatérale ».
+- Hors asymétrie, la recommandation ne définit pas de grade global : seuls les grades par oreille s'affichent.
+- Le grade n'alimente aucune règle de `audio-rules`.
+- La 02/1 bis, retirée, n'est pas codée.
+
+**À VÉRIFIER** :
+
+- Intitulés français des grades : le texte lu est en anglais. Retenus : dans les limites de la normale, atteinte légère, modérée, modérée à sévère, sévère, sévère à profonde, profonde à totale.
+- « Trois fréquences consécutives » : la grille n'est pas précisée. Retenu : fréquences mesurées aux deux oreilles, dans l'ordre de la grille de saisie.
+
+## R25 – Saisies audiométriques (`audiogrammeSaisieSchema`)
+
+**Statut : À VÉRIFIER.** Aucun document de docs/ref ne fixe ces contrôles : ils reprennent l'usage courant, comme les symboles de l'audiogramme.
+
+Seuils entiers de −10 à 120 dB HL, par pas de 5 dB, sur la grille 125 à 8 000 Hz. Le seuil d'inconfort reste au-dessus du seuil en conduction aérienne de la même fréquence. Une conduction osseuse moins bonne que l'aérienne de plus de 10 dB avertit sans bloquer. Pourcentages d'intelligibilité de 0 à 100.
+
+Symboles : O et X en conduction aérienne, triangle et carré si masquée, < et > en osseuse, [ et ] si masquée, flèche sans réponse, U pour l'inconfort ; droite en rouge, gauche en bleu.
+
+## R26 – Formulaires cliniques (`MODELES_PAR_DEFAUT`, `calculerScores`)
+
+**Statut : À VÉRIFIER.** Le modèle de devis mentionne l'analyse des antécédents, l'examen des conduits et la mesure de l'audition, de la tolérance aux sons forts et de la compréhension de la parole, sans en fixer le contenu (`modele-devis-audio.pdf` p. 2 § 4).
+
+L'anamnèse et le questionnaire livrés sont des propositions, à relire par un audioprothésiste. Aucun questionnaire validé (COSI, APHAB, HHIE, IOI-HA) n'est livré : ni leur texte, ni leurs droits d'usage, ni leur cotation ne figurent dans docs/ref.
+
 ## Points À VÉRIFIER
 
 | Point                                                    | Règle   | Document qui trancherait                      |
@@ -472,3 +515,8 @@ Le reste n'est pas dans les tests : il est calculé. Dans ces cas de tiers payan
 | Numéro de lot à conserver                                | R17     | Vigilance ANSM                                |
 | Format des numéros et codes lus à la douchette           | R17     | Étiquettes réelles des fabricants             |
 | Consignation                                             | R17     | Contrats fabricants                           |
+| Intitulés français des grades BIAP                       | R24     | Version française de la Rec 02/2              |
+| Grille des trois fréquences consécutives                 | R24     | BIAP, commission TC 02                        |
+| Pas de saisie et symboles de l'audiogramme               | R25     | Norme d'audiométrie, ISO 8253-1               |
+| Contenu de l'anamnèse par défaut                         | R26     | Audioprothésiste référent                     |
+| Questionnaires validés, droits d'usage et cotation       | R26     | Auteurs ou éditeurs de chaque questionnaire   |
