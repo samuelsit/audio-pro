@@ -28,16 +28,24 @@ export class EmpreinteHmac {
   }
 }
 
-/** Lit `EMPREINTE_CLE` (base64, 32 octets) ; le message d'erreur ne cite jamais la clé. */
-export function chargerCleEmpreinte(env: Readonly<Record<string, string | undefined>>): Buffer {
-  const valeur = env.EMPREINTE_CLE?.trim();
+/** Lit une clé de 32 octets en base64 ; le message d'erreur ne cite jamais la clé. */
+export function chargerCle(
+  env: Readonly<Record<string, string | undefined>>,
+  variable: string,
+): Buffer {
+  const valeur = env[variable]?.trim();
   if (!valeur) {
-    throw new ErreurConfigurationChiffrement('EMPREINTE_CLE n’est pas défini (voir .env.example).');
+    throw new ErreurConfigurationChiffrement(`${variable} n’est pas défini (voir .env.example).`);
   }
   if (!CLE_BASE64.test(valeur)) {
     throw new ErreurConfigurationChiffrement(
-      'EMPREINTE_CLE invalide : format attendu une clé de 32 octets en base64.',
+      `${variable} invalide : format attendu une clé de 32 octets en base64.`,
     );
   }
   return Buffer.from(valeur, 'base64');
+}
+
+/** Lit `EMPREINTE_CLE` (base64, 32 octets). */
+export function chargerCleEmpreinte(env: Readonly<Record<string, string | undefined>>): Buffer {
+  return chargerCle(env, 'EMPREINTE_CLE');
 }

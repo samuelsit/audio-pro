@@ -16,4 +16,6 @@ export const CHAMPS_CHIFFRES: ConfigurationChampsChiffres = {
   EssaiRdv: { compteRendu: 'essai_rdv.compte_rendu' },
   ProlongationEssai: { motif: 'prolongation_essai.motif' },
   RendezVous: { notes: 'rendez_vous.notes' },
+  ReservationEnLigne: { motif: 'reservation_en_ligne.motif' },
+  Notification: { destinataire: 'notification.destinataire' },
 };

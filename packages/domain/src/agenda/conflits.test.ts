@@ -72,6 +72,57 @@ describe('detecterConflits', () => {
       attendu: ['PRATICIEN_PRIS', 'CABINE_PRISE', 'HORS_DISPONIBILITES'],
     },
     {
+      cas: 'praticien tenu par un verrou en ligne',
+      candidat: {},
+      contexte: {
+        occupations: [
+          { praticienId: 'p1', cabineId: 'k2', debut: t('10:00'), fin: t('10:30'), verrou: true },
+        ],
+      },
+      attendu: ['VERROU_EN_LIGNE'],
+    },
+    {
+      cas: 'cabine tenue par un verrou en ligne',
+      candidat: {},
+      contexte: {
+        occupations: [
+          { praticienId: 'p2', cabineId: 'k1', debut: t('10:00'), fin: t('10:30'), verrou: true },
+        ],
+      },
+      attendu: ['VERROU_EN_LIGNE'],
+    },
+    {
+      cas: 'verrou sur d’autres ressources',
+      candidat: {},
+      contexte: {
+        occupations: [
+          { praticienId: 'p2', cabineId: 'k2', debut: t('10:00'), fin: t('10:30'), verrou: true },
+        ],
+      },
+      attendu: [],
+    },
+    {
+      cas: 'verrou sans ressource du candidat',
+      candidat: { praticienId: null, cabineId: null },
+      contexte: {
+        occupations: [
+          { praticienId: null, cabineId: null, debut: t('10:00'), fin: t('10:30'), verrou: true },
+        ],
+      },
+      attendu: [],
+    },
+    {
+      cas: 'rendez-vous et verrou sur le même créneau',
+      candidat: {},
+      contexte: {
+        occupations: [
+          { praticienId: 'p1', cabineId: 'k2', debut: t('10:00'), fin: t('10:30') },
+          { praticienId: 'p2', cabineId: 'k1', debut: t('10:00'), fin: t('10:30'), verrou: true },
+        ],
+      },
+      attendu: ['PRATICIEN_PRIS', 'VERROU_EN_LIGNE'],
+    },
+    {
       cas: 'praticien absent de ce centre',
       candidat: {},
       contexte: { horairesPraticien: null },

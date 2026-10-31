@@ -14,6 +14,8 @@ const MS_PAR_MINUTE = 60_000;
 export interface Occupation extends Intervalle {
   readonly praticienId: string | null;
   readonly cabineId: string | null;
+  /** Créneau tenu par un patient en train de réserver en ligne, pas encore un rendez-vous. */
+  readonly verrou?: boolean;
 }
 
 export interface PraticienCandidat {

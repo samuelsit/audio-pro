@@ -1,3 +1,5 @@
+export { AltchaCaptcha } from './captcha/altcha-captcha';
+export { FakeCaptcha, REPONSE_CAPTCHA_SIMULEE } from './captcha/fake-captcha';
 export { FakeClock } from './clock/fake-clock';
 export { bornesJourneeParis, formaterInstantParis, SystemClock } from './clock/system-clock';
 export { ChiffreurAesGcm } from './crypto/aes-gcm';
@@ -14,8 +16,10 @@ export {
   type ConfigurationChampsChiffres,
 } from './crypto/prisma';
 export { chargerCleEmpreinte, EmpreinteHmac } from './crypto/empreinte';
+export { chargerCleLienRdv, SignatureLienRdv, type CibleLienRdv } from './crypto/lien-rdv';
 export { chargerTrousseau, type Trousseau } from './crypto/trousseau';
 export { ErreurDbf, lireDbf, type ChampDbf, type TableDbf } from './lpp/lecteur-dbf';
+export { FakeNotifier, type MessageSimule } from './notifier/fake-notifier';
 export { ChromiumPdfRenderer } from './pdf/chromium-pdf-renderer';
 export { FakePdfRenderer } from './pdf/fake-pdf-renderer';
 export { DocumentStoreChiffre } from './storage/document-store-chiffre';
