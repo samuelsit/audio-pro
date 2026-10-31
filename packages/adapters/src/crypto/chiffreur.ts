@@ -7,6 +7,12 @@ export interface Chiffreur {
   dechiffrer(enveloppe: string, contexte: string): string;
 }
 
+/** Même garantie pour un document binaire : le contexte désigne l'objet stocké. */
+export interface ChiffreurOctets {
+  chiffrerOctets(clair: Uint8Array, contexte: string): Uint8Array;
+  dechiffrerOctets(enveloppe: Uint8Array, contexte: string): Uint8Array;
+}
+
 /** Message volontairement générique : ni la valeur ni la clé n'y figurent. */
 export class ErreurDechiffrement extends Error {
   constructor(motif = 'enveloppe invalide ou altérée') {

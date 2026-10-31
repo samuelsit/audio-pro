@@ -1,6 +1,6 @@
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 
-import { ErreurDechiffrement, type Chiffreur } from './chiffreur';
+import { ErreurDechiffrement, type Chiffreur, type ChiffreurOctets } from './chiffreur';
 import type { Trousseau } from './trousseau';
 
 const VERSION = 'v1';
@@ -48,12 +48,32 @@ function lireEnveloppe(enveloppe: string): EnveloppeLue {
   };
 }
 
+/** Enveloppe binaire : `v1.<idCle>.` en ASCII, puis IV, tag et chiffré. */
+function lireEnveloppeOctets(enveloppe: Uint8Array): EnveloppeLue {
+  const octets = Buffer.from(enveloppe.buffer, enveloppe.byteOffset, enveloppe.byteLength);
+  const finVersion = octets.indexOf('.');
+  const finCle = octets.indexOf('.', finVersion + 1);
+  const debutChiffre = finCle + 1 + OCTETS_IV + OCTETS_TAG;
+  if (finVersion === -1 || finCle === -1 || octets.length < debutChiffre) {
+    throw new ErreurDechiffrement('format d’enveloppe inconnu');
+  }
+  if (octets.toString('latin1', 0, finVersion) !== VERSION) {
+    throw new ErreurDechiffrement('format d’enveloppe inconnu');
+  }
+  return {
+    idCle: octets.toString('utf8', finVersion + 1, finCle),
+    iv: octets.subarray(finCle + 1, finCle + 1 + OCTETS_IV),
+    tag: octets.subarray(finCle + 1 + OCTETS_IV, debutChiffre),
+    chiffre: octets.subarray(debutChiffre),
+  };
+}
+
 /**
  * AES-256-GCM, IV aléatoire de 96 bits. Enveloppe : `v1.<idCle>.<iv>.<chiffré + tag>` (base64url).
  * L'identifiant de clé stocké dans l'enveloppe permet la rotation : les anciennes clés restent
  * dans le trousseau pour déchiffrer, la clé active chiffre.
  */
-export class ChiffreurAesGcm implements Chiffreur {
+export class ChiffreurAesGcm implements Chiffreur, ChiffreurOctets {
   constructor(private readonly trousseau: Trousseau) {}
 
   chiffrer(clair: string, contexte: string): string {
@@ -80,6 +100,36 @@ export class ChiffreurAesGcm implements Chiffreur {
     dechiffreur.setAuthTag(tag);
     try {
       return Buffer.concat([dechiffreur.update(chiffre), dechiffreur.final()]).toString('utf8');
+    } catch {
+      throw new ErreurDechiffrement();
+    }
+  }
+
+  chiffrerOctets(clair: Uint8Array, contexte: string): Uint8Array {
+    const idCle = this.trousseau.idActif;
+    const iv = randomBytes(OCTETS_IV);
+    const chiffreur = createCipheriv(ALGORITHME, this.cle(idCle), iv, {
+      authTagLength: OCTETS_TAG,
+    });
+    chiffreur.setAAD(donneesAuthentifiees(idCle, contexte));
+    const chiffre = Buffer.concat([chiffreur.update(clair), chiffreur.final()]);
+    return Buffer.concat([
+      Buffer.from(`${VERSION}.${idCle}.`, 'utf8'),
+      iv,
+      chiffreur.getAuthTag(),
+      chiffre,
+    ]);
+  }
+
+  dechiffrerOctets(enveloppe: Uint8Array, contexte: string): Uint8Array {
+    const { idCle, iv, chiffre, tag } = lireEnveloppeOctets(enveloppe);
+    const dechiffreur = createDecipheriv(ALGORITHME, this.cle(idCle), iv, {
+      authTagLength: OCTETS_TAG,
+    });
+    dechiffreur.setAAD(donneesAuthentifiees(idCle, contexte));
+    dechiffreur.setAuthTag(tag);
+    try {
+      return Buffer.concat([dechiffreur.update(chiffre), dechiffreur.final()]);
     } catch {
       throw new ErreurDechiffrement();
     }

@@ -4,6 +4,7 @@ Chiffrement des champs sensibles (NIR, données de santé) avant leur écriture 
 
 - `aes-gcm.ts` : `ChiffreurAesGcm`, AES-256-GCM, IV aléatoire de 96 bits. Enveloppe stockée en texte :
   `v1.<idCle>.<iv>.<chiffré + tag>` (base64url). Le contexte (ex. `patient.nir`) est authentifié avec la valeur.
+- `chiffrerOctets` / `dechiffrerOctets` : mêmes clés pour un document binaire, enveloppe `v1.<idCle>.` puis IV, tag et chiffré (voir `storage/`).
 - `trousseau.ts` : clés lues dans l'environnement.
   - `CHIFFREMENT_CLES="k2026a:<base64 32 octets>,k2026b:<…>"` (générer une clé : `openssl rand -base64 32`) ;
   - `CHIFFREMENT_CLE_ACTIVE="k2026b"` : la clé qui chiffre les nouvelles valeurs.

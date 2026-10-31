@@ -5,6 +5,7 @@ export {
   ErreurConfigurationChiffrement,
   ErreurDechiffrement,
   type Chiffreur,
+  type ChiffreurOctets,
 } from './crypto/chiffreur';
 export {
   ErreurChampChiffre,
@@ -14,6 +15,13 @@ export {
 export { chargerCleEmpreinte, EmpreinteHmac } from './crypto/empreinte';
 export { chargerTrousseau, type Trousseau } from './crypto/trousseau';
 export { ErreurDbf, lireDbf, type ChampDbf, type TableDbf } from './lpp/lecteur-dbf';
+export { DocumentStoreChiffre } from './storage/document-store-chiffre';
+export { FakeDocumentStore } from './storage/fake-document-store';
+export {
+  chargerConfigurationS3,
+  S3DocumentStore,
+  type ConfigurationS3,
+} from './storage/s3-document-store';
 export {
   cartesSimulees,
   decoderSimulation,

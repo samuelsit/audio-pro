@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "3.1160.0",
     "@ha/domain": "workspace:*",
     "zod": "^4.6.7"
   },

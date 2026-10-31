@@ -143,3 +143,60 @@ describe('rotation des clés', () => {
     expect(sansAncienne.dechiffrer(nouvelle, 'patient.nir')).toBe(NIR_FICTIF);
   });
 });
+
+describe('ChiffreurAesGcm : documents binaires', () => {
+  const SCAN = Uint8Array.from([0x25, 0x50, 0x44, 0x46, 0x2d, 0x00, 0xff, 0x2e]);
+  const CONTEXTE = 'document.prescriptions/a';
+
+  it.each([
+    { cas: 'document', clair: SCAN },
+    { cas: 'vide', clair: new Uint8Array(0) },
+    { cas: 'gros', clair: randomBytes(1024 * 1024) },
+  ])('aller-retour : $cas', ({ cas: _, clair }) => {
+    const enveloppe = aSeul.chiffrerOctets(clair, CONTEXTE);
+    expect(Buffer.from(aSeul.dechiffrerOctets(enveloppe, CONTEXTE))).toEqual(Buffer.from(clair));
+  });
+
+  it('accepte une vue partielle d’un tampon', () => {
+    const enveloppe = aSeul.chiffrerOctets(SCAN, CONTEXTE);
+    const tampon = new Uint8Array(enveloppe.length + 8);
+    tampon.set(enveloppe, 8);
+    const dechiffre = aSeul.dechiffrerOctets(tampon.subarray(8), CONTEXTE);
+    expect(Buffer.from(dechiffre)).toEqual(Buffer.from(SCAN));
+  });
+
+  it('ne laisse pas le contenu lisible', () => {
+    const clair = Buffer.from('ORDONNANCE FICTIVE', 'utf8');
+    expect(Buffer.from(aSeul.chiffrerOctets(clair, CONTEXTE)).includes(clair)).toBe(false);
+  });
+
+  it('refuse un autre contexte', () => {
+    const enveloppe = aSeul.chiffrerOctets(SCAN, CONTEXTE);
+    expect(() => aSeul.dechiffrerOctets(enveloppe, 'document.prescriptions/b')).toThrow(
+      ErreurDechiffrement,
+    );
+  });
+
+  it('refuse une enveloppe altérée', () => {
+    const enveloppe = Uint8Array.from(aSeul.chiffrerOctets(SCAN, CONTEXTE));
+    enveloppe[enveloppe.length - 1] = (enveloppe[enveloppe.length - 1] ?? 0) ^ 1;
+    expect(() => aSeul.dechiffrerOctets(enveloppe, CONTEXTE)).toThrow(ErreurDechiffrement);
+  });
+
+  it.each([
+    { cas: 'sans séparateur', enveloppe: Buffer.from('xxxxxxxxxxxxxxxx') },
+    { cas: 'sans clé', enveloppe: Buffer.from('v1.xxxxxxxxxxxxx') },
+    { cas: 'trop courte', enveloppe: Buffer.from('v1.a.xxxx') },
+    { cas: 'autre version', enveloppe: Buffer.from(`v9.a.${'x'.repeat(40)}`) },
+  ])('refuse un format inconnu : $cas', ({ enveloppe }) => {
+    expect(() => aSeul.dechiffrerOctets(enveloppe, CONTEXTE)).toThrow(ErreurDechiffrement);
+  });
+
+  it('une ancienne clé reste lisible après rotation', () => {
+    const enveloppe = aSeul.chiffrerOctets(SCAN, CONTEXTE);
+    const apresRotation = chiffreur(`a:${CLE_A},b:${CLE_B}`, 'b');
+    expect(Buffer.from(apresRotation.dechiffrerOctets(enveloppe, CONTEXTE))).toEqual(
+      Buffer.from(SCAN),
+    );
+  });
+});
