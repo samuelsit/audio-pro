@@ -140,4 +140,41 @@ test('un essai va de la pose à l’achat, avec une prolongation et un changemen
 
   await page.goto('/essais');
   await expect(page.getByRole('row').filter({ hasText: 'Mercier Sylvie' })).toHaveCount(0);
+
+  // File « À facturer » : le dossier du seed et celui-ci sont bloqués, avec leur motif.
+  await page.goto('/a-facturer?etat=BLOQUE');
+  await expect(page.getByRole('heading', { name: 'À facturer' })).toBeVisible();
+  const motif = 'Renseigner la prise en charge complémentaire.';
+  await expect(page.getByRole('row').filter({ hasText: 'Durand Claire' })).toContainText(motif);
+  const bloque = page.getByRole('row').filter({ hasText: 'Mercier Sylvie' });
+  await expect(bloque).toContainText(motif);
+  await bloque.getByRole('link', { name: 'Mercier Sylvie' }).click();
+  await expect(page).toHaveURL(dossier);
+  await page.waitForLoadState('networkidle');
+
+  // Lignes de la préparation, sans numéro de facture.
+  await expect(page.getByText('P1D', { exact: true })).toBeVisible();
+  await expect(page.getByRole('cell', { name: '2351057' })).toBeVisible();
+  await expect(page.getByRole('cell', { name: 'E2E-ESSAI-2' })).toBeVisible();
+
+  // Couverture confirmée, puis prise en charge accordée avec son justificatif : le dossier est prêt.
+  await page.getByRole('button', { name: 'Confirmer la couverture saisie' }).click();
+  await expect(page.getByText(/Couverture AMO confirmée le/)).toBeVisible();
+  await volet(page, 'Saisir la prise en charge').click();
+  await page.getByLabel('Statut de la prise en charge').selectOption({ label: 'Accordée' });
+  await page.getByLabel('Organisme').fill('Mutuelle fictive');
+  await page.getByLabel('Plateforme').fill('Plateforme fictive');
+  await page.getByLabel('Numéro d’accord').fill('ACC-E2E-1');
+  await page.getByLabel('Montant accordé (€)').fill('710,00');
+  await page.getByLabel('Date', { exact: true }).fill(new Date().toISOString().slice(0, 10));
+  await page.getByLabel(/^Justificatif/).setInputFiles(PDF_FICTIF);
+  await page.getByRole('button', { name: 'Enregistrer la prise en charge' }).click();
+  await expect(page.getByText('Prêt à exporter')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Ouvrir le justificatif' })).toBeVisible();
+
+  await page.goto('/a-facturer');
+  await expect(page.getByRole('row').filter({ hasText: 'Mercier Sylvie' })).toBeVisible();
+  await page.getByRole('link', { name: /^Bloqués/ }).click();
+  await expect(page.getByRole('row').filter({ hasText: 'Durand Claire' })).toBeVisible();
+  await expect(page.getByRole('row').filter({ hasText: 'Mercier Sylvie' })).toHaveCount(0);
 });
