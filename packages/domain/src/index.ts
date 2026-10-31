@@ -7,6 +7,7 @@ export * from './commun/csv';
 export * from './commun/date';
 export * from './commun/pagination';
 export * from './commun/texte';
+export * from './dossier';
 export * from './lpp';
 export * from './money';
 export * from './patient';

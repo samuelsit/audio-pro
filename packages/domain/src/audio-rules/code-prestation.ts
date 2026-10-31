@@ -3,6 +3,11 @@ import type { ClasseLpp, NatureAccessoire } from '../catalogue';
 export const OREILLES = ['GAUCHE', 'DROITE'] as const;
 export type Oreille = (typeof OREILLES)[number];
 
+export const LIBELLES_OREILLES: Readonly<Record<Oreille, string>> = {
+  GAUCHE: 'Oreille gauche',
+  DROITE: 'Oreille droite',
+};
+
 export const CODES_PRESTATION = ['P1G', 'P1D', 'P2G', 'P2D', 'PIL', 'APA'] as const;
 export type CodePrestation = (typeof CODES_PRESTATION)[number];
 

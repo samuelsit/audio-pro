@@ -7,6 +7,7 @@ export const CODES_CONTROLE = [
   'PRIX_SUPERIEUR_PLAFOND_C2S',
   'PRESCRIPTION_ABSENTE',
   'PRESCRIPTION_POSTERIEURE_AU_DEVIS',
+  'OREILLE_NON_PRESCRITE',
   'VALIDITE_DEVIS_INSUFFISANTE',
   'BOBINE_T_NON_PRESENTEE',
   'FICHE_TECHNIQUE_MANQUANTE',
@@ -15,6 +16,7 @@ export const CODES_CONTROLE = [
   'PRESCRIPTEUR_NON_CONFORME',
   'FORMATION_OTOLOGIE_INCONNUE',
   'SPECIALITE_A_CONTROLER',
+  'RPPS_PRESCRIPTEUR_MANQUANT',
   'PLAFOND_CONTRAT_RESPONSABLE_DEPASSE',
   'DEPASSEMENT_C2S_A_MENTIONNER',
 ] as const;
@@ -28,6 +30,7 @@ export const LIBELLES_CONTROLES: Readonly<Record<CodeControle, string>> = {
     'Le prix dépasse le prix maximal applicable au bénéficiaire de la C2S.',
   PRESCRIPTION_ABSENTE: 'La prescription médicale préalable est obligatoire.',
   PRESCRIPTION_POSTERIEURE_AU_DEVIS: 'La prescription doit être antérieure au devis.',
+  OREILLE_NON_PRESCRITE: 'La prescription ne couvre pas cette oreille du dossier.',
   VALIDITE_DEVIS_INSUFFISANTE: 'Le devis doit rester valable au moins 2 mois.',
   BOBINE_T_NON_PRESENTEE: 'La présentation de la bobine T n’est pas réalisée.',
   FICHE_TECHNIQUE_MANQUANTE: 'La fiche technique doit être jointe au devis.',
@@ -38,6 +41,7 @@ export const LIBELLES_CONTROLES: Readonly<Record<CodeControle, string>> = {
   PRESCRIPTEUR_NON_CONFORME: 'Le prescripteur ne semble pas habilité pour ce patient (à vérifier).',
   FORMATION_OTOLOGIE_INCONNUE: 'Préciser la formation en otologie du médecin généraliste.',
   SPECIALITE_A_CONTROLER: 'Vérifier que le prescripteur est bien médecin.',
+  RPPS_PRESCRIPTEUR_MANQUANT: 'Compléter le numéro RPPS du prescripteur (à vérifier).',
   PLAFOND_CONTRAT_RESPONSABLE_DEPASSE:
     'Le remboursement total dépasse le plafond du contrat responsable (à vérifier).',
   DEPASSEMENT_C2S_A_MENTIONNER:
@@ -48,4 +52,9 @@ export const LIBELLES_CONTROLES: Readonly<Record<CodeControle, string>> = {
 export interface Constat {
   readonly code: CodeControle;
   readonly oreille: Oreille | null;
+}
+
+export function sansDoublons(constats: readonly Constat[]): Constat[] {
+  const uniques = new Map(constats.map((c) => [`${c.code}|${String(c.oreille)}`, c]));
+  return [...uniques.values()];
 }

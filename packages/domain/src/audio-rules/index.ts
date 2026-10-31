@@ -1,6 +1,7 @@
 export * from './code-prestation';
 export * from './constantes';
 export * from './controle-devis';
+export * from './controle-prescription';
 export * from './controles';
 export * from './essai';
 export * from './prescription';

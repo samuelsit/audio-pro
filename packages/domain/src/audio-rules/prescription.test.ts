@@ -15,41 +15,41 @@ const DATES = { datePrescription: '2026-10-01', dateDevis: '2026-10-30' };
 
 describe('prescriptionValide : qualité du prescripteur (À VÉRIFIER, avertissements)', () => {
   it.each([
-    { cas: 'primo, 7 ans, ORL', prescripteur: ORL, age: 7, type: 'PREMIER_APPAREILLAGE', a: [] },
+    { cas: 'primo, 7 ans, ORL', prescripteur: ORL, age: 7, type: 'PRIMO', a: [] },
     {
       cas: 'primo, 72 ans, généraliste formé',
       prescripteur: GENERALISTE_FORME,
       age: 72,
-      type: 'PREMIER_APPAREILLAGE',
+      type: 'PRIMO',
       a: [],
     },
     {
       cas: 'primo, 72 ans, généraliste non formé',
       prescripteur: GENERALISTE_NON_FORME,
       age: 72,
-      type: 'PREMIER_APPAREILLAGE',
+      type: 'PRIMO',
       a: ['PRESCRIPTEUR_NON_CONFORME'],
     },
     {
       cas: 'primo, 72 ans, formation inconnue',
       prescripteur: GENERALISTE_INCONNU,
       age: 72,
-      type: 'PREMIER_APPAREILLAGE',
+      type: 'PRIMO',
       a: ['FORMATION_OTOLOGIE_INCONNUE'],
     },
     {
       cas: 'primo, 72 ans, autre spécialité',
       prescripteur: AUTRE,
       age: 72,
-      type: 'PREMIER_APPAREILLAGE',
+      type: 'PRIMO',
       a: ['PRESCRIPTEUR_NON_CONFORME'],
     },
-    { cas: 'primo, 6 ans, ORL', prescripteur: ORL, age: 6, type: 'PREMIER_APPAREILLAGE', a: [] },
+    { cas: 'primo, 6 ans, ORL', prescripteur: ORL, age: 6, type: 'PRIMO', a: [] },
     {
       cas: 'primo, 6 ans, généraliste formé',
       prescripteur: GENERALISTE_FORME,
       age: 6,
-      type: 'PREMIER_APPAREILLAGE',
+      type: 'PRIMO',
       a: ['PRESCRIPTEUR_NON_CONFORME'],
     },
     {
@@ -92,7 +92,7 @@ describe('prescriptionValide : antériorité au devis', () => {
     const resultat = prescriptionValide({
       prescripteur: ORL,
       age: 72,
-      type: 'PREMIER_APPAREILLAGE',
+      type: 'PRIMO',
       datePrescription,
       dateDevis: '2026-10-30',
     });

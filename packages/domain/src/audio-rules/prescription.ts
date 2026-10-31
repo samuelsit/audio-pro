@@ -2,7 +2,7 @@ import type { SpecialitePrescripteur } from '../prescripteur';
 import { AGE_SEUIL_PRESCRIPTION } from './constantes';
 import type { CodeControle } from './controles';
 
-export const TYPES_APPAREILLAGE = ['PREMIER_APPAREILLAGE', 'RENOUVELLEMENT'] as const;
+export const TYPES_APPAREILLAGE = ['PRIMO', 'RENOUVELLEMENT'] as const;
 export type TypeAppareillage = (typeof TYPES_APPAREILLAGE)[number];
 
 export interface PrescripteurAControler {

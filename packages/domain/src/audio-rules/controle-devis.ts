@@ -4,7 +4,7 @@ import type { Centimes } from '../money';
 import { ageAt } from '../patient/age';
 import type { Oreille } from './code-prestation';
 import { PLAFOND_CONTRAT_RESPONSABLE, VALIDITE_MINIMALE_DEVIS_MOIS } from './constantes';
-import type { CodeControle, Constat } from './controles';
+import { sansDoublons, type CodeControle, type Constat } from './controles';
 import {
   prescriptionValide,
   type PrescripteurAControler,
@@ -123,11 +123,6 @@ function depassementContratResponsable(
     tauxAMO: devis.tauxAMO,
   });
   return devis.contratResponsable && amo + amc > PLAFOND_CONTRAT_RESPONSABLE.valeur;
-}
-
-function sansDoublons(constats: readonly Constat[]): Constat[] {
-  const uniques = new Map(constats.map((c) => [`${c.code}|${String(c.oreille)}`, c]));
-  return [...uniques.values()];
 }
 
 /**

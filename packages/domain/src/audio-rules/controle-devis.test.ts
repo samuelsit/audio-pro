@@ -38,13 +38,13 @@ const DEVIS: DevisAControler = {
   bobineTPresentee: true,
   ficheTechniqueJointe: true,
   oreilles: [
-    { oreille: 'DROITE', type: 'PREMIER_APPAREILLAGE', offres: [CLASSE_I, CLASSE_II] },
-    { oreille: 'GAUCHE', type: 'PREMIER_APPAREILLAGE', offres: [CLASSE_I, CLASSE_II] },
+    { oreille: 'DROITE', type: 'PRIMO', offres: [CLASSE_I, CLASSE_II] },
+    { oreille: 'GAUCHE', type: 'PRIMO', offres: [CLASSE_I, CLASSE_II] },
   ],
   historiqueDelivrances: [],
 };
 
-const droite = { oreille: 'DROITE', type: 'PREMIER_APPAREILLAGE' } as const;
+const droite = { oreille: 'DROITE', type: 'PRIMO' } as const;
 
 describe('controleDevis : devis conforme', () => {
   it('ne relève rien', () => {

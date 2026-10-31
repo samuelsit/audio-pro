@@ -74,6 +74,7 @@ export const CHAMPS_VISIBLES_AUDIT: Readonly<Record<TypeEntite, readonly string[
   JOURNAL_AUDIT: [],
   PATIENT: ['centreId'],
   DOSSIER: [],
+  PRESCRIPTION: [],
   FABRICANT: ['nom', 'actif'],
   MODELE_AIDE_AUDITIVE: [
     'fabricantId',
