@@ -109,6 +109,7 @@ describe('listerOrganisations', () => {
 describe('creerOrganisation', () => {
   it('crée le client et son premier ADMIN_CLIENT, journalisés', async () => {
     const id = await creerOrganisation(superadmin, saisie(), MOT_DE_PASSE);
+    expect(await prisma().typeRdv.count({ where: { organisationId: id } })).toBe(7);
     const admin = await prisma().utilisateur.findFirstOrThrow({ where: { organisationId: id } });
     expect(admin).toMatchObject({
       role: 'ADMIN_CLIENT',

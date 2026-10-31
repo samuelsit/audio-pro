@@ -1,3 +1,4 @@
+import { estBloquant, LIBELLES_CONFLITS, type CodeConflit } from '@ha/domain';
 import type { z } from 'zod';
 
 /** Erreurs de saisie par champ, affichables dans un formulaire. */
@@ -69,4 +70,49 @@ export function traduireDoublon(
   }
   const connu = messages[contrainte];
   throw connu ? ErreurSaisie.surChamp(...connu) : new ErreurSaisie({}, messageParDefaut);
+}
+
+/**
+ * Créneau refusé. `confirmable` : rien de bloquant, l'utilisateur peut passer outre et l'action est tracée
+ * (ADR-020). Une ressource déjà prise ne se force pas.
+ */
+export class ErreurConflitAgenda extends ErreurSaisie {
+  readonly confirmable: boolean;
+
+  constructor(
+    readonly codes: readonly CodeConflit[],
+    message = codes.map((code) => LIBELLES_CONFLITS[code]).join(' '),
+  ) {
+    super({}, message);
+    this.name = 'ErreurConflitAgenda';
+    this.confirmable = !codes.some(estBloquant);
+  }
+}
+
+/** Détail d'une erreur PostgreSQL que le driver adapter de Prisma 7 n'expose que dans `meta`. */
+interface CausePostgres {
+  readonly originalCode?: unknown;
+  readonly originalMessage?: unknown;
+}
+
+function causePostgres(erreur: object): CausePostgres | undefined {
+  return (erreur as { meta?: { driverAdapterError?: { cause?: CausePostgres } } }).meta
+    ?.driverAdapterError?.cause;
+}
+
+/**
+ * Ressource perdue d'une réservation simultanée, sinon `null` : la contrainte d'exclusion (23P01) a tranché,
+ * ou deux insertions se sont interbloquées (40P01), ce qui revient au même pour le perdant.
+ */
+export function ressourcePerdue(erreur: unknown): CodeConflit | null {
+  if (typeof erreur !== 'object' || erreur === null) {
+    return null;
+  }
+  const { originalCode, originalMessage } = causePostgres(erreur) ?? {};
+  if (originalCode !== '23P01' && originalCode !== '40P01') {
+    return null;
+  }
+  return typeof originalMessage === 'string' && originalMessage.includes('rendez_vous_cabine')
+    ? 'CABINE_PRISE'
+    : 'PRATICIEN_PRIS';
 }

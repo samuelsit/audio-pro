@@ -2,6 +2,7 @@ import { prisma } from '@ha/db/admin';
 
 import { base } from '@/server/chiffrement';
 import { documents } from '@/server/documents';
+import { creerRdv } from '@/server/services/agenda';
 import { enregistrerPec } from '@/server/services/factures';
 import { aujourdhui } from '@/server/services/patients';
 
@@ -108,6 +109,41 @@ export async function creerClientComplet(suffixe: string) {
     },
     SCAN,
   );
+  const { id: cabineId } = await prisma().cabine.create({
+    data: { centreId: d.centres.a.id, nom: 'Cabine 1' },
+  });
+  const typeRdv = await prisma().typeRdv.create({
+    data: {
+      organisationId,
+      nom: 'Bilan',
+      dureeMinutes: 60,
+      couleur: '#2563eb',
+      requierePraticien: true,
+      requiereCabine: true,
+    },
+  });
+  const rdvId = await creerRdv(audio, {
+    centreId: d.centres.a.id,
+    typeRdvId: typeRdv.id,
+    patientId,
+    date: '2030-01-07',
+    heure: '09:00',
+    dureeMinutes: 60,
+    praticienId: d.praticiens.praticienAB.id,
+    origine: 'INTERNE',
+    notes: 'Note fictive',
+    confirmerHorsDisponibilites: true,
+  });
+  await prisma().exceptionAgenda.create({
+    data: {
+      organisationId,
+      type: 'FERMETURE_CENTRE',
+      centreId: d.centres.a.id,
+      debut: new Date('2030-08-01T00:00:00.000Z'),
+      fin: new Date('2030-08-02T00:00:00.000Z'),
+      createdById: utilisateurId,
+    },
+  });
   await prisma().session.create({
     data: {
       token: `jeton${suffixe}`,
@@ -131,6 +167,9 @@ export async function creerClientComplet(suffixe: string) {
     prescriptionId,
     prescripteurId,
     fabricantId,
+    cabineId,
+    typeRdvId: typeRdv.id,
+    rdvId,
   };
 }
 

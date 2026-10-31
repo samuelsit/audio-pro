@@ -18,6 +18,8 @@ export interface EtatFormulaire {
   blocage?: { controle: ResultatControlePrescription; forcable: boolean };
   /** Devis arrêté par `controleDevis` : points à corriger avant l'émission. */
   blocageDevis?: ResultatControleDevis;
+  /** Créneau refusé ; `confirmable` si l'utilisateur peut passer outre (hors disponibilités). */
+  conflitAgenda?: { confirmable: boolean };
 }
 
 export const ETAT_INITIAL: EtatFormulaire = {};

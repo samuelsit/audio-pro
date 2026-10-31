@@ -632,15 +632,23 @@ export interface OptionsCreation {
   details?: Readonly<Record<string, unknown>>;
 }
 
+/** Création contrôlée, prête à écrire : contrôles et doublons se font hors transaction (ADR-019). */
+export interface PreparationPatient {
+  readonly donnees: PatientSaisie;
+  readonly doublons: DoublonsPossibles;
+  readonly provenance: ProvenanceAmo;
+  readonly details?: Readonly<Record<string, unknown>>;
+}
+
 /**
- * Crée une fiche. Si des doublons possibles existent et que l'utilisateur n'a pas confirmé, rien n'est
+ * Contrôle une création. Si des doublons possibles existent et que l'utilisateur n'a pas confirmé, rien n'est
  * écrit : ErreurDoublonPossible porte les candidats à afficher.
  */
-export async function creerPatient(
+export async function preparerCreation(
   acteur: UtilisateurConnecte,
   saisie: unknown,
   { confirmerDoublon = false, provenanceAmo, details }: OptionsCreation = {},
-): Promise<string> {
+): Promise<PreparationPatient> {
   const donnees = validerSaisie(saisie);
   await verifierCentreRattachement(acteur, donnees.centreId);
   const doublons = await chercherDoublons(
@@ -658,41 +666,68 @@ export async function creerPatient(
   if (aDesDoublons(doublons) && !confirmerDoublon) {
     throw new ErreurDoublonPossible(doublons);
   }
-  const provenance = provenanceAmo?.(donnees) ?? SAISIE_MANUELLE;
-  const p = await withAudit(
+  return {
+    donnees,
+    doublons,
+    provenance: provenanceAmo?.(donnees) ?? SAISIE_MANUELLE,
+    ...(details ? { details } : {}),
+  };
+}
+
+/** Écrit la fiche dans la transaction de l'appelant, qui journalise `evenementCreation`. */
+export async function ecrirePatient(
+  tx: ClientTransaction,
+  acteur: UtilisateurConnecte,
+  { donnees, provenance }: PreparationPatient,
+): Promise<string> {
+  const cree = await tx.patient.create({
+    data: { organisationId: acteur.organisationId, ...donneesPatient(donnees) },
+    select: { id: true },
+  });
+  await ecrireCouvertures(tx, cree.id, donnees.amo, provenance, donnees.amc);
+  return cree.id;
+}
+
+export function evenementCreation(
+  patientId: string,
+  { donnees, doublons, details }: PreparationPatient,
+): EvenementAudit {
+  return {
+    action: 'CREATE',
+    entiteType: 'PATIENT',
+    entiteId: patientId,
+    patientId,
+    centreId: donnees.centreId,
+    champs: differencesAuditees('PATIENT', null, donnees),
+    ...(aDesDoublons(doublons) || details
+      ? {
+          details: {
+            ...details,
+            ...(aDesDoublons(doublons)
+              ? {
+                  creationMalgreDoublon: true,
+                  doublonsVisibles: doublons.visibles.map((d) => d.id),
+                  doublonsHorsPerimetre: doublons.horsPerimetre.length,
+                }
+              : {}),
+          },
+        }
+      : {}),
+  };
+}
+
+/** Crée une fiche, après `preparerCreation`. */
+export async function creerPatient(
+  acteur: UtilisateurConnecte,
+  saisie: unknown,
+  options: OptionsCreation = {},
+): Promise<string> {
+  const preparation = await preparerCreation(acteur, saisie, options);
+  return withAudit(
     acteur,
-    async (tx) => {
-      const cree = await tx.patient.create({
-        data: { organisationId: acteur.organisationId, ...donneesPatient(donnees) },
-        select: { id: true },
-      });
-      await ecrireCouvertures(tx, cree.id, donnees.amo, provenance, donnees.amc);
-      return cree;
-    },
-    (cree) => ({
-      action: 'CREATE',
-      entiteType: 'PATIENT',
-      entiteId: cree.id,
-      patientId: cree.id,
-      centreId: donnees.centreId,
-      champs: differencesAuditees('PATIENT', null, donnees),
-      ...(aDesDoublons(doublons) || details
-        ? {
-            details: {
-              ...details,
-              ...(aDesDoublons(doublons)
-                ? {
-                    creationMalgreDoublon: true,
-                    doublonsVisibles: doublons.visibles.map((d) => d.id),
-                    doublonsHorsPerimetre: doublons.horsPerimetre.length,
-                  }
-                : {}),
-            },
-          }
-        : {}),
-    }),
+    (tx) => ecrirePatient(tx, acteur, preparation),
+    (id) => evenementCreation(id, preparation),
   );
-  return p.id;
 }
 
 function memeAmo(a: AmoSaisie | null, b: AmoSaisie | null): boolean {
@@ -906,6 +941,10 @@ export async function fusionnerPatients(
         data: { patientId: conserveeId },
       });
       await tx.delivrance.updateMany({
+        where: { patientId: doublonId },
+        data: { patientId: conserveeId },
+      });
+      await tx.rendezVous.updateMany({
         where: { patientId: doublonId },
         data: { patientId: conserveeId },
       });

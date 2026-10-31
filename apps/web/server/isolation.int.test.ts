@@ -12,6 +12,13 @@ import { base } from './chiffrement';
 import { importerLpp } from './lpp/importer';
 import { obtenirAccessoire, obtenirFabricant, obtenirModele } from './services/catalogue';
 import { modifierCentre, obtenirCentre } from './services/centres';
+import { annulerRdv, deplacerRdv, lireAgenda, lireRdv, lireSalleAttente } from './services/agenda';
+import {
+  changerActivationCabine,
+  listerCabines,
+  listerExceptions,
+  modifierTypeRdv,
+} from './services/agenda-parametres';
 import { imprimerDevis, lireScanDevis, obtenirDevis } from './services/devis';
 import { lireScan, obtenirDossier } from './services/dossiers';
 import { compteRenduEssai, lireJustificatif, obtenirEssai } from './services/essais';
@@ -28,6 +35,7 @@ const V908 = path.join(import.meta.dirname, '../../../fixtures/lpp/908');
 const TABLES_ISOLEES = [
   'accessoire',
   'appareil',
+  'cabine',
   'centre',
   'compte',
   'compteur_devis',
@@ -42,6 +50,8 @@ const TABLES_ISOLEES = [
   'essai',
   'essai_appareil',
   'essai_rdv',
+  'evenement_domaine',
+  'exception_agenda',
   'fabricant',
   'facture_preparee',
   'journal_audit',
@@ -58,10 +68,12 @@ const TABLES_ISOLEES = [
   'prescription',
   'prise_en_charge',
   'prolongation_essai',
+  'rendez_vous',
   'session',
   'signature_devis',
   'stock_accessoire',
   'transition_dossier',
+  'type_rdv',
   'utilisateur',
   'utilisateur_centre',
 ] as const;
@@ -191,9 +203,20 @@ describe('garde-fou sur le catalogue PostgreSQL', () => {
       'devis',
       'prescription',
       'appareil',
+      'rendez_vous',
+      'exception_agenda',
     ]) {
       expect(tables).not.toContain(table);
     }
+  });
+
+  it('ha_plateforme ne lit de l’outbox que l’organisation et l’état de diffusion', async () => {
+    // `role_table_grants` ignore les droits par colonne : seul `column_privileges` prouve que la charge reste illisible.
+    const colonnes = await prisma().$queryRaw<{ column_name: string }[]>`
+      SELECT column_name FROM information_schema.column_privileges
+      WHERE grantee = 'ha_plateforme' AND table_name = 'evenement_domaine'
+        AND privilege_type = 'SELECT'`;
+    expect(colonnes.map((c) => c.column_name).sort()).toEqual(['diffuse_le', 'organisation_id']);
   });
 
   it.each(Object.entries(TABLES_GLOBALES))('table globale %s : droits %s', async (table, droit) => {
@@ -408,6 +431,17 @@ describe('identifiant d’un autre client forcé dans l’URL', () => {
       entite: 'historique accessoire',
       appel: (x, c) => rejeterSiVide(historiqueAccessoire(x, { type: 'tous' }, c.catalogue.piles)),
     },
+    { entite: 'rendez-vous', appel: (x, c) => lireRdv(x, c.rdvId) },
+    {
+      entite: 'agenda',
+      appel: (x, c) => lireAgenda(x, c.d.centres.a.id, '2030-01-07', '2030-01-07'),
+    },
+    {
+      entite: 'salle d’attente',
+      appel: (x, c) => lireSalleAttente(x, c.d.centres.a.id, '2030-01-07'),
+    },
+    { entite: 'cabines', appel: (x, c) => listerCabines(x, c.d.centres.a.id) },
+    { entite: 'exceptions', appel: (x, c) => listerExceptions(x, c.d.centres.a.id, '2030-01-01') },
     {
       entite: 'modification de patient',
       appel: (x, c) => modifierPatient(x, c.patientId, {}),
@@ -419,6 +453,35 @@ describe('identifiant d’un autre client forcé dans l’URL', () => {
     {
       entite: 'désactivation de prescripteur',
       appel: (x, c) => changerActivationPrescripteur(x, c.prescripteurId, false),
+    },
+    {
+      entite: 'déplacement de rendez-vous',
+      appel: (x, c) =>
+        deplacerRdv(x, c.rdvId, {
+          version: 1,
+          date: '2030-01-08',
+          heure: '09:00',
+          dureeMinutes: 60,
+        }),
+    },
+    { entite: 'annulation de rendez-vous', appel: (x, c) => annulerRdv(x, c.rdvId, 1) },
+    {
+      entite: 'désactivation de cabine',
+      appel: (x, c) => changerActivationCabine(x, c.cabineId, false),
+    },
+    {
+      entite: 'modification de type de rendez-vous',
+      appel: (x, c) =>
+        modifierTypeRdv(x, c.typeRdvId, {
+          nom: 'Forcé',
+          dureeMinutes: 30,
+          couleur: '#000000',
+          requierePraticien: true,
+          requiereCabine: false,
+          reservableEnLigne: false,
+          delaiMinimalMinutes: 0,
+          natureEssai: null,
+        }),
     },
     {
       entite: 'changement de statut d’appareil',
@@ -435,7 +498,12 @@ describe('identifiant d’un autre client forcé dans l’URL', () => {
   const TEMOINS = CAS.filter(
     ({ entite }) =>
       !entite.startsWith('modification') &&
-      !['désactivation de prescripteur', 'changement de statut d’appareil'].includes(entite),
+      !entite.startsWith('désactivation') &&
+      ![
+        'changement de statut d’appareil',
+        'déplacement de rendez-vous',
+        'annulation de rendez-vous',
+      ].includes(entite),
   );
 
   it.each(TEMOINS)('témoin : $entite réussit chez soi', async ({ appel }) => {

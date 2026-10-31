@@ -7,6 +7,7 @@ import {
   ROLE_SUPERADMIN,
   statutClientSchema,
   type StatutOrganisation,
+  TYPES_RDV_DEFAUT,
 } from '@ha/domain';
 import { hashPassword } from 'better-auth/crypto';
 
@@ -95,6 +96,9 @@ export async function creerOrganisation(
           select: { id: true },
         });
         await tx.compte.create({ data: identifiants(admin.id, hash) });
+        await tx.typeRdv.createMany({
+          data: TYPES_RDV_DEFAUT.map((type) => ({ ...type, organisationId: id })),
+        });
         return id;
       },
       (id) => id,

@@ -199,6 +199,20 @@ export async function modifierPraticien(
     await withAudit(
       acteur,
       async (tx) => {
+        const rdvAVenir = await tx.rendezVous.count({
+          where: {
+            praticienId,
+            centreId: { notIn: donnees.centreIds },
+            debut: { gte: new Date() },
+            statut: { in: ['PLANIFIE', 'CONFIRME'] },
+          },
+        });
+        if (rdvAVenir > 0) {
+          throw ErreurSaisie.surChamp(
+            'centreIds',
+            'Ce praticien a des rendez-vous à venir sur un centre retiré.',
+          );
+        }
         await tx.praticien.update({
           where: { id: praticienId },
           data: { rpps: donnees.rpps, adeli: donnees.adeli },
