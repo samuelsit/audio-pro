@@ -7,14 +7,13 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
   creerCatalogueDevis,
-  creerDossierPret,
-  creerPatientDevis,
-  demarrerAvecAppareil,
+  dossierJusquAchat,
+  identifierCentreA,
   offre100,
   saisieDevis,
   SCAN,
-  terminerPeriodeEssai,
   type CatalogueDevis,
+  type Parcours,
 } from '@/test/devis';
 import { creerJeuDeDonnees, viderBase, type JeuDeDonnees } from '@/test/donnees';
 
@@ -22,8 +21,6 @@ import { AccesRefuseError, type UtilisateurConnecte } from '../auth/acces';
 import { stockageBrut } from '../documents';
 import { ErreurSaisie } from '../erreurs';
 import { importerLpp } from '../lpp/importer';
-import { creerDevis, deposerScanDevis, emettreDevis, enregistrerSignature } from './devis';
-import { confirmerAchat } from './essais';
 import {
   confirmerCouvertureAmo,
   enregistrerPec,
@@ -47,29 +44,7 @@ const stockage = () => stockageBrut() as FakeDocumentStore;
 const centreA = () => ({ type: 'centre', centreId: d.centres.a.id }) as const;
 const codes = (constats: readonly { code: string }[]) => constats.map((c) => c.code);
 
-interface Parcours {
-  patient?: { dateNaissance?: string; c2s?: boolean };
-  devis?: Record<string, unknown>;
-}
-
-/** Fait passer un dossier fictif de la prescription à l'achat. */
-async function dossierAFacturer({ patient = {}, devis = {} }: Parcours = {}) {
-  const patientId = await creerPatientDevis(d, patient);
-  const dossierId = await creerDossierPret(d, audio, patientId);
-  const devisId = await creerDevis(audio, dossierId, saisieDevis(catalogue, devis));
-  await emettreDevis(audio, devisId, { statutAttendu: 'BROUILLON' });
-  const numeroSerie = await demarrerAvecAppareil(d, audio, devisId, catalogue.classeI);
-  await terminerPeriodeEssai(audio, dossierId);
-  await deposerScanDevis(audio, devisId, { statutAttendu: 'EMIS' }, SCAN);
-  await enregistrerSignature(audio, devisId, {
-    statutAttendu: 'EMIS',
-    offreRetenue: 'OFFRE_100_SANTE',
-    dateSignature: aujourdhui(),
-    signe: true,
-  });
-  await confirmerAchat(audio, dossierId, { statutAttendu: 'DEVIS_SIGNE' });
-  return { dossierId, patientId, numeroSerie };
-}
+const dossierAFacturer = (parcours?: Parcours) => dossierJusquAchat(d, audio, catalogue, parcours);
 
 const accord = (surcharge: Record<string, unknown> = {}) => ({
   statut: 'ACCORDEE',
@@ -96,16 +71,7 @@ beforeEach(async () => {
   stockage().objets.clear();
   d = await creerJeuDeDonnees();
   ({ audioAB: audio, assistantA, assistantB } = d.acteurs);
-  await prisma().centre.update({
-    where: { id: d.centres.a.id },
-    data: {
-      raisonSociale: 'Audition Démo SAS',
-      siret: '00000000000000',
-      rcs: 'RCS Démo 000 000 000',
-      finess: '000000000',
-      tvaIntracommunautaire: 'FR00000000000',
-    },
-  });
+  await identifierCentreA(d);
   await importerLpp(V908);
   catalogue = await creerCatalogueDevis(d);
 });

@@ -2,9 +2,15 @@ import { prisma } from '@ha/db/admin';
 
 import type { UtilisateurConnecte } from '@/server/auth/acces';
 import { base } from '@/server/chiffrement';
-import { demarrerEssai } from '@/server/services/devis';
+import {
+  creerDevis,
+  demarrerEssai,
+  deposerScanDevis,
+  emettreDevis,
+  enregistrerSignature,
+} from '@/server/services/devis';
 import { creerDossier, enregistrerPrescription } from '@/server/services/dossiers';
-import { ajouterRdv } from '@/server/services/essais';
+import { ajouterRdv, confirmerAchat } from '@/server/services/essais';
 import { aujourdhui } from '@/server/services/patients';
 
 import type { JeuDeDonnees } from './donnees';
@@ -273,4 +279,47 @@ export async function terminerPeriodeEssai(
   const rdv = { date: aujourdhui(), compteRendu: 'Réglages fictifs' };
   await ajouterRdv(audio, dossierId, { ...rdv, type: 'POSE' });
   await ajouterRdv(audio, dossierId, { ...rdv, type: 'FIN_ESSAI' });
+}
+
+/** Identification du centre A, exigée à l'émission du devis. */
+export async function identifierCentreA(d: JeuDeDonnees): Promise<void> {
+  await prisma().centre.update({
+    where: { id: d.centres.a.id },
+    data: {
+      raisonSociale: 'Audition Démo SAS',
+      siret: '00000000000000',
+      rcs: 'RCS Démo 000 000 000',
+      finess: '000000000',
+      tvaIntracommunautaire: 'FR00000000000',
+    },
+  });
+}
+
+export interface Parcours {
+  patient?: { dateNaissance?: string; c2s?: boolean };
+  devis?: Record<string, unknown>;
+}
+
+/** Fait passer un dossier fictif de la prescription à l'achat. */
+export async function dossierJusquAchat(
+  d: JeuDeDonnees,
+  audio: UtilisateurConnecte,
+  catalogue: CatalogueDevis,
+  { patient = {}, devis = {} }: Parcours = {},
+) {
+  const patientId = await creerPatientDevis(d, patient);
+  const dossierId = await creerDossierPret(d, audio, patientId);
+  const devisId = await creerDevis(audio, dossierId, saisieDevis(catalogue, devis));
+  await emettreDevis(audio, devisId, { statutAttendu: 'BROUILLON' });
+  const numeroSerie = await demarrerAvecAppareil(d, audio, devisId, catalogue.classeI);
+  await terminerPeriodeEssai(audio, dossierId);
+  await deposerScanDevis(audio, devisId, { statutAttendu: 'EMIS' }, SCAN);
+  await enregistrerSignature(audio, devisId, {
+    statutAttendu: 'EMIS',
+    offreRetenue: 'OFFRE_100_SANTE',
+    dateSignature: aujourdhui(),
+    signe: true,
+  });
+  await confirmerAchat(audio, dossierId, { statutAttendu: 'DEVIS_SIGNE' });
+  return { dossierId, devisId, patientId, numeroSerie };
 }

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { EntetePage } from '@/components/entete-page';
 import { ChampTexte } from '@/components/formulaire';
 import { FormulaireFiltres } from '@/components/formulaire-filtres';
+import { LIENS_PATIENTS, SousNavigation } from '@/components/sous-navigation';
 import { TableauPagine, type Colonne } from '@/components/tableau-pagine';
 import { Badge } from '@/components/ui/badge';
 import type { EtatFormulaire } from '@/lib/formulaire';
@@ -62,6 +63,7 @@ export default async function PagePrescripteurs({
   const etat: EtatFormulaire = { valeurs: parametres };
   return (
     <div className="grid gap-6">
+      <SousNavigation liens={LIENS_PATIENTS} />
       <EntetePage
         titre="Prescripteurs"
         action={{ href: `${CHEMIN}/nouveau`, libelle: 'Nouveau prescripteur' }}

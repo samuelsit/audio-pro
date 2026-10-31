@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 
 import { EntetePage } from '@/components/entete-page';
 import { EtatVide } from '@/components/etat-vide';
+import { LIENS_DOSSIERS, SousNavigation } from '@/components/sous-navigation';
 import { requireSession } from '@/server/auth/gardes';
 
 export const metadata: Metadata = { title: 'Dossiers – HA-Gestion' };
@@ -10,6 +11,7 @@ export default async function PageDossiers() {
   await requireSession();
   return (
     <div className="grid gap-6">
+      <SousNavigation liens={LIENS_DOSSIERS} />
       <EntetePage titre="Dossiers">
         Dossiers d’appareillage : prescription, devis normalisé, essai.
       </EntetePage>

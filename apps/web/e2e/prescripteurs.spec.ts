@@ -7,6 +7,7 @@ test('une assistante crée un prescripteur à la volée, puis le retrouve par la
 }) => {
   await seConnecter(page, COMPTES.assistanteNord);
   await expect(page.getByRole('heading', { name: /^Bonjour/ })).toBeVisible();
+  await page.getByRole('link', { name: 'Patients' }).click();
   await page.getByRole('link', { name: 'Prescripteurs' }).click();
   await expect(page.getByRole('heading', { name: 'Prescripteurs' })).toBeVisible();
 

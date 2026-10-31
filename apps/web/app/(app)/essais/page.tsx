@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 import { EntetePage } from '@/components/entete-page';
+import { LIENS_DOSSIERS, SousNavigation } from '@/components/sous-navigation';
 import { TableauPagine, type Colonne } from '@/components/tableau-pagine';
 import { formaterDate } from '@/lib/format';
 import { premieresValeurs, type ParametresRecherche } from '@/lib/parametres';
@@ -55,6 +56,7 @@ export default async function PageEssais({
   const { lignes, pagination } = await listerEssaisEnCours(acteur, perimetre, parametres);
   return (
     <div className="grid gap-6">
+      <SousNavigation liens={LIENS_DOSSIERS} />
       <EntetePage titre="Essais en cours">
         {perimetre.type === 'tous'
           ? 'Périodes d’essai de tout le réseau, les plus anciennes d’abord.'

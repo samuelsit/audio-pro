@@ -6,7 +6,7 @@ export async function viderBase(): Promise<void> {
   await viderBaseJetable(process.env.DATABASE_URL_ADMIN ?? '');
 }
 
-function centre(organisationId: string, nom: string) {
+function centre(organisationId: string, nom: string, suffixe: string) {
   return prisma().centre.create({
     data: {
       organisationId,
@@ -14,7 +14,7 @@ function centre(organisationId: string, nom: string) {
       adresseLigne1: '1 rue de l’Exemple',
       codePostal: '75000',
       ville: 'Paris',
-      email: `${nom.toLowerCase().replace(/\s+/g, '-')}@exemple.test`,
+      email: `${nom.toLowerCase().replace(/\s+/g, '-')}${suffixe}@exemple.test`,
       telephone: '0100000000',
     },
   });
@@ -25,6 +25,7 @@ function utilisateur(
   prenom: string,
   role: 'ADMIN_CLIENT' | 'RESPONSABLE_CENTRE' | 'AUDIO' | 'ASSISTANT',
   centreIds: string[],
+  suffixe: string,
 ) {
   return prisma().utilisateur.create({
     data: {
@@ -32,7 +33,7 @@ function utilisateur(
       prenom,
       nom: 'Test',
       name: `${prenom} Test`,
-      email: `${prenom.toLowerCase()}@exemple.test`,
+      email: `${prenom.toLowerCase()}${suffixe}@exemple.test`,
       role,
       doitChangerMotDePasse: false,
       centres: { create: centreIds.map((centreId) => ({ centreId })) },
@@ -43,23 +44,32 @@ function utilisateur(
 /**
  * Jeu de données fictif : centres A, B, C ; un ADMIN_CLIENT ; un AUDIO rattaché à A et B (praticien à A et B) ;
  * un AUDIO rattaché à C (praticien à C) ; un ASSISTANT à A ; un ASSISTANT à B ; un ASSISTANT sans centre actif.
+ * `suffixe` distingue les e-mails, uniques entre clients : pour un second client dans le même test.
  */
-export async function creerJeuDeDonnees() {
-  const org = await prisma().organisation.create({ data: { raisonSociale: 'Réseau Test' } });
+export async function creerJeuDeDonnees(suffixe = '') {
+  const org = await prisma().organisation.create({
+    data: { raisonSociale: `Réseau Test${suffixe}` },
+  });
   const [a, b, c, ferme] = await Promise.all([
-    centre(org.id, 'Centre A'),
-    centre(org.id, 'Centre B'),
-    centre(org.id, 'Centre C'),
-    centre(org.id, 'Centre Fermé'),
+    centre(org.id, 'Centre A', suffixe),
+    centre(org.id, 'Centre B', suffixe),
+    centre(org.id, 'Centre C', suffixe),
+    centre(org.id, 'Centre Fermé', suffixe),
   ]);
   await prisma().centre.update({ where: { id: ferme.id }, data: { actif: false } });
 
-  const admin = await utilisateur(org.id, 'Admin', 'ADMIN_CLIENT', []);
-  const audioAB = await utilisateur(org.id, 'Audioab', 'AUDIO', [a.id, b.id]);
-  const audioC = await utilisateur(org.id, 'Audioc', 'AUDIO', [c.id]);
-  const assistantA = await utilisateur(org.id, 'Assistanta', 'ASSISTANT', [a.id]);
-  const assistantB = await utilisateur(org.id, 'Assistantb', 'ASSISTANT', [b.id]);
-  const assistantFerme = await utilisateur(org.id, 'Assistantferme', 'ASSISTANT', [ferme.id]);
+  const admin = await utilisateur(org.id, 'Admin', 'ADMIN_CLIENT', [], suffixe);
+  const audioAB = await utilisateur(org.id, 'Audioab', 'AUDIO', [a.id, b.id], suffixe);
+  const audioC = await utilisateur(org.id, 'Audioc', 'AUDIO', [c.id], suffixe);
+  const assistantA = await utilisateur(org.id, 'Assistanta', 'ASSISTANT', [a.id], suffixe);
+  const assistantB = await utilisateur(org.id, 'Assistantb', 'ASSISTANT', [b.id], suffixe);
+  const assistantFerme = await utilisateur(
+    org.id,
+    'Assistantferme',
+    'ASSISTANT',
+    [ferme.id],
+    suffixe,
+  );
 
   const praticienAB = await prisma().praticien.create({
     data: {
@@ -96,6 +106,22 @@ export async function creerJeuDeDonnees() {
       assistantB: await charger(assistantB.id),
     },
   };
+}
+
+/** Responsable des centres A et B, créé à la demande : ajouté au jeu, il fausserait les décomptes. */
+export async function creerResponsable(d: JeuDeDonnees): Promise<UtilisateurConnecte> {
+  const { id } = await utilisateur(
+    d.organisation.id,
+    'Responsable',
+    'RESPONSABLE_CENTRE',
+    [d.centres.a.id, d.centres.b.id],
+    '',
+  );
+  const responsable = await chargerUtilisateurConnecte(id);
+  if (!responsable) {
+    throw new Error('Responsable de test introuvable.');
+  }
+  return responsable;
 }
 
 export type JeuDeDonnees = Awaited<ReturnType<typeof creerJeuDeDonnees>>;

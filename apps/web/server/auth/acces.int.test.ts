@@ -2,9 +2,11 @@ import { prisma } from '@ha/db/admin';
 import { AucunCentreAccessibleError } from '@ha/domain';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { creerJeuDeDonnees, viderBase, type JeuDeDonnees } from '@/test/donnees';
+import { creerJeuDeDonnees, creerResponsable, viderBase, type JeuDeDonnees } from '@/test/donnees';
 
-import { listerCentres, obtenirCentre } from '../services/centres';
+import { creerCentre, listerCentres, obtenirCentre } from '../services/centres';
+import { listerJournal } from '../services/journal';
+import { listerPatients } from '../services/patients';
 import { listerPraticiens } from '../services/praticiens';
 import { listerUtilisateurs, obtenirUtilisateur } from '../services/utilisateurs';
 import {
@@ -12,6 +14,8 @@ import {
   chargerUtilisateurConnecte,
   resoudrePerimetreActeur,
   verifierAccesCentre,
+  verifierPerimetre,
+  type UtilisateurConnecte,
 } from './acces';
 
 let d: JeuDeDonnees;
@@ -85,6 +89,74 @@ describe('un ASSISTANT du centre A ne voit rien du centre B', () => {
     await expect(
       obtenirUtilisateur(d.acteurs.assistantA, d.utilisateurs.assistantB.id),
     ).rejects.toThrow(AccesRefuseError);
+  });
+});
+
+describe('RESPONSABLE_CENTRE et « Tous mes centres »', () => {
+  let responsable: UtilisateurConnecte;
+
+  beforeEach(async () => {
+    responsable = await creerResponsable(d);
+  });
+
+  it('voit ses centres, et eux seuls, avec « Tous mes centres »', async () => {
+    const { perimetre, centres } = await resoudrePerimetreActeur(responsable, undefined);
+    expect(perimetre).toEqual({ type: 'tous' });
+    expect(centres.map((c) => c.id).sort()).toEqual([d.centres.a.id, d.centres.b.id].sort());
+
+    verifierPerimetre(responsable, perimetre);
+    const visibles = await listerCentres(responsable, perimetre);
+    expect(visibles.map((c) => c.nom).sort()).toEqual(['Centre A', 'Centre B']);
+  });
+
+  it('n’accède pas au centre C, même en le forçant', async () => {
+    expect(() => {
+      verifierAccesCentre(responsable, d.centres.c.id);
+    }).toThrow(AccesRefuseError);
+    const { perimetre } = await resoudrePerimetreActeur(responsable, d.centres.c.id);
+    expect(perimetre).toEqual({ type: 'tous' });
+  });
+
+  it('ne voit pas les patients du centre C avec « Tous mes centres »', async () => {
+    const champs = {
+      organisationId: d.organisation.id,
+      civilite: 'MME',
+      prenoms: 'Camille',
+      dateNaissance: new Date('1950-03-15T00:00:00.000Z'),
+      sexe: 'FEMININ',
+      prenomsRecherche: 'CAMILLE',
+    } as const;
+    await prisma().patient.createMany({
+      data: [
+        {
+          ...champs,
+          centreId: d.centres.a.id,
+          nomNaissance: 'Visible',
+          nomNaissanceRecherche: 'VISIBLE',
+        },
+        {
+          ...champs,
+          centreId: d.centres.c.id,
+          nomNaissance: 'Cachee',
+          nomNaissanceRecherche: 'CACHEE',
+        },
+      ],
+    });
+    const { patients } = await listerPatients(responsable, { type: 'tous' }, {});
+    expect(patients.map((p) => p.nomNaissance)).toEqual(['Visible']);
+  });
+
+  it('un ASSISTANT n’a pas « Tous mes centres »', () => {
+    expect(() => {
+      verifierPerimetre(d.acteurs.assistantA, { type: 'tous' });
+    }).toThrow(AccesRefuseError);
+  });
+
+  it('un responsable n’entre pas dans l’administration du client', async () => {
+    await expect(creerCentre(responsable, {})).rejects.toBeInstanceOf(AccesRefuseError);
+    await expect(listerJournal(responsable, { type: 'tous' }, {})).rejects.toBeInstanceOf(
+      AccesRefuseError,
+    );
   });
 });
 

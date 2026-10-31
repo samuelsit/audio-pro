@@ -20,6 +20,7 @@
     "db:deploy": "pnpm --filter @ha/db deploy",
     "db:seed": "pnpm --filter @ha/db seed",
     "db:roles": "pnpm --filter @ha/db roles",
+    "jobs:worker": "pnpm --filter @ha/jobs worker",
     "db:studio": "pnpm --filter @ha/db studio",
     "import:lpp": "pnpm --filter @ha/web exec tsx scripts/import-lpp.ts",
     "demo:devis": "pnpm --filter @ha/web exec tsx scripts/demo-devis.ts"

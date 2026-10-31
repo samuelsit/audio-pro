@@ -1,0 +1,386 @@
+import path from 'node:path';
+
+import { clientApplication, poserContexte, type Prisma } from '@ha/db';
+import { prisma } from '@ha/db/admin';
+import { beforeAll, describe, expect, it } from 'vitest';
+
+import { creerClientComplet, type ClientComplet } from '@/test/client-complet';
+import { viderBase } from '@/test/donnees';
+
+import { AccesRefuseError, type UtilisateurConnecte } from './auth/acces';
+import { base } from './chiffrement';
+import { importerLpp } from './lpp/importer';
+import { obtenirAccessoire, obtenirFabricant, obtenirModele } from './services/catalogue';
+import { modifierCentre, obtenirCentre } from './services/centres';
+import { lireScanDevis, obtenirDevis } from './services/devis';
+import { lireScan, obtenirDossier } from './services/dossiers';
+import { compteRenduEssai, lireJustificatif, obtenirEssai } from './services/essais';
+import { lireJustificatifPec, obtenirFacture } from './services/factures';
+import { modifierPatient, obtenirPatient } from './services/patients';
+import { obtenirPraticien } from './services/praticiens';
+import { changerActivationPrescripteur, obtenirPrescripteur } from './services/prescripteurs';
+import { changerStatut, historiqueAccessoire, obtenirFicheAppareil } from './services/stock';
+import { obtenirUtilisateur } from './services/utilisateurs';
+
+const V908 = path.join(import.meta.dirname, '../../../fixtures/lpp/908');
+
+/** Tables isolées par organisation : chaque nouvelle table doit figurer ici (voir le garde-fou). */
+const TABLES_ISOLEES = [
+  'accessoire',
+  'appareil',
+  'centre',
+  'compte',
+  'compteur_devis',
+  'couverture_amc',
+  'couverture_amo',
+  'delivrance',
+  'deux_facteurs',
+  'devis',
+  'devis_ligne',
+  'devis_offre',
+  'dossier',
+  'essai',
+  'essai_appareil',
+  'essai_rdv',
+  'fabricant',
+  'facture_preparee',
+  'journal_audit',
+  'lecture_vitale',
+  'modele_aide_auditive',
+  'modele_code_lpp',
+  'mouvement_accessoire',
+  'mouvement_appareil',
+  'organisation',
+  'patient',
+  'praticien',
+  'praticien_centre',
+  'prescripteur',
+  'prescription',
+  'prise_en_charge',
+  'prolongation_essai',
+  'session',
+  'signature_devis',
+  'stock_accessoire',
+  'transition_dossier',
+  'utilisateur',
+  'utilisateur_centre',
+] as const;
+type TableIsolee = (typeof TABLES_ISOLEES)[number];
+
+/** Référentiel commun et tables techniques : lecture seule ou aucun droit pour ha_app. */
+const TABLES_GLOBALES: Readonly<Record<string, 'LECTURE' | 'AUCUN'>> = {
+  _prisma_migrations: 'AUCUN',
+  app_meta: 'AUCUN',
+  limitation_debit: 'AUCUN',
+  verification: 'AUCUN',
+  lpp_code: 'LECTURE',
+  lpp_fiche: 'LECTURE',
+  lpp_lien: 'LECTURE',
+  lpp_tarif: 'LECTURE',
+  lpp_version: 'LECTURE',
+};
+
+const TABLES_IDENTITE: readonly string[] = ['compte', 'deux_facteurs', 'session'];
+
+/** Condition SQL « cette ligne appartient à l'organisation $1 ». */
+function appartient(table: TableIsolee): string {
+  if (table === 'organisation') {
+    return 'id = $1';
+  }
+  if (TABLES_IDENTITE.includes(table)) {
+    return 'utilisateur_id IN (SELECT id FROM utilisateur WHERE organisation_id = $1)';
+  }
+  return 'organisation_id = $1';
+}
+
+function colonneNeutre(table: TableIsolee): string {
+  return TABLES_IDENTITE.includes(table) ? 'utilisateur_id' : 'organisation_id';
+}
+
+/** Une requête SQL sous le rôle ha_app, dans le contexte d'une organisation. */
+function sousContexte<T>(
+  organisationId: string,
+  requete: (tx: Prisma.TransactionClient) => Promise<T>,
+): Promise<T> {
+  return clientApplication().$transaction(async (tx) => {
+    await poserContexte(tx, organisationId);
+    return requete(tx);
+  });
+}
+
+async function compter(
+  client: Pick<Prisma.TransactionClient, '$queryRawUnsafe'>,
+  table: string,
+  condition = 'TRUE',
+  ...parametres: unknown[]
+): Promise<number> {
+  const [ligne] = await client.$queryRawUnsafe<{ n: bigint }[]>(
+    `SELECT count(*) AS n FROM "${table}" WHERE ${condition}`,
+    ...parametres,
+  );
+  return Number(ligne?.n);
+}
+
+/** Une liste sans ligne vaut refus : le service ne distingue pas un id inconnu d'un id sans historique. */
+async function rejeterSiVide(liste: Promise<readonly unknown[]>): Promise<void> {
+  if ((await liste).length === 0) {
+    throw new AccesRefuseError();
+  }
+}
+
+let a: ClientComplet;
+let b: ClientComplet;
+let idA: string;
+let idB: string;
+
+beforeAll(async () => {
+  await viderBase();
+  await importerLpp(V908);
+  a = await creerClientComplet('');
+  b = await creerClientComplet('-b');
+  idA = a.d.organisation.id;
+  idB = b.d.organisation.id;
+}, 120_000);
+
+describe('garde-fou sur le catalogue PostgreSQL', () => {
+  it('toute table est soit isolée, soit déclarée globale', async () => {
+    const tables = await prisma().$queryRaw<{ tablename: string }[]>`
+      SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename`;
+    expect(tables.map((t) => t.tablename).sort()).toEqual(
+      [...TABLES_ISOLEES, ...Object.keys(TABLES_GLOBALES)].sort(),
+    );
+  });
+
+  it('chaque table isolée a la RLS activée, forcée, et une politique', async () => {
+    const lignes = await prisma().$queryRaw<
+      { table: string; forcee: boolean; politiques: bigint }[]
+    >`
+      SELECT c.relname AS "table",
+             c.relrowsecurity AND c.relforcerowsecurity AS forcee,
+             (SELECT count(*) FROM pg_policies p WHERE p.tablename = c.relname) AS politiques
+      FROM pg_class c
+      WHERE c.relkind = 'r' AND c.relnamespace = 'public'::regnamespace`;
+    const parTable = new Map(lignes.map((l) => [l.table, l]));
+    for (const table of TABLES_ISOLEES) {
+      expect(parTable.get(table)?.forcee, table).toBe(true);
+      expect(Number(parTable.get(table)?.politiques), table).toBeGreaterThan(0);
+    }
+  });
+
+  it('ha_app n’a ni superuser, ni BYPASSRLS, et ne possède aucune table', async () => {
+    const [role] = await prisma().$queryRaw<{ rolsuper: boolean; rolbypassrls: boolean }[]>`
+      SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = 'ha_app'`;
+    expect(role).toEqual({ rolsuper: false, rolbypassrls: false });
+    const possedees = await prisma().$queryRaw<unknown[]>`
+      SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tableowner = 'ha_app'`;
+    expect(possedees).toHaveLength(0);
+  });
+
+  it('ha_plateforme ne lit aucune table de données patient', async () => {
+    const droits = await prisma().$queryRaw<{ table_name: string }[]>`
+      SELECT DISTINCT table_name FROM information_schema.role_table_grants
+      WHERE grantee = 'ha_plateforme' AND privilege_type = 'SELECT'`;
+    const tables = droits.map((d) => d.table_name);
+    expect(tables).toEqual(
+      expect.arrayContaining(['organisation', 'utilisateur', 'session', 'compte']),
+    );
+    for (const table of [
+      'patient',
+      'couverture_amo',
+      'dossier',
+      'devis',
+      'prescription',
+      'appareil',
+    ]) {
+      expect(tables).not.toContain(table);
+    }
+  });
+
+  it.each(Object.entries(TABLES_GLOBALES))('table globale %s : droits %s', async (table, droit) => {
+    const lecture = clientApplication().$queryRawUnsafe(`SELECT 1 FROM "${table}" LIMIT 1`);
+    if (droit === 'LECTURE') {
+      await expect(lecture).resolves.toBeDefined();
+    } else {
+      await expect(lecture).rejects.toThrow(/permission denied/);
+    }
+    await expect(clientApplication().$executeRawUnsafe(`DELETE FROM "${table}"`)).rejects.toThrow(
+      /permission denied/,
+    );
+  });
+});
+
+describe.each(TABLES_ISOLEES)('isolation de %s', (table) => {
+  it('le jeu de test couvre la table chez les deux clients', async () => {
+    expect(await compter(prisma(), table, appartient(table), idA)).toBeGreaterThan(0);
+    expect(await compter(prisma(), table, appartient(table), idB)).toBeGreaterThan(0);
+  });
+
+  it('A voit toutes ses lignes et aucune de B', async () => {
+    const attendu = await compter(prisma(), table, appartient(table), idA);
+    const [total, deB] = await sousContexte(idA, async (tx) => [
+      await compter(tx, table),
+      await compter(tx, table, appartient(table), idB),
+    ]);
+    expect(total).toBe(attendu);
+    expect(deB).toBe(0);
+  });
+
+  it('sans contexte, aucune ligne', async () => {
+    expect(await compter(clientApplication(), table)).toBe(0);
+  });
+
+  it('A ne lit pas une ligne de B par son identifiant', async () => {
+    const [ligne] = await prisma().$queryRawUnsafe<{ ligne: Record<string, unknown> }[]>(
+      `SELECT to_jsonb(t) AS ligne FROM "${table}" t WHERE ${appartient(table)} LIMIT 1`,
+      idB,
+    );
+    const id = ligne?.ligne.id;
+    const vues = await sousContexte(idA, (tx) =>
+      typeof id === 'string'
+        ? compter(tx, table, 'id = $1', id)
+        : compter(tx, table, appartient(table), idB),
+    );
+    expect(vues).toBe(0);
+  });
+
+  it('A ne modifie ni ne supprime une ligne de B', async () => {
+    const avant = await compter(prisma(), table, appartient(table), idB);
+    const colonne = colonneNeutre(table);
+    const ecritures = [
+      table === 'organisation'
+        ? null
+        : `UPDATE "${table}" SET ${colonne} = ${colonne} WHERE ${appartient(table)}`,
+      `DELETE FROM "${table}" WHERE ${appartient(table)}`,
+    ].filter((e) => e !== null);
+    for (const ecriture of ecritures) {
+      // Écriture sans effet (0 ligne), ou refusée d'emblée pour les tables sans ce droit.
+      const resultat = await sousContexte(idA, (tx) => tx.$executeRawUnsafe(ecriture, idB)).catch(
+        (erreur: Error) => {
+          expect(erreur.message).toMatch(/permission denied/);
+          return 0;
+        },
+      );
+      expect(resultat).toBe(0);
+    }
+    expect(await compter(prisma(), table, appartient(table), idB)).toBe(avant);
+  });
+
+  it('A ne crée pas de ligne chez B', async () => {
+    const [source] = await prisma().$queryRawUnsafe<{ ligne: unknown }[]>(
+      `SELECT to_jsonb(t) AS ligne FROM "${table}" t WHERE ${appartient(table)} LIMIT 1`,
+      idB,
+    );
+    const avant = await compter(prisma(), table);
+    await expect(
+      sousContexte(idA, (tx) =>
+        tx.$executeRawUnsafe(
+          `INSERT INTO "${table}" SELECT * FROM jsonb_populate_record(NULL::"${table}", $1::jsonb)`,
+          JSON.stringify(source?.ligne),
+        ),
+      ),
+    ).rejects.toThrow(/row-level security|null value|permission denied/);
+    expect(await compter(prisma(), table)).toBe(avant);
+  });
+});
+
+describe('garanties propres à certaines tables', () => {
+  it('le journal reste en ajout seul pour ha_app, même sur ses propres lignes', async () => {
+    await expect(
+      sousContexte(idA, (tx) => tx.$executeRawUnsafe('DELETE FROM journal_audit')),
+    ).rejects.toThrow(/permission denied/);
+    await expect(
+      sousContexte(idA, (tx) => tx.$executeRawUnsafe(`UPDATE journal_audit SET action = 'READ'`)),
+    ).rejects.toThrow(/permission denied/);
+  });
+
+  it('une ligne de journal sans organisation n’est visible d’aucun client', async () => {
+    const ligne = await prisma().journalAudit.create({
+      data: {
+        utilisateurLibelle: 'inconnu@exemple.test',
+        action: 'ECHEC_CONNEXION',
+        entiteType: 'SESSION',
+      },
+    });
+    expect(await sousContexte(idA, (tx) => compter(tx, 'journal_audit', 'id = $1', ligne.id))).toBe(
+      0,
+    );
+  });
+
+  it('un enfant rattaché au parent d’un autre client est refusé par la base', async () => {
+    await expect(
+      base(a.d.acteurs.admin).couvertureAmc.create({
+        data: { patientId: b.patientId, organismeNom: 'Mutuelle forcée' },
+      }),
+    ).rejects.toThrow();
+  });
+
+  it('un même RPPS et un même FINESS coexistent chez deux clients', async () => {
+    const praticiens = await prisma().praticien.findMany({ where: { rpps: '19999999907' } });
+    expect(praticiens).toHaveLength(2);
+    for (const { d } of [a, b]) {
+      await prisma().centre.update({
+        where: { id: d.centres.b.id },
+        data: { finess: '123456789' },
+      });
+    }
+  });
+});
+
+describe('identifiant d’un autre client forcé dans l’URL', () => {
+  /** Pour chaque page ou route : le service appelé par A avec l'identifiant de B. */
+  const CAS: readonly {
+    entite: string;
+    appel: (acteur: UtilisateurConnecte, cible: ClientComplet) => Promise<unknown>;
+  }[] = [
+    { entite: 'patient', appel: (x, c) => obtenirPatient(x, c.patientId) },
+    { entite: 'dossier', appel: (x, c) => obtenirDossier(x, c.dossierId) },
+    { entite: 'devis', appel: (x, c) => obtenirDevis(x, c.devisId) },
+    { entite: 'scan du devis', appel: (x, c) => lireScanDevis(x, c.devisId) },
+    { entite: 'scan de l’ordonnance', appel: (x, c) => lireScan(x, c.dossierId, c.prescriptionId) },
+    { entite: 'essai', appel: (x, c) => obtenirEssai(x, c.dossierId) },
+    { entite: 'justificatif d’essai', appel: (x, c) => lireJustificatif(x, c.dossierId) },
+    { entite: 'compte rendu', appel: (x, c) => compteRenduEssai(x, c.dossierId) },
+    { entite: 'facture', appel: (x, c) => obtenirFacture(x, c.dossierId) },
+    { entite: 'justificatif de PEC', appel: (x, c) => lireJustificatifPec(x, c.dossierId) },
+    { entite: 'appareil', appel: (x, c) => obtenirFicheAppareil(x, c.appareilId) },
+    { entite: 'prescripteur', appel: (x, c) => obtenirPrescripteur(x, c.prescripteurId) },
+    { entite: 'centre', appel: (x, c) => obtenirCentre(x, c.d.centres.a.id) },
+    { entite: 'utilisateur', appel: (x, c) => obtenirUtilisateur(x, c.d.utilisateurs.audioAB.id) },
+    { entite: 'praticien', appel: (x, c) => obtenirPraticien(x, c.d.praticiens.praticienAB.id) },
+    { entite: 'fabricant', appel: (x, c) => obtenirFabricant(x, c.fabricantId) },
+    { entite: 'modèle', appel: (x, c) => obtenirModele(x, c.catalogue.classeI) },
+    { entite: 'accessoire', appel: (x, c) => obtenirAccessoire(x, c.catalogue.piles) },
+    {
+      entite: 'historique accessoire',
+      appel: (x, c) => rejeterSiVide(historiqueAccessoire(x, { type: 'tous' }, c.catalogue.piles)),
+    },
+    {
+      entite: 'modification de patient',
+      appel: (x, c) => modifierPatient(x, c.patientId, {}),
+    },
+    {
+      entite: 'modification de centre',
+      appel: (x, c) => modifierCentre(x, c.d.centres.a.id, {}),
+    },
+    {
+      entite: 'désactivation de prescripteur',
+      appel: (x, c) => changerActivationPrescripteur(x, c.prescripteurId, false),
+    },
+    {
+      entite: 'changement de statut d’appareil',
+      appel: (x, c) =>
+        changerStatut(x, c.appareilId, { statut: 'SAV', statutAttendu: 'RESERVE', motif: 'Forcé' }),
+    },
+  ];
+
+  it.each(CAS)('$entite', async ({ appel }) => {
+    await expect(appel(a.d.acteurs.admin, b)).rejects.toBeInstanceOf(AccesRefuseError);
+  });
+
+  it('les mêmes appels réussissent chez soi (le test ne refuse pas tout)', async () => {
+    const admin = a.d.acteurs.admin;
+    await expect(obtenirPatient(admin, a.patientId)).resolves.toMatchObject({ type: 'fiche' });
+    await expect(obtenirFicheAppareil(admin, a.appareilId)).resolves.toBeDefined();
+    await expect(obtenirCentre(admin, a.d.centres.a.id)).resolves.toBeDefined();
+  });
+});

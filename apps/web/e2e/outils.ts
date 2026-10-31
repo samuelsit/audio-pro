@@ -10,6 +10,10 @@ export const COMPTES = {
   admin: 'admin@exemple.test',
   assistanteNord: 'sacha.assistante@exemple.test',
   audioNordCentre: 'camille.audio@exemple.test',
+  responsable: 'noa.responsable@exemple.test',
+  audioIndependant: 'maxime.audio@independant.exemple.test',
+  assistantIndependant: 'sam.assistant@independant.exemple.test',
+  superadmin: 'console@exemple.test',
 } as const;
 
 export function motDePasseDemo(): string {
@@ -94,7 +98,7 @@ export async function etablirDevis(page: Page, prix: string): Promise<void> {
 }
 
 function baseE2e() {
-  process.env.DATABASE_URL = urlBaseJetable('DATABASE_URL_E2E');
+  process.env.DATABASE_URL_ADMIN = urlBaseJetable('DATABASE_URL_E2E');
   return prisma();
 }
 

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { EntetePage } from '@/components/entete-page';
 import { ChampTexte } from '@/components/formulaire';
 import { FormulaireFiltres } from '@/components/formulaire-filtres';
+import { LIENS_PATIENTS, SousNavigation } from '@/components/sous-navigation';
 import { TableauPagine, type Colonne } from '@/components/tableau-pagine';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import type { EtatFormulaire } from '@/lib/formulaire';
@@ -54,6 +55,7 @@ export default async function PagePatients({
 
   return (
     <div className="grid gap-6">
+      <SousNavigation liens={LIENS_PATIENTS} />
       <EntetePage
         titre="Patients"
         action={{ href: '/patients/nouveau', libelle: 'Nouveau patient' }}

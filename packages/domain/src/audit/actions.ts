@@ -31,6 +31,7 @@ export const LIBELLES_ACTIONS_AUDIT: Readonly<Record<ActionAudit, string>> = {
 
 /** Types d'entité journalisés. Liste extensible sans migration (colonne texte en base). */
 export const TYPES_ENTITE = [
+  'ORGANISATION',
   'CENTRE',
   'UTILISATEUR',
   'PRATICIEN',
@@ -54,6 +55,7 @@ export const typeEntiteSchema = z.enum(TYPES_ENTITE, { error: 'Type d’entité 
 export type TypeEntite = z.infer<typeof typeEntiteSchema>;
 
 export const LIBELLES_TYPES_ENTITE: Readonly<Record<TypeEntite, string>> = {
+  ORGANISATION: 'Client',
   CENTRE: 'Centre',
   UTILISATEUR: 'Utilisateur',
   PRATICIEN: 'Praticien',

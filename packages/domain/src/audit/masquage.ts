@@ -47,6 +47,7 @@ export function assainirPourAudit(valeur: unknown): ValeurJson {
  * (données de santé), sauf le centre de rattachement d'un patient (identifiant technique).
  */
 export const CHAMPS_VISIBLES_AUDIT: Readonly<Record<TypeEntite, readonly string[]>> = {
+  ORGANISATION: ['raisonSociale', 'siren', 'statut'],
   CENTRE: [
     'nom',
     'adresseLigne1',

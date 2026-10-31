@@ -42,7 +42,7 @@ test('l’ADMIN_CLIENT doit activer la 2FA, puis la saisir à chaque connexion',
     'Centre Démo Nord',
     'Centre Démo Sud',
   ]);
-  await page.getByRole('link', { name: 'Centres' }).click();
+  await page.getByRole('link', { name: 'Administration' }).click();
   await expect(page.getByRole('link', { name: /^Centre Démo/ })).toHaveCount(3);
 
   // Reconnexion : le code TOTP est demandé.
@@ -57,6 +57,7 @@ test('l’ADMIN_CLIENT doit activer la 2FA, puis la saisir à chaque connexion',
   await expect(page.getByRole('heading', { name: 'Bonjour Alex' })).toBeVisible();
 
   // Formulaires d'administration : utilisateur AUDIO, puis fiche praticien (RPPS contrôlé).
+  await page.getByRole('link', { name: 'Administration' }).click();
   await page.getByRole('link', { name: 'Utilisateurs' }).click();
   await page.getByRole('link', { name: 'Nouvel utilisateur' }).click();
   await page.getByLabel('Prénom').fill('Morgan');
