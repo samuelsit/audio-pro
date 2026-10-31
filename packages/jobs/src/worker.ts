@@ -1,12 +1,18 @@
 import path from 'node:path';
 
-import { chargerTrousseau } from '@ha/adapters';
+import { chargerCleLienRdv, chargerTrousseau, FakeNotifier, SignatureLienRdv } from '@ha/adapters';
 import { config } from 'dotenv';
 
 import { ABONNES } from './abonnes';
 import { FileTravaux } from './file';
 import { travailDiagnostic } from './travaux/diagnostic';
 import { repartirDiffusion, travailDiffusion } from './travaux/diffuser-evenements';
+import { repartirEnvois, travailEnvoi } from './travaux/envoyer-notifications';
+import {
+  purgerLimitations,
+  repartirPurge,
+  travailPurgeReservations,
+} from './travaux/purger-reservations';
 
 // Ouvrier : `pnpm jobs:worker`. Tourne à part de l'application web.
 config({ path: path.join(import.meta.dirname, '../../../.env'), quiet: true });
@@ -31,6 +37,31 @@ await file.ecouter(diffusion);
 await file.planifierTransverse('repartir-evenements', '* * * * *', () =>
   repartirDiffusion(file, diffusion),
 );
+
+await file.declarer(travailPurgeReservations);
+await file.ecouter(travailPurgeReservations);
+await file.planifierTransverse('repartir-purge-reservations', '7 * * * *', () =>
+  repartirPurge(file, travailPurgeReservations),
+);
+await file.planifierTransverse('purger-limitations', '17 3 * * *', purgerLimitations);
+
+// À VÉRIFIER : aucun fournisseur de SMS ni d'e-mail n'est retenu (ADR-021). Sans lui, les autres travaux tournent
+// quand même : la réservation en ligne, elle, ne peut pas s'ouvrir, faute de pouvoir envoyer le code.
+const urlPublique = process.env.URL_PUBLIQUE;
+if (process.env.NOTIFIER === 'simulation' && process.env.NODE_ENV !== 'production' && urlPublique) {
+  const envoi = travailEnvoi({
+    notifier: new FakeNotifier(process.env.NOTIFIER_SIMULATION_FICHIER),
+    signature: new SignatureLienRdv(chargerCleLienRdv(process.env)),
+    urlPublique,
+  });
+  await file.declarer(envoi, { expireInSeconds: 120 });
+  await file.ecouter(envoi);
+  await file.planifierTransverse('repartir-notifications', '* * * * *', () =>
+    repartirEnvois(file, envoi),
+  );
+} else {
+  console.warn('Notifications en ligne désactivées : aucun fournisseur configuré.');
+}
 
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, () => {

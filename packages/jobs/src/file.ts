@@ -24,9 +24,15 @@ export class FileTravaux {
     await this.boss.stop({ graceful: true });
   }
 
-  /** `stately` : une seule occurrence de chaque clé en attente à la fois. */
-  async declarer<S extends z.ZodType>(travail: Travail<S>): Promise<void> {
-    await this.boss.createQueue(travail.nom, { policy: 'stately' });
+  /**
+   * `stately` : une seule occurrence de chaque clé en attente à la fois. `expireInSeconds` borne le temps pendant
+   * lequel un ouvrier tombé garde cette clé : un travail fréquent ne reste pas bloqué un quart d'heure.
+   */
+  async declarer<S extends z.ZodType>(
+    travail: Travail<S>,
+    options: { readonly expireInSeconds?: number } = {},
+  ): Promise<void> {
+    await this.boss.createQueue(travail.nom, { policy: 'stately', ...options });
   }
 
   /** Met un travail en file ; `null` si ce client y a déjà la même `cleIdempotence`. */
