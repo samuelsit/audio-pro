@@ -4,6 +4,7 @@ import { creerPrismaClient } from '../src/client';
 import type { PrismaClient } from '../src/generated/prisma/client';
 import type { Role } from '../src/generated/prisma/enums';
 import { seedAgenda, seedReservationEnLigne, seedTypesRdv } from './seed-agenda';
+import { seedAudiologie } from './seed-audiologie';
 import {
   NOMBRE_FABRICANTS_DEMO,
   NOMBRE_MODELES_DEMO,
@@ -16,7 +17,7 @@ import { nombreAppareilsDemo, seedStock } from './seed-stock';
 
 // Seed idempotent de démonstration. Toutes les données sont fictives (domaine exemple.test,
 // RPPS et NIR inventés). Les patients de démonstration sont dans seed-patients.ts.
-const SCHEMA_VERSION = '7';
+const SCHEMA_VERSION = '8';
 
 // Deux clients fictifs : un réseau de 3 centres et un centre indépendant (ADR-016).
 const ORGANISATION_ID = '019a3000-0000-7000-8000-000000000001';
@@ -355,6 +356,7 @@ async function main(): Promise<void> {
     await seedCatalogue(db, ORGANISATION_ID);
     await seedStock(db, ORGANISATION_ID, [NORD, CENTRE, SUD], ADMIN_ID);
     await seedDossiers(db, ORGANISATION_ID, NORD, ADMIN_ID);
+    await seedAudiologie(db, ORGANISATION_ID, NORD, ADMIN_ID);
     await seedPatients(
       db,
       ORGANISATION_INDEPENDANTE_ID,

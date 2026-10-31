@@ -93,6 +93,11 @@ model Organisation {
   typesRdvEnLigne       TypeRdvEnLigne[]
   reservationsEnLigne   ReservationEnLigne[]
   notifications         Notification[]
+  bilansAudiologiques   BilanAudiologique[]
+  mesuresAudiologiques  MesureAudiologique[]
+  otoscopies            Otoscopie[]
+  modelesFormulaire     ModeleFormulaire[]
+  reponsesFormulaire    ReponseFormulaire[]
 
   @@map("organisation")
 }
@@ -137,6 +142,7 @@ model Centre {
   exceptionsAgenda      ExceptionAgenda[]
   rendezVous            RendezVous[]
   dossiers              Dossier[]
+  bilansAudiologiques   BilanAudiologique[]
   parametresReservation ParametresReservation?
   typesRdvEnLigne       TypeRdvEnLigne[]
   reservationsEnLigne   ReservationEnLigne[]
@@ -194,6 +200,11 @@ model Utilisateur {
   priseEnChargeSaisies  PriseEnCharge[]
   rendezVousCrees       RendezVous[]          @relation("RendezVousCreateur")
   exceptionsCreees      ExceptionAgenda[]     @relation("ExceptionAgendaCreateur")
+  bilansCrees           BilanAudiologique[]
+  mesuresAudiologiques  MesureAudiologique[]
+  otoscopies            Otoscopie[]
+  modelesFormulaire     ModeleFormulaire[]
+  reponsesFormulaire    ReponseFormulaire[]
 
   @@index([organisationId])
   @@map("utilisateur")
@@ -227,6 +238,7 @@ model Praticien {
   utilisateur         Utilisateur          @relation(fields: [utilisateurId], references: [id], onDelete: Restrict)
   centres             PraticienCentre[]
   dossiers            Dossier[]
+  bilansAudiologiques BilanAudiologique[]
   rendezVous          RendezVous[]
   exceptions          ExceptionAgenda[]
   organisation        Organisation         @relation(fields: [organisationId], references: [id], onDelete: Restrict)
@@ -325,6 +337,7 @@ model Patient {
   dossiers              Dossier[]
   delivrances           Delivrance[]
   rendezVous            RendezVous[]
+  bilansAudiologiques   BilanAudiologique[]
 
   @@index([organisationId, nomNaissanceRecherche])
   @@index([organisationId, nomUsageRecherche])
@@ -1741,4 +1754,151 @@ model Notification {
   @@unique([organisationId, cleIdempotence])
   @@index([reservationId])
   @@map("notification")
+}
+
+// ---------------------------------------------------------------------------
+// Dossier audiologique (ADR-022)
+// Les données cliniques sont chiffrées : du JSON sérialisé en texte, jamais une colonne `Json`.
+// Tout se lit directement, jamais par relation imbriquée.
+
+enum SourceMesure {
+  SAISIE
+  NOAH
+}
+
+enum TypeMesure {
+  TONALE
+  VOCALE_CALME
+  VOCALE_BRUIT
+}
+
+enum NatureFormulaire {
+  ANAMNESE
+  BENEFICE
+  SATISFACTION
+}
+
+/// Une séance. Sans lien obligatoire vers `Dossier` : le bilan précède le dossier d'appareillage.
+model BilanAudiologique {
+  id             String               @id @default(uuid(7))
+  organisationId String               @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  patientId      String               @map("patient_id")
+  centreId       String               @map("centre_id")
+  praticienId    String?              @map("praticien_id")
+  dateBilan      DateTime             @map("date_bilan") @db.Date
+  createdById    String               @map("created_by_id")
+  createdAt      DateTime             @default(now()) @map("created_at")
+  updatedAt      DateTime             @updatedAt @map("updated_at")
+  organisation   Organisation         @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  patient        Patient              @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  centre         Centre               @relation(fields: [centreId], references: [id], onDelete: Restrict)
+  praticien      Praticien?           @relation(fields: [praticienId], references: [id], onDelete: Restrict)
+  createdBy      Utilisateur          @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  mesures        MesureAudiologique[]
+  otoscopies     Otoscopie[]
+  reponses       ReponseFormulaire[]
+
+  @@index([patientId, dateBilan])
+  @@index([organisationId])
+  @@index([centreId])
+  @@map("bilan_audiologique")
+}
+
+/// Une seule mesure SAISIE par type et par bilan ; une mesure NOAH s'importe une fois par identifiant
+/// externe (index partiels de la migration). Une mesure NOAH ne se modifie pas.
+model MesureAudiologique {
+  id                 String            @id @default(uuid(7))
+  organisationId     String            @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  bilanId            String            @map("bilan_id")
+  type               TypeMesure
+  source             SourceMesure      @default(SAISIE)
+  mesureLe           DateTime          @map("mesure_le")
+  /// Audiomètre utilisé, texte libre sans donnée de santé.
+  appareil           String?
+  /// Renseigné si et seulement si `source = NOAH` (contrainte CHECK).
+  identifiantExterne String?           @map("identifiant_externe")
+  importeLe          DateTime?         @map("importe_le")
+  /// Chiffré (contexte « mesure_audiologique.donnees ») : JSON des seuils ou des courbes.
+  donnees            String
+  versionSchema      Int               @map("version_schema")
+  /// `null` : mesure importée.
+  auteurId           String?           @map("auteur_id")
+  createdAt          DateTime          @default(now()) @map("created_at")
+  updatedAt          DateTime          @updatedAt @map("updated_at")
+  organisation       Organisation      @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  bilan              BilanAudiologique @relation(fields: [bilanId], references: [id], onDelete: Restrict)
+  auteur             Utilisateur?      @relation(fields: [auteurId], references: [id], onDelete: Restrict)
+
+  @@index([bilanId])
+  @@index([organisationId])
+  @@map("mesure_audiologique")
+}
+
+model Otoscopie {
+  id             String            @id @default(uuid(7))
+  organisationId String            @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  bilanId        String            @map("bilan_id")
+  oreille        Oreille
+  source         SourceMesure      @default(SAISIE)
+  /// Chiffré (contexte « otoscopie.constat ») : JSON du constat.
+  constat        String
+  /// Clé opaque dans le DocumentStore. Les trois champs vont ensemble (contrainte CHECK).
+  photoCle       String?           @unique @map("photo_cle")
+  photoType      String?           @map("photo_type")
+  photoTaille    Int?              @map("photo_taille")
+  auteurId       String?           @map("auteur_id")
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+  organisation   Organisation      @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  bilan          BilanAudiologique @relation(fields: [bilanId], references: [id], onDelete: Restrict)
+  auteur         Utilisateur?      @relation(fields: [auteurId], references: [id], onDelete: Restrict)
+
+  @@unique([bilanId, oreille])
+  @@index([organisationId])
+  @@map("otoscopie")
+}
+
+/// Une version est immuable : `ha_app` ne peut modifier que `actif`. Modifier un modèle crée une version.
+model ModeleFormulaire {
+  id             String              @id @default(uuid(7))
+  organisationId String              @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  code           String
+  version        Int
+  nature         NatureFormulaire
+  nom            String
+  /// Structure sans donnée patient, en clair. Validée par `definitionFormulaireSchema`.
+  definition     Json
+  actif          Boolean             @default(true)
+  createdById    String?             @map("created_by_id")
+  createdAt      DateTime            @default(now()) @map("created_at")
+  organisation   Organisation        @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  createdBy      Utilisateur?        @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  reponses       ReponseFormulaire[]
+
+  @@unique([organisationId, code, version])
+  @@index([organisationId, nature])
+  @@map("modele_formulaire")
+}
+
+/// Une seule anamnèse par bilan (index partiel de la migration).
+model ReponseFormulaire {
+  id             String            @id @default(uuid(7))
+  organisationId String            @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  bilanId        String            @map("bilan_id")
+  modeleId       String            @map("modele_id")
+  nature         NatureFormulaire
+  /// Chiffré (contexte « reponse_formulaire.reponses ») : JSON des réponses.
+  reponses       String
+  auteurId       String            @map("auteur_id")
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+  organisation   Organisation      @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  bilan          BilanAudiologique @relation(fields: [bilanId], references: [id], onDelete: Restrict)
+  modele         ModeleFormulaire  @relation(fields: [modeleId], references: [id], onDelete: Restrict)
+  auteur         Utilisateur       @relation(fields: [auteurId], references: [id], onDelete: Restrict)
+
+  @@unique([bilanId, modeleId])
+  @@index([organisationId])
+  @@index([modeleId])
+  @@map("reponse_formulaire")
 }

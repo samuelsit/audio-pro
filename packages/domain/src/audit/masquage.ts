@@ -153,6 +153,11 @@ export const CHAMPS_VISIBLES_AUDIT: Readonly<Record<TypeEntite, readonly string[
     'actif',
   ],
   CABINE: ['centreId', 'nom', 'actif'],
+  BILAN_AUDIOLOGIQUE: [],
+  MESURE_AUDIOLOGIQUE: [],
+  OTOSCOPIE: [],
+  MODELE_FORMULAIRE: ['nom', 'nature', 'version', 'actif'],
+  REPONSE_FORMULAIRE: [],
   PARAMETRES_RESERVATION: [
     'actif',
     'delaiMinimalMinutes',

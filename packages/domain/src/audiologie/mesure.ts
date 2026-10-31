@@ -28,8 +28,5 @@ export const metadonneesMesureSchema = z.object({
   appareil: texteOptionnelSchema.pipe(z.string().max(120, '120 caractères au maximum.').nullable()),
 });
 
-export const bilanSaisieSchema = z.object({
-  dateBilan: dateCalendaireSchema,
-  centreId: z.uuid({ error: 'Choisir le centre.' }),
-});
+export const bilanSaisieSchema = z.object({ dateBilan: dateCalendaireSchema });
 export type BilanSaisie = z.output<typeof bilanSaisieSchema>;
