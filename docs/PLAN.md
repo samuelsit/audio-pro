@@ -56,7 +56,11 @@ Numérotation du plan SaaS (ADR-015). Les références aux étapes dans `docs/DE
 
 ## Phase E – Dossier audiologique et appareillage
 
-- [ ] **9** – Dossier audiologique
+- [x] **9** – Dossier audiologique (ADR-022)
+  - À VÉRIFIER : intitulés français des grades BIAP, grille des trois fréquences consécutives (R24) ; pas de 5 dB et symboles (R25) ; anamnèse par défaut, questionnaires validés et leurs droits d'usage (R26)
+  - reporté à l'étape 24 : port `NoahConnector`, import, correspondance des champs sur la documentation HIMSA, schéma de relecture sans le pas de 5 dB
+  - reporté à l'étape 11 : lien entre un bilan et un dossier d'appareillage
+  - reporté à l'étape 22 : durée de conservation des bilans et des photos, retrait d'une photo seule
 - [ ] **10** – Stock — à mettre à niveau
   - reporté à l'étape 14 : vente pilotée par le dossier
   - reporté à l'étape 29 : reprise des appareils de Cosium, sans passer par la machine à états

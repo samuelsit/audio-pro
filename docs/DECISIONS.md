@@ -677,3 +677,40 @@ L'étape 8 ouvre l'agenda à des visiteurs sans compte. Tout y supposait un util
 - `journal_audit` note « Réservation en ligne » comme auteur, sans personne ni adresse IP.
 - Un message envoyé par un travail n'écrit pas de ligne `SEND` : la table `notification` en tient lieu 30 jours (ADR-019).
 - Un déplacement par l'accueil ne prévient que les patients venus en ligne : les autres attendent l'étape 19.
+
+## ADR-022 – Dossier audiologique
+
+- **Date** : 2026-10-31
+- **Statut** : acceptée. Applique la Rec BIAP 02/2. Le port `NoahConnector` reste à créer à l'étape 24.
+
+### Contexte
+
+L'étape 9 ouvre les premières données cliniques du logiciel : anamnèse, otoscopie, audiométrie, questionnaires. L'intégration NOAH viendra plus tard et sa documentation n'est pas déposée, mais chaque mesure doit déjà garder sa source. La classification de surdité n'était dans aucun document de `docs/ref`, et le BIAP a remplacé sa recommandation le 1er septembre 2026.
+
+### Décision
+
+- **Classification** : BIAP Rec 02/2 seule, grades 0 à 6 par oreille. La 02/1 bis, retirée, n'est pas codée. L'écran dit « grade audiométrique », pas « classe de surdité », comme le demande le texte.
+- **Portée du grade** : indicateur descriptif, sans lien avec `audio-rules`. Le texte l'exclut de l'éligibilité et du choix d'un appareil.
+- **Aucune estimation** : une fréquence manquante rend la moyenne non calculable, une réponse manquante rend un score incomplet. Pas d'arrondi avant le classement.
+- **Bilan** : la séance. Sans lien obligatoire vers `Dossier`, car il précède le dossier d'appareillage. Sans statut « validé » : une mesure se corrige, le journal garde la trace sans valeur de santé.
+- **L'accès suit le patient** : le droit se juge sur le centre actuel du patient, pas sur celui du bilan. Sinon un patient qui change de centre perdrait son historique pour sa nouvelle équipe. `centre_id` dit où le bilan a eu lieu. Une fusion de patients déplace les bilans.
+- **Données cliniques** : un JSON chiffré par colonne (`donnees`, `constat`, `reponses`), relu avec Zod et `versionSchema`. Elles ne sont ni filtrables ni agrégeables en SQL, et ne sont jamais écrites dans le journal.
+- **PTA, grades et scores ne se stockent pas** : ils se recalculent à la lecture, comme `evaluerFactures`. Une évolution de la règle s'applique donc à l'historique.
+- **Prêt pour NOAH** : `source`, `identifiant_externe` (exigé si et seulement si `NOAH`, contrainte CHECK), unicité partielle pour un import idempotent, `importe_le`. Une mesure importée se lit et ne se modifie pas. Aucun champ propre à NOAH n'est inventé.
+- **Formulaires paramétrables** : `modele_formulaire` versionné, immuable par les droits (`ha_app` n'a `UPDATE` que sur `actif`, ni `DELETE`). Une réponse reste liée à sa version. Un même modèle sert à l'anamnèse et aux questionnaires. Les modèles livrés se copient au premier bilan, jamais à la lecture.
+- **Gestion des modèles** : `ADMIN_CLIENT` seul, car un modèle est commun à tout le client.
+- **Droits** : l'assistante lit tout le bilan et saisit l'anamnèse et les questionnaires. Otoscopie et audiométrie suivent `peutActerAppareillage`.
+- **Graphiques** : SVG pur écrit par le domaine, sans dépendance. Le même rendu sert à l'écran, au PDF (Chromium sans JS ni réseau) et aux instantanés. L'audiogramme garde 1 octave = 20 dB.
+- **Saisie rapide** : la conversion de la grille est dans le domaine. Une cellule illisible bloque l'envoi au lieu d'être convertie : `NaN` deviendrait `null` en JSON, soit « pas de réponse », compté 120 dB.
+- **Synthèse PDF** : rendue à la demande et jamais stockée, avec une ligne `PRINT` à chaque téléchargement, comme le compte rendu d'essai.
+
+### Conséquences
+
+- La Rec 02/2 est une recommandation professionnelle, en anglais : les intitulés français sont une traduction à confirmer (R24).
+- Les habitués des catégories « légère, moyenne, sévère, profonde » verront des grades dont les bornes diffèrent.
+- La relecture passe par `audiogrammeSaisieSchema`, qui impose le pas de 5 dB. L'étape 24 devra l'assouplir pour les mesures importées, qui peuvent avoir un autre pas.
+- Le schéma de relecture des mesures est aussi celui de la saisie : une évolution devra passer par `versionSchema`.
+- Une photo remplacée s'efface du stockage ; une photo déposée reste attachée au constat tant qu'on ne la remplace pas. Aucun écran ne la retire seule.
+- Aucun questionnaire validé n'est livré (R26) : chaque client saisit les siens, sous sa responsabilité sur les droits d'usage.
+- Le parcours E2E de l'éditeur de modèles est dans `admin-2fa.spec.ts`, seule spec qui tient une session ADMIN_CLIENT ouverte.
+- `lireFiche` fait encore un `Promise.all` dans une transaction, ce qui déclenche un avertissement de dépréciation de `pg`. Antérieur à cette étape, non traité ici.
