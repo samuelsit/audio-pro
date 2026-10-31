@@ -21,6 +21,9 @@ export const CHAMPS_CHIFFRES: ConfigurationChampsChiffres = {
   Dossier: { surdicecite: 'dossier.surdicecite' },
   TransitionDossier: { motif: 'transition_dossier.motif' },
   Prescription: { motifForcage: 'prescription.motif_forcage' },
+  EssaiAppareil: { motifRetrait: 'essai_appareil.motif_retrait' },
+  EssaiRdv: { compteRendu: 'essai_rdv.compte_rendu' },
+  ProlongationEssai: { motif: 'prolongation_essai.motif' },
 };
 
 let instanceChiffreur: ChiffreurAesGcm | undefined;

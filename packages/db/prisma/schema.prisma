@@ -47,6 +47,7 @@ model Organisation {
   delivrances          Delivrance[]
   devis                Devis[]
   compteursDevis       CompteurDevis[]
+  essais               Essai[]
 
   @@map("organisation")
 }
@@ -124,6 +125,11 @@ model Utilisateur {
   devisCrees            Devis[]               @relation("DevisCree")
   devisEmis             Devis[]               @relation("DevisEmis")
   signaturesDevis       SignatureDevis[]
+  essaisDemarres        Essai[]
+  appareilsPoses        EssaiAppareil[]       @relation("EssaiAppareilPose")
+  appareilsRetires      EssaiAppareil[]       @relation("EssaiAppareilRetire")
+  rdvEssai              EssaiRdv[]
+  prolongationsEssai    ProlongationEssai[]
 
   @@index([organisationId])
   @@map("utilisateur")
@@ -626,6 +632,7 @@ model Appareil {
   centre                    Centre              @relation(fields: [centreId], references: [id], onDelete: Restrict)
   patient                   Patient?            @relation(fields: [patientId], references: [id], onDelete: Restrict)
   mouvements                MouvementAppareil[]
+  essais                    EssaiAppareil[]
 
   @@unique([fabricantId, numeroSerie])
   @@index([organisationId, numeroSerie])
@@ -651,7 +658,7 @@ model MouvementAppareil {
   centreAvantId  String?               @map("centre_avant_id")
   centreApresId  String                @map("centre_apres_id")
   patientId      String?               @map("patient_id")
-  /// Reste nul tant que l'essai et la vente ne sont pas pilotés par le dossier (étapes 10 et 11).
+  /// Dossier qui a provoqué le mouvement : essai, puis vente à l'étape 11.
   dossierId      String?               @map("dossier_id")
   /// Chiffré (contexte « mouvement_appareil.motif ») : texte libre. Null pour la réception.
   motif          String?
@@ -808,6 +815,7 @@ model Dossier {
   delivrances        Delivrance[]
   mouvementsAppareil MouvementAppareil[]
   devis              Devis[]
+  essai              Essai?
 
   @@index([patientId])
   @@index([centreId, statut])
@@ -1036,6 +1044,102 @@ model SignatureDevis {
   saisiePar     Utilisateur   @relation(fields: [saisieParId], references: [id], onDelete: Restrict)
 
   @@map("signature_devis")
+}
+
+/// Issue de l'essai, nulle tant qu'il est en cours.
+enum IssueEssai {
+  ACHAT
+  ABANDON
+}
+
+enum TypeRdvEssai {
+  POSE
+  CONTROLE
+  FIN_ESSAI
+}
+
+/// Période d'adaptation probatoire d'un dossier (convention art. 18 3°).
+model Essai {
+  id             String             @id @default(uuid(7))
+  organisationId String             @map("organisation_id")
+  dossierId      String             @unique @map("dossier_id")
+  dateDebut      DateTime           @map("date_debut") @db.Date
+  /// Renseignés ensemble, à la conclusion (contrainte CHECK).
+  issue          IssueEssai?
+  dateFin        DateTime?          @map("date_fin") @db.Date
+  createdById    String             @map("created_by_id")
+  createdAt      DateTime           @default(now()) @map("created_at")
+  updatedAt      DateTime           @updatedAt @map("updated_at")
+  organisation   Organisation       @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  dossier        Dossier            @relation(fields: [dossierId], references: [id], onDelete: Restrict)
+  createdBy      Utilisateur        @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  appareils      EssaiAppareil[]
+  rdvs           EssaiRdv[]
+  prolongation   ProlongationEssai?
+
+  @@index([organisationId, issue])
+  @@map("essai")
+}
+
+/// Appareil confié pendant l'essai. Un échange ferme la ligne et en ouvre une autre : l'historique reste.
+/// Index uniques partiels : un appareil actif par oreille, un seul essai actif par appareil.
+model EssaiAppareil {
+  id           String       @id @default(uuid(7))
+  essaiId      String       @map("essai_id")
+  appareilId   String       @map("appareil_id")
+  oreille      Oreille
+  poseLe       DateTime     @map("pose_le") @db.Date
+  poseParId    String       @map("pose_par_id")
+  /// Nul tant que le lien est actif. Reste nul après l'achat, jusqu'à la vente (étape 11).
+  retireLe     DateTime?    @map("retire_le") @db.Date
+  retireParId  String?      @map("retire_par_id")
+  /// Chiffré (contexte « essai_appareil.motif_retrait ») : changement d'appareil uniquement.
+  motifRetrait String?      @map("motif_retrait")
+  essai        Essai        @relation(fields: [essaiId], references: [id], onDelete: Restrict)
+  appareil     Appareil     @relation(fields: [appareilId], references: [id], onDelete: Restrict)
+  posePar      Utilisateur  @relation("EssaiAppareilPose", fields: [poseParId], references: [id], onDelete: Restrict)
+  retirePar    Utilisateur? @relation("EssaiAppareilRetire", fields: [retireParId], references: [id], onDelete: Restrict)
+
+  @@index([essaiId])
+  @@index([appareilId])
+  @@map("essai_appareil")
+}
+
+/// Rendez-vous tracé, en ajout seul (trigger). Doctolib reste l'agenda.
+model EssaiRdv {
+  id          String       @id @default(uuid(7))
+  essaiId     String       @map("essai_id")
+  date        DateTime     @db.Date
+  type        TypeRdvEssai
+  /// Chiffré (contexte « essai_rdv.compte_rendu ») : données de santé possibles.
+  compteRendu String       @map("compte_rendu")
+  createdById String       @map("created_by_id")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  essai       Essai        @relation(fields: [essaiId], references: [id], onDelete: Restrict)
+  createdBy   Utilisateur  @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([essaiId, date])
+  @@map("essai_rdv")
+}
+
+/// Prolongation sur demande écrite du prescripteur, dont le justificatif est obligatoire.
+model ProlongationEssai {
+  id                 String      @id @default(uuid(7))
+  essaiId            String      @unique @map("essai_id")
+  dateDemande        DateTime    @map("date_demande") @db.Date
+  jours              Int
+  /// Chiffré (contexte « prolongation_essai.motif »), jamais recopié dans le journal d'audit.
+  motif              String
+  /// Clé opaque dans le DocumentStore. Le nom du fichier d'origine n'est pas conservé.
+  justificatifCle    String      @unique @map("justificatif_cle")
+  justificatifType   String      @map("justificatif_type")
+  justificatifTaille Int         @map("justificatif_taille")
+  createdById        String      @map("created_by_id")
+  createdAt          DateTime    @default(now()) @map("created_at")
+  essai              Essai       @relation(fields: [essaiId], references: [id], onDelete: Restrict)
+  createdBy          Utilisateur @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@map("prolongation_essai")
 }
 
 // ---------------------------------------------------------------------------
