@@ -43,6 +43,8 @@ model Organisation {
   appareils            Appareil[]
   mouvementsAppareil   MouvementAppareil[]
   mouvementsAccessoire MouvementAccessoire[]
+  dossiers             Dossier[]
+  delivrances          Delivrance[]
 
   @@map("organisation")
 }
@@ -74,6 +76,7 @@ model Centre {
   mouvementsArrivee    MouvementAppareil[]   @relation("MouvementCentreApres")
   stockAccessoires     StockAccessoire[]
   mouvementsAccessoire MouvementAccessoire[]
+  dossiers             Dossier[]
 
   @@unique([organisationId, nom])
   @@map("centre")
@@ -108,6 +111,9 @@ model Utilisateur {
   lecturesVitale        LectureVitale[]
   mouvementsAppareil    MouvementAppareil[]
   mouvementsAccessoire  MouvementAccessoire[]
+  transitionsDossier    TransitionDossier[]
+  prescriptionsSaisies  Prescription[]        @relation("PrescriptionSaisie")
+  prescriptionsForcees  Prescription[]        @relation("PrescriptionForcee")
 
   @@index([organisationId])
   @@map("utilisateur")
@@ -136,6 +142,7 @@ model Praticien {
   updatedAt     DateTime          @updatedAt @map("updated_at")
   utilisateur   Utilisateur       @relation(fields: [utilisateurId], references: [id], onDelete: Restrict)
   centres       PraticienCentre[]
+  dossiers      Dossier[]
 
   @@map("praticien")
 }
@@ -219,6 +226,8 @@ model Patient {
   couvertureAmc         CouvertureAmc?
   appareils             Appareil[]
   mouvementsAppareil    MouvementAppareil[]
+  dossiers              Dossier[]
+  delivrances           Delivrance[]
 
   @@index([organisationId, nomNaissanceRecherche])
   @@index([organisationId, nomUsageRecherche])
@@ -595,7 +604,7 @@ model MouvementAppareil {
   centreAvantId  String?               @map("centre_avant_id")
   centreApresId  String                @map("centre_apres_id")
   patientId      String?               @map("patient_id")
-  /// Sans clé étrangère jusqu'à l'étape 8 (table des dossiers) ; reste nul d'ici là.
+  /// Reste nul tant que l'essai et la vente ne sont pas pilotés par le dossier (étapes 10 et 11).
   dossierId      String?               @map("dossier_id")
   /// Chiffré (contexte « mouvement_appareil.motif ») : texte libre. Null pour la réception.
   motif          String?
@@ -605,9 +614,11 @@ model MouvementAppareil {
   centreAvant    Centre?               @relation("MouvementCentreAvant", fields: [centreAvantId], references: [id], onDelete: Restrict)
   centreApres    Centre                @relation("MouvementCentreApres", fields: [centreApresId], references: [id], onDelete: Restrict)
   patient        Patient?              @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  dossier        Dossier?              @relation(fields: [dossierId], references: [id], onDelete: Restrict)
 
   @@index([appareilId, horodatage])
   @@index([patientId])
+  @@index([dossierId])
   @@map("mouvement_appareil")
 }
 
@@ -678,10 +689,149 @@ model Prescripteur {
   createdAt         DateTime               @default(now()) @map("created_at")
   updatedAt         DateTime               @updatedAt @map("updated_at")
   organisation      Organisation           @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  prescriptions     Prescription[]
 
   @@unique([organisationId, rpps])
   @@index([organisationId, nomRecherche])
   @@map("prescripteur")
+}
+
+// ---------------------------------------------------------------------------
+// Dossiers d'appareillage
+// ---------------------------------------------------------------------------
+
+enum StatutDossier {
+  BROUILLON
+  PRESCRIPTION_OK
+  DEVIS_EMIS
+  DEVIS_SIGNE
+  EN_ESSAI
+  A_FACTURER
+  EXPORTE
+  FACTURE_EXTERNE
+  CLOS
+  ABANDONNE
+}
+
+enum OreillesDossier {
+  DROITE
+  GAUCHE
+  LES_DEUX
+}
+
+enum Oreille {
+  DROITE
+  GAUCHE
+}
+
+enum TypeAppareillage {
+  PRIMO
+  RENOUVELLEMENT
+}
+
+enum OrigineDelivrance {
+  DOSSIER
+  REPRISE
+}
+
+/// Objet central du parcours. `statut` ne change que par le service, avec une transition (voir ADR-011).
+/// Lu directement, jamais par relation imbriquée : `surdicecite` est chiffré.
+model Dossier {
+  id                 String              @id @default(uuid(7))
+  organisationId     String              @map("organisation_id")
+  patientId          String              @map("patient_id")
+  centreId           String              @map("centre_id")
+  praticienId        String              @map("praticien_id")
+  oreilles           OreillesDossier
+  /// Renseigné si et seulement si l'oreille est concernée (contrainte CHECK).
+  typeDroite         TypeAppareillage?   @map("type_droite")
+  typeGauche         TypeAppareillage?   @map("type_gauche")
+  statut             StatutDossier       @default(BROUILLON)
+  dateOuverture      DateTime            @map("date_ouverture") @db.Date
+  /// Donnée de santé, chiffrée (contexte « dossier.surdicecite ») : « OUI » ou « NON ».
+  surdicecite        String
+  createdAt          DateTime            @default(now()) @map("created_at")
+  updatedAt          DateTime            @updatedAt @map("updated_at")
+  organisation       Organisation        @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  patient            Patient             @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  centre             Centre              @relation(fields: [centreId], references: [id], onDelete: Restrict)
+  praticien          Praticien           @relation(fields: [praticienId], references: [id], onDelete: Restrict)
+  transitions        TransitionDossier[]
+  prescriptions      Prescription[]
+  delivrances        Delivrance[]
+  mouvementsAppareil MouvementAppareil[]
+
+  @@index([patientId])
+  @@index([centreId, statut])
+  @@map("dossier")
+}
+
+/// Historique des statuts, en ajout seul (trigger). Écrit dans la même transaction que le changement.
+/// Lu directement : motif chiffré.
+model TransitionDossier {
+  id            String         @id @default(uuid(7))
+  dossierId     String         @map("dossier_id")
+  /// Null pour la création du dossier.
+  statutAvant   StatutDossier? @map("statut_avant")
+  statutApres   StatutDossier  @map("statut_apres")
+  horodatage    DateTime       @default(now())
+  utilisateurId String         @map("utilisateur_id")
+  /// Chiffré (contexte « transition_dossier.motif ») : abandon uniquement.
+  motif         String?
+  dossier       Dossier        @relation(fields: [dossierId], references: [id], onDelete: Restrict)
+  utilisateur   Utilisateur    @relation(fields: [utilisateurId], references: [id], onDelete: Restrict)
+
+  @@index([dossierId, horodatage])
+  @@map("transition_dossier")
+}
+
+/// Une version de la prescription d'un dossier, en ajout seul (trigger) : la prescription et son scan se
+/// conservent (convention art. 21). La plus récente fait foi. Lue directement : motif chiffré.
+model Prescription {
+  id                    String          @id @default(uuid(7))
+  dossierId             String          @map("dossier_id")
+  prescripteurId        String          @map("prescripteur_id")
+  datePrescription      DateTime        @map("date_prescription") @db.Date
+  oreilles              OreillesDossier
+  mentionRenouvellement Boolean         @map("mention_renouvellement")
+  /// Clé opaque dans le DocumentStore. Le nom du fichier d'origine n'est pas conservé.
+  scanCle               String          @unique @map("scan_cle")
+  scanType              String          @map("scan_type")
+  scanTaille            Int             @map("scan_taille")
+  /// Erreurs forcées et avertissements relevés à l'enregistrement : codes, sans texte libre.
+  controles             Json
+  forceeParId           String?         @map("forcee_par_id")
+  /// Chiffré (contexte « prescription.motif_forcage »), jamais recopié dans le journal d'audit.
+  motifForcage          String?         @map("motif_forcage")
+  createdAt             DateTime        @default(now()) @map("created_at")
+  createdById           String          @map("created_by_id")
+  dossier               Dossier         @relation(fields: [dossierId], references: [id], onDelete: Restrict)
+  prescripteur          Prescripteur    @relation(fields: [prescripteurId], references: [id], onDelete: Restrict)
+  forceePar             Utilisateur?    @relation("PrescriptionForcee", fields: [forceeParId], references: [id], onDelete: Restrict)
+  createdBy             Utilisateur     @relation("PrescriptionSaisie", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([dossierId, createdAt])
+  @@map("prescription")
+}
+
+/// Délivrance d'une aide sur une oreille : l'historique du renouvellement (convention art. 22).
+/// Écrite à la facturation (étape 11) et par la reprise Cosium (étape 13).
+model Delivrance {
+  id             String            @id @default(uuid(7))
+  organisationId String            @map("organisation_id")
+  patientId      String            @map("patient_id")
+  oreille        Oreille
+  dateDelivrance DateTime          @map("date_delivrance") @db.Date
+  /// Null pour une délivrance reprise de Cosium.
+  dossierId      String?           @map("dossier_id")
+  origine        OrigineDelivrance
+  createdAt      DateTime          @default(now()) @map("created_at")
+  organisation   Organisation      @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  patient        Patient           @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  dossier        Dossier?          @relation(fields: [dossierId], references: [id], onDelete: Restrict)
+
+  @@index([patientId])
+  @@map("delivrance")
 }
 
 // ---------------------------------------------------------------------------
