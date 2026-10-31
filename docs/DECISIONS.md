@@ -325,3 +325,42 @@ L'étape 7 suit chaque aide auditive par son numéro de série, et les accessoir
 - La reprise Cosium (étape 13) créera des appareils dans leur état réel, sans passer par la machine à états.
 - Rien ne recherche encore les détenteurs d'un modèle (matériovigilance, art. 21), et aucun numéro de lot n'est stocké (rappel de lot, même article).
 - `reponseCsv` (`apps/web/server/csv.ts`) reprend la réponse en flux de l'export du journal, qui l'utilise désormais.
+
+## ADR-011 – Dossier d'appareillage, prescription et documents
+
+- **Date** : 2026-10-31
+- **Statut** : acceptée
+
+### Contexte
+
+L'étape 8 crée l'objet central du parcours et enregistre la prescription avec son scan. Le port `DocumentStore` n'existait pas, aucune délivrance n'était stockée, et `eligibiliteRenouvellement` attendait un historique. Le devis normalisé (p. 1) demande le type d'appareillage oreille par oreille, avec la date du précédent appareillage. La convention impose de conserver la prescription (art. 21) et de la joindre à la facturation (art. 28).
+
+### Décision
+
+- **Machine à états** : `packages/domain/src/dossier/etats.ts`, les 100 couples dans `etats.test.ts`. Uniquement l'étape suivante, pas de retour arrière. ABANDONNE est possible de BROUILLON à EN_ESSAI, avec motif, réservé à ADMIN et AUDIO : au-delà, l'aide est délivrée. CLOS et ABANDONNE sont terminaux. Choix d'organisation, pas une règle.
+- **Écriture du statut** : `appliquerTransition` seule, avec un `updateMany` conditionné au statut lu (même principe que l'ADR-010), et une ligne `TransitionDossier` en ajout seul, qui donne les dates de la frise. Les écrans n'offrent pas de changement de statut générique : les étapes 9 à 11 l'appellent après leurs propres contrôles.
+- **Type par oreille** : `typeDroite` et `typeGauche`, CHECK en base (renseigné si et seulement si l'oreille est concernée). Le type global (Primo, Renouvellement, Mixte) est calculé. Les types du domaine s'appellent `PRIMO` et `RENOUVELLEMENT`.
+- **`Delivrance`** : une ligne par oreille, origine `DOSSIER` ou `REPRISE`, écrite par les étapes 11 et 13. L'historique lu couvre tous les centres de l'organisation. La table suit la fusion de patients, donc pas en ajout seul.
+- **Contrôle** : `controlePrescription` applique le délai à la **première délivrance possible** (jour + 30 jours d'essai), l'âge de R10 à la même date. Comparer à la date du jour refuserait à tort pendant les 30 derniers jours (À VÉRIFIER, R8).
+- **Blocage** : le renouvellement avant délai est une erreur à la prescription, et reste un avertissement dans `controleDevis`. Un refus n'écrit rien, ni en base ni au stockage. La date future est une erreur de saisie, jamais forçable. La qualité du prescripteur reste un avertissement (ADR-009).
+- **Forçage** : ADMIN seul, vérifié côté serveur, motif obligatoire, sans effet s'il n'y a rien à forcer. Le motif est **chiffré sur la prescription**, jamais recopié dans le journal : texte libre susceptible de citer l'état de santé (même principe que l'ADR-010). Le journal trace le fait, l'auteur, les codes forcés et la prescription.
+- **Prescriptions en ajout seul** : une correction ajoute une version, possible en BROUILLON et PRESCRIPTION_OK, figée dès DEVIS_EMIS. La plus récente fait foi, les anciens scans restent (art. 21). Les constats sont conservés en JSON, codes seuls.
+- **Scan** : obligatoire. PDF, JPEG ou PNG, 10 Mo au maximum, type lu dans la signature du fichier. Le nom d'origine n'est pas conservé : il peut contenir une identité. La clé d'objet est aléatoire, sans donnée patient. Chaque ouverture écrit une ligne READ.
+- **Documents chiffrés** : `DocumentStoreChiffre` enveloppe tout adaptateur, Fake compris, avec AES-256-GCM et le trousseau de l'ADR-005. Enveloppe binaire `v1.<idCle>.` puis IV, tag et chiffré, pour éviter le surcoût du base64. Le contexte authentifié contient la clé de l'objet.
+- **Ordre d'écriture** : contrôle, dépôt du scan hors transaction, puis transaction (prescription, transition, audit). Si elle échoue, l'objet déposé est retiré.
+- **`@aws-sdk/client-s3`** : version exacte 3.1160.0, le dépôt n'ayant pas de client S3. Dépendance d'adaptateur, sans effet sur le domaine.
+- **Envoi du fichier** : `bodySizeLimit` et `proxyClientMaxBodySize` à 12 Mo. Le formulaire envoie par `onSubmit` : une action de formulaire le réinitialiserait et ferait perdre le fichier au moment de forcer.
+- **`surdicecite`** : donnée de santé, chiffrée sur le dossier en texte `OUI`/`NON`, comme l'ALD (ADR-006).
+- **Accès** : par le centre du dossier, qui peut différer de celui de la fiche (`lireFiche` reçoit `accesVerifie`). La création exige l'accès à la fiche et au centre. L'audioprothésiste doit exercer dans ce centre.
+
+### Conséquences
+
+- D'ici les étapes 11 et 13, `Delivrance` n'est écrite que par le seed et les tests. Un patient réel sans ligne ressort éligible. Le résultat reste indicatif : le téléservice de l'Assurance Maladie fait foi (art. 22).
+- Une vente hors prise en charge ou un renouvellement anticipé passe par un forçage ADMIN avant le devis. Le motif porte alors l'accord de la caisse.
+- Un dossier préparé plusieurs mois avant l'échéance des 4 ans reste refusé.
+- Le chemin d'une nouvelle écriture de `statut` passe par `appliquerTransition`, sinon la frise diverge.
+- L'étape 9 reprend le type par oreille et lit `Delivrance` pour la date du précédent appareillage. Rien ne relance le contrôle si une délivrance apparaît après la prescription.
+- Un scan orphelin reste possible si la suppression échoue après une transaction en erreur : invisible, chiffré, sans référence en base.
+- Le test S3 tourne contre MinIO en local seulement : le service `pgsty/minio` exige une commande que GitHub Actions ne permet pas de passer.
+- Une notification (`notifier`) ne s'affiche qu'à un changement de chemin : l'abandon revient donc sur la liste des dossiers du patient.
+- Complément à l'ADR-010 : `mouvement_appareil.dossier_id` porte sa clé étrangère. La saisie passe à l'étape 10, où l'essai est piloté depuis le dossier.

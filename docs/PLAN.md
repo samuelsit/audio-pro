@@ -78,7 +78,22 @@ Une étape est cochée quand ses tests sont verts, le typecheck OK et la CI vert
   - reporté aux étapes 10 et 11 : essai et vente pilotés par le dossier, branchement sur `changerStatut`
   - reporté à l'étape 13 : reprise des appareils de Cosium, sans passer par la machine à états
   - à planifier : recherche des détenteurs par modèle ou par lot pour la matériovigilance (art. 21), numéro de lot à décider
-- [ ] **8** – Dossier et prescription
+- [ ] **8** – Dossier et prescription — terminée en local le 2026-10-31 (tests, typecheck, lint, E2E verts), à cocher quand la CI est verte
+  - [x] Domaine : machine à états du dossier (étape suivante ou abandon, sans saut), oreilles et type par oreille, saisies, droits, signature et taille des documents, dans `packages/domain/src/dossier`
+  - [x] `controlePrescription` (`audio-rules`) : `prescriptionValide` et `eligibiliteRenouvellement` oreille par oreille, à la première délivrance possible ; types d'appareillage renommés `PRIMO` et `RENOUVELLEMENT`
+  - [x] Modèle : `Dossier`, `TransitionDossier` et `Prescription` en ajout seul, `Delivrance`, type par oreille (CHECK), `surdicecite` et motifs chiffrés, clé étrangère `mouvement_appareil.dossier_id` ; migration `dossiers`
+  - [x] Port `DocumentStore`, `S3DocumentStore` (MinIO), `FakeDocumentStore`, `DocumentStoreChiffre`, chiffrement binaire AES-256-GCM
+  - [x] Service : création, prescription versionnée, forçage ADMIN, scan, abandon ; écriture du statut par `appliquerTransition` seule, `updateMany` conditionné ; dossiers et délivrances suivent la fusion de patients
+  - [x] Écrans : onglet « Dossiers » de la fiche, création, frise des statuts, prescription avec `SelecteurPrescripteur`, erreurs et avertissements, forçage sans rechoisir le fichier, abandon, ouverture du scan
+  - [x] Seed : 2 prescripteurs, 1 dossier et 1 délivrance fictifs
+  - [x] Tests : domaine 100 % (100 couples de transitions, renouvellement par oreille), adaptateurs (S3 contre MinIO, hors CI), intégration (droits, cloisonnement, forçage, audit, atomicité du scan, conflits, ajout seul, fusion), E2E (dossier mixte, refus et acceptation par oreille, forçage, abandon)
+  - À VÉRIFIER : date de comparaison des 4 ans, exigence du RPPS du prescripteur, effet de la mention de renouvellement (voir `docs/REGLES_AUDIO.md`)
+  - reporté à l'étape 9 : passage à DEVIS_EMIS et DEVIS_SIGNE, type par oreille et date du précédent appareillage sur le devis ; retour arrière après un devis refusé, à arbitrer
+  - reporté à l'étape 10 : saisie de `dossierId` depuis le dossier (reportée de l'étape 7), passage à EN_ESSAI ; nouvel essai, à arbitrer
+  - reporté à l'étape 11 : écriture de `Delivrance`, passage à A_FACTURER, blocage éventuel sans RPPS du prescripteur
+  - reporté à l'étape 13 : reprise des délivrances Cosium ; d'ici là, un patient sans ligne ressort éligible
+  - reporté à l'étape 14 : liste `/dossiers` du menu
+  - à planifier : avertissement si deux dossiers ouverts portent sur la même oreille, service S3 en CI
 - [ ] **9** – Devis normalisé
 - [ ] **10** – Essai
 - [ ] **11** – Facture préparée

@@ -179,6 +179,8 @@ Piles : `PIL`. Accessoires : `APA`.
 - Le délai concerne la prise en charge, pas la vente.
 - Notre historique ne voit que nos délivrances. Le téléservice de l'Assurance Maladie fait foi (art. 22 § 1) : un résultat « éligible » reste indicatif.
 
+**Décision** (2026-10-31, ADR-011) : à l'enregistrement de la prescription, le délai s'apprécie à la première délivrance possible (jour + 30 jours d'essai, `controlePrescription`), sur chaque oreille du dossier et quel que soit son type déclaré. Un délai non écoulé est une erreur, qu'un ADMIN peut forcer avec un motif. La date de comparaison est À VÉRIFIER : aucun texte ne la fixe avant la délivrance réelle.
+
 **Cas limites** : jour anniversaire (éligible le jour même, retenu, À VÉRIFIER) ; oreilles à des dates différentes ; premier appareillage (éligible) ; plusieurs délivrances (la plus récente) ; 29 février.
 
 ## R9 – Essai (`etatEssai`)
@@ -211,7 +213,9 @@ Piles : `PIL`. Accessoires : `APA`.
 | Primo-appareillage | ORL ou généraliste formé en otologie | ORL              |
 | Renouvellement     | Tout médecin                         | ORL              |
 
-**Décision** : table codée, marquée `// À VÉRIFIER`, en **avertissement** et non en erreur bloquante tant que le texte n'est pas déposé. Âge en années révolues : « 6 ans ou moins » va jusqu'à la veille des 7 ans.
+**Décision** : table codée, marquée `// À VÉRIFIER`, en **avertissement** et non en erreur bloquante tant que le texte n'est pas déposé. Âge en années révolues : « 6 ans ou moins » va jusqu'à la veille des 7 ans. Le type s'applique oreille par oreille (ADR-011).
+
+**RPPS** : un prescripteur sans RPPS lève l'avertissement `RPPS_PRESCRIPTEUR_MANQUANT`. Contrôle de cohérence, À VÉRIFIER : le « N° prescripteur » des cas FR 201 ressemble à un identifiant Assurance Maladie, pas à un RPPS. Le blocage éventuel se décidera à l'étape 11.
 
 **Cas limites** : 6e anniversaire et 6 ans révolus (même ambiguïté qu'en R1) ; généraliste dont la formation est inconnue ; spécialité `AUTRE` de la fiche prescripteur, qui ne garantit pas un médecin (avertissement dédié en renouvellement).
 
@@ -222,6 +226,8 @@ Piles : `PIL`. Accessoires : `APA`.
 **Règle** : prescription médicale préalable obligatoire (devis p. 1), donc antérieure ou égale au devis. Elle accompagne la facturation (art. 28, p. 26) et se conserve (art. 21, p. 21).
 
 **Durée de validité** : aucun texte. Non contrôlée, aucune valeur inventée.
+
+**À l'enregistrement** (ADR-011) : aucun devis n'existe encore. Une date future est refusée à la saisie, sans forçage possible, et la comparaison au devis reste faite à l'étape 9. Le scan est obligatoire (art. 21 et 28). La prescription doit couvrir chaque oreille du dossier : `OREILLE_NON_PRESCRITE` est un contrôle de cohérence, pas une règle. La mention de renouvellement est conservée sans effet : aucun texte ne lui en donne (À VÉRIFIER).
 
 **Cas limites** : prescription datée du jour du devis (acceptée) ; datée du lendemain (refusée).
 
@@ -244,7 +250,7 @@ Piles : `PIL`. Accessoires : `APA`.
 
 **Avertissements** :
 
-- renouvellement avant 4 ans (la vente reste possible, sans prise en charge) ;
+- renouvellement avant 4 ans (la vente reste possible, sans prise en charge ; le même cas est une erreur à l'enregistrement de la prescription, voir R8) ;
 - tranche d'âge changeant avant la délivrance (R2) ;
 - prescripteur non conforme (R10) ;
 - dépassement du plafond de contrat responsable (R14) ;
@@ -312,24 +318,27 @@ Le reste n'est pas dans les tests : il est calculé. Dans ces cas de tiers payan
 
 ## Points À VÉRIFIER
 
-| Point                                               | Règle | Document qui trancherait                      |
-| --------------------------------------------------- | ----- | --------------------------------------------- |
-| Borne de 20 ans                                     | R1    | Nomenclature LPP                              |
-| Date de référence de l'âge                          | R2    | Nomenclature LPP                              |
-| Prix limite TTC                                     | R3    | Nomenclature LPP                              |
-| Base en cas de cécité                               | R4    | Nomenclature LPP                              |
-| Taux ALD, AT, maternité, SNCF, Alsace-Moselle       | R5    | Cahier des charges SESAM-Vitale ou AreaFSE    |
-| Arrondi à ,5 centime                                | R5    | Cahier des charges SESAM-Vitale               |
-| AMC C2S à 20 ans et plus                            | R6    | Texte C2S                                     |
-| Code LPP à facturer, sens de `RJT`                  | R7    | Dictionnaire LPP ou caisse                    |
-| Jour anniversaire, conditions de R.165-24           | R8    | Nomenclature LPP, code de la sécurité sociale |
-| Décompte des jours d'essai, durée sans prolongation | R9    | Nomenclature LPP                              |
-| Qualité du prescripteur                             | R10   | Nomenclature LPP                              |
-| Validité de l'ordonnance                            | R11   | Nomenclature LPP                              |
-| Prix inférieur à la base                            | R13   | Nomenclature LPP ou cahier des charges        |
-| 1 700 €                                             | R14   | Texte sur les contrats responsables           |
-| Quotas de piles et d'embouts, sens de `QTE_MAX`     | R15   | Nomenclature LPP, dictionnaire LPP            |
-| Durée de l'article L. 332-1 CSS                     | R17   | Code de la sécurité sociale                   |
-| Numéro de lot à conserver                           | R17   | Vigilance ANSM                                |
-| Format des numéros et codes lus à la douchette      | R17   | Étiquettes réelles des fabricants             |
-| Consignation                                        | R17   | Contrats fabricants                           |
+| Point                                                   | Règle | Document qui trancherait                      |
+| ------------------------------------------------------- | ----- | --------------------------------------------- |
+| Borne de 20 ans                                         | R1    | Nomenclature LPP                              |
+| Date de référence de l'âge                              | R2    | Nomenclature LPP                              |
+| Prix limite TTC                                         | R3    | Nomenclature LPP                              |
+| Base en cas de cécité                                   | R4    | Nomenclature LPP                              |
+| Taux ALD, AT, maternité, SNCF, Alsace-Moselle           | R5    | Cahier des charges SESAM-Vitale ou AreaFSE    |
+| Arrondi à ,5 centime                                    | R5    | Cahier des charges SESAM-Vitale               |
+| AMC C2S à 20 ans et plus                                | R6    | Texte C2S                                     |
+| Code LPP à facturer, sens de `RJT`                      | R7    | Dictionnaire LPP ou caisse                    |
+| Jour anniversaire, conditions de R.165-24               | R8    | Nomenclature LPP, code de la sécurité sociale |
+| Date de comparaison du délai avant la délivrance        | R8    | Nomenclature LPP                              |
+| Décompte des jours d'essai, durée sans prolongation     | R9    | Nomenclature LPP                              |
+| Qualité du prescripteur                                 | R10   | Nomenclature LPP                              |
+| RPPS du prescripteur exigé, sens du « N° prescripteur » | R10   | Cahier des charges SESAM-Vitale ou AreaFSE    |
+| Validité de l'ordonnance                                | R11   | Nomenclature LPP                              |
+| Effet de la mention de renouvellement                   | R11   | Nomenclature LPP                              |
+| Prix inférieur à la base                                | R13   | Nomenclature LPP ou cahier des charges        |
+| 1 700 €                                                 | R14   | Texte sur les contrats responsables           |
+| Quotas de piles et d'embouts, sens de `QTE_MAX`         | R15   | Nomenclature LPP, dictionnaire LPP            |
+| Durée de l'article L. 332-1 CSS                         | R17   | Code de la sécurité sociale                   |
+| Numéro de lot à conserver                               | R17   | Vigilance ANSM                                |
+| Format des numéros et codes lus à la douchette          | R17   | Étiquettes réelles des fabricants             |
+| Consignation                                            | R17   | Contrats fabricants                           |
