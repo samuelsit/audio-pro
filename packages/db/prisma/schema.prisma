@@ -45,38 +45,45 @@ model Organisation {
   mouvementsAccessoire MouvementAccessoire[]
   dossiers             Dossier[]
   delivrances          Delivrance[]
+  devis                Devis[]
+  compteursDevis       CompteurDevis[]
 
   @@map("organisation")
 }
 
 /// Centre (établissement). On ne supprime pas un centre : on le désactive.
 model Centre {
-  id                   String                @id @default(uuid(7))
-  organisationId       String                @map("organisation_id")
-  nom                  String
-  adresseLigne1        String                @map("adresse_ligne1")
-  adresseLigne2        String?               @map("adresse_ligne2")
-  codePostal           String                @map("code_postal")
-  ville                String
-  finess               String?               @unique
+  id                    String                @id @default(uuid(7))
+  organisationId        String                @map("organisation_id")
+  nom                   String
+  adresseLigne1         String                @map("adresse_ligne1")
+  adresseLigne2         String?               @map("adresse_ligne2")
+  codePostal            String                @map("code_postal")
+  ville                 String
+  finess                String?               @unique
   /// Identifiant de facturation Assurance Maladie, attribué par établissement.
-  numeroFacturationAm  String?               @unique @map("numero_facturation_am")
-  email                String
-  telephone            String
-  actif                Boolean               @default(true)
-  createdAt            DateTime              @default(now()) @map("created_at")
-  updatedAt            DateTime              @updatedAt @map("updated_at")
-  organisation         Organisation          @relation(fields: [organisationId], references: [id], onDelete: Restrict)
-  utilisateurs         UtilisateurCentre[]
-  praticiens           PraticienCentre[]
-  patients             Patient[]
-  lecturesVitale       LectureVitale[]
-  appareils            Appareil[]
-  mouvementsDepart     MouvementAppareil[]   @relation("MouvementCentreAvant")
-  mouvementsArrivee    MouvementAppareil[]   @relation("MouvementCentreApres")
-  stockAccessoires     StockAccessoire[]
-  mouvementsAccessoire MouvementAccessoire[]
-  dossiers             Dossier[]
+  numeroFacturationAm   String?               @unique @map("numero_facturation_am")
+  /// Identification de l'entreprise, au pied du devis normalisé (p. 2).
+  raisonSociale         String?               @map("raison_sociale")
+  siret                 String?
+  rcs                   String?
+  tvaIntracommunautaire String?               @map("tva_intracommunautaire")
+  email                 String
+  telephone             String
+  actif                 Boolean               @default(true)
+  createdAt             DateTime              @default(now()) @map("created_at")
+  updatedAt             DateTime              @updatedAt @map("updated_at")
+  organisation          Organisation          @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  utilisateurs          UtilisateurCentre[]
+  praticiens            PraticienCentre[]
+  patients              Patient[]
+  lecturesVitale        LectureVitale[]
+  appareils             Appareil[]
+  mouvementsDepart      MouvementAppareil[]   @relation("MouvementCentreAvant")
+  mouvementsArrivee     MouvementAppareil[]   @relation("MouvementCentreApres")
+  stockAccessoires      StockAccessoire[]
+  mouvementsAccessoire  MouvementAccessoire[]
+  dossiers              Dossier[]
 
   @@unique([organisationId, nom])
   @@map("centre")
@@ -114,6 +121,9 @@ model Utilisateur {
   transitionsDossier    TransitionDossier[]
   prescriptionsSaisies  Prescription[]        @relation("PrescriptionSaisie")
   prescriptionsForcees  Prescription[]        @relation("PrescriptionForcee")
+  devisCrees            Devis[]               @relation("DevisCree")
+  devisEmis             Devis[]               @relation("DevisEmis")
+  signaturesDevis       SignatureDevis[]
 
   @@index([organisationId])
   @@map("utilisateur")
@@ -451,10 +461,31 @@ enum NatureAccessoire {
   PILE
 }
 
+enum LieuFabrication {
+  UE
+  HORS_UE
+}
+
+/// Les 8 options du devis normalisé (p. 1 § 1.1), dont l'offre 100 % santé compte au moins 3.
+enum OptionAideAuditive {
+  REDUCTEUR_ACOUPHENE
+  CONNECTIVITE_SANS_FIL
+  REDUCTEUR_BRUIT_VENT
+  SYNCHRONISATION_BINAURALE
+  DIRECTIVITE_ADAPTATIVE
+  BANDE_PASSANTE_ELARGIE
+  APPRENTISSAGE_SONIE
+  REDUCTEUR_REVERBERATION
+}
+
 model Fabricant {
   id             String               @id @default(uuid(7))
   organisationId String               @map("organisation_id")
   nom            String
+  /// Mentions du devis normalisé : nullables pour les fiches anciennes, le manque bloque l'émission.
+  adresse        String?
+  /// Nom et adresse du mandataire d'un fabricant hors UE.
+  mandataire     String?
   actif          Boolean              @default(true)
   createdAt      DateTime             @default(now()) @map("created_at")
   updatedAt      DateTime             @updatedAt @map("updated_at")
@@ -467,21 +498,33 @@ model Fabricant {
 }
 
 model ModeleAideAuditive {
-  id                    String           @id @default(uuid(7))
-  organisationId        String           @map("organisation_id")
-  fabricantId           String           @map("fabricant_id")
+  id                    String               @id @default(uuid(7))
+  organisationId        String               @map("organisation_id")
+  fabricantId           String               @map("fabricant_id")
   gamme                 String
   nom                   String
   type                  TypeAideAuditive
   classe                ClasseLpp
-  prixConseilleCentimes Int              @map("prix_conseille_centimes")
-  actif                 Boolean          @default(true)
-  createdAt             DateTime         @default(now()) @map("created_at")
-  updatedAt             DateTime         @updatedAt @map("updated_at")
-  organisation          Organisation     @relation(fields: [organisationId], references: [id], onDelete: Restrict)
-  fabricant             Fabricant        @relation(fields: [fabricantId], references: [id], onDelete: Restrict)
+  prixConseilleCentimes Int                  @map("prix_conseille_centimes")
+  /// Mentions du devis normalisé : nullables pour les fiches anciennes, le manque bloque l'émission.
+  marque                String?
+  referenceCommerciale  String?              @map("reference_commerciale")
+  /// Facultatif sur le devis normalisé.
+  lieuFabrication       LieuFabrication?     @map("lieu_fabrication")
+  nombreCanaux          Int?                 @map("nombre_canaux")
+  connectivite          String?
+  antiLarsen            Boolean?             @map("anti_larsen")
+  reducteurAcouphenes   Boolean?             @map("reducteur_acouphenes")
+  bobineT               Boolean?             @map("bobine_t")
+  options               OptionAideAuditive[] @default([])
+  actif                 Boolean              @default(true)
+  createdAt             DateTime             @default(now()) @map("created_at")
+  updatedAt             DateTime             @updatedAt @map("updated_at")
+  organisation          Organisation         @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  fabricant             Fabricant            @relation(fields: [fabricantId], references: [id], onDelete: Restrict)
   codesLpp              ModeleCodeLpp[]
   appareils             Appareil[]
+  lignesDevis           DevisLigne[]
 
   /// Cible de la clé composite d'`Appareil` : le fabricant d'un modèle en stock ne peut plus changer.
   @@unique([id, fabricantId])
@@ -504,19 +547,23 @@ model ModeleCodeLpp {
 
 /// Accessoire ou boîte de piles.
 model Accessoire {
-  id             String                @id @default(uuid(7))
-  organisationId String                @map("organisation_id")
-  nom            String
-  nature         NatureAccessoire
-  codeLpp        String?               @map("code_lpp") @db.Char(7)
-  prixCentimes   Int                   @map("prix_centimes")
-  actif          Boolean               @default(true)
-  createdAt      DateTime              @default(now()) @map("created_at")
-  updatedAt      DateTime              @updatedAt @map("updated_at")
-  organisation   Organisation          @relation(fields: [organisationId], references: [id], onDelete: Restrict)
-  lppCode        LppCode?              @relation(fields: [codeLpp], references: [code], onDelete: Restrict)
-  stocks         StockAccessoire[]
-  mouvements     MouvementAccessoire[]
+  id                   String                @id @default(uuid(7))
+  organisationId       String                @map("organisation_id")
+  nom                  String
+  nature               NatureAccessoire
+  codeLpp              String?               @map("code_lpp") @db.Char(7)
+  prixCentimes         Int                   @map("prix_centimes")
+  /// Mentions du devis normalisé : nullables pour les fiches anciennes, le manque bloque l'émission.
+  marque               String?
+  referenceCommerciale String?               @map("reference_commerciale")
+  actif                Boolean               @default(true)
+  createdAt            DateTime              @default(now()) @map("created_at")
+  updatedAt            DateTime              @updatedAt @map("updated_at")
+  organisation         Organisation          @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  lppCode              LppCode?              @relation(fields: [codeLpp], references: [code], onDelete: Restrict)
+  stocks               StockAccessoire[]
+  mouvements           MouvementAccessoire[]
+  lignesDevis          DevisLigne[]
 
   @@unique([organisationId, nom])
   @@index([codeLpp])
@@ -760,6 +807,7 @@ model Dossier {
   prescriptions      Prescription[]
   delivrances        Delivrance[]
   mouvementsAppareil MouvementAppareil[]
+  devis              Devis[]
 
   @@index([patientId])
   @@index([centreId, statut])
@@ -832,6 +880,162 @@ model Delivrance {
 
   @@index([patientId])
   @@map("delivrance")
+}
+
+// ---------------------------------------------------------------------------
+// Devis normalisé
+// ---------------------------------------------------------------------------
+
+enum StatutDevis {
+  BROUILLON
+  EMIS
+  SIGNE
+  REMPLACE
+}
+
+enum RubriqueOffre {
+  OFFRE_100_SANTE
+  AUTRE_OFFRE
+}
+
+enum NatureLigneDevis {
+  AIDE_AUDITIVE
+  ACCESSOIRE
+  PILE
+}
+
+enum ModeSignature {
+  SCAN
+  ELECTRONIQUE
+}
+
+/// Dernier numéro attribué, par organisation et par année : le numéro reste le même d'une version à l'autre.
+model CompteurDevis {
+  organisationId String       @map("organisation_id")
+  annee          Int
+  dernier        Int
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+
+  @@id([organisationId, annee])
+  @@map("compteur_devis")
+}
+
+/// Une version du devis d'un dossier. Tout est figé hors BROUILLON (triggers, voir ADR-012) : modifier
+/// crée la version suivante, du même numéro. Le statut du dossier ne change que par le service.
+model Devis {
+  id                    String          @id @default(uuid(7))
+  organisationId        String          @map("organisation_id")
+  dossierId             String          @map("dossier_id")
+  numero                String
+  version               Int
+  statut                StatutDevis     @default(BROUILLON)
+  lieuEmission          String          @map("lieu_emission")
+  validiteMois          Int             @map("validite_mois")
+  /// Taux en pour cent, fourni à la saisie (R5).
+  tauxAmo               Int             @map("taux_amo")
+  refusOffreC2S         Boolean         @map("refus_offre_c2s")
+  contratResponsable    Boolean         @map("contrat_responsable")
+  bobineTPresentee      Boolean         @map("bobine_t_presentee")
+  ficheTechniqueJointe  Boolean         @map("fiche_technique_jointe")
+  depotGarantieCentimes Int?            @map("depot_garantie_centimes")
+  datePrecedentDroite   DateTime?       @map("date_precedent_droite") @db.Date
+  datePrecedentGauche   DateTime?       @map("date_precedent_gauche") @db.Date
+  /// Renseignés à l'émission, avec le PDF.
+  dateEmission          DateTime?       @map("date_emission") @db.Date
+  dateFinValidite       DateTime?       @map("date_fin_validite") @db.Date
+  /// Clé opaque dans le DocumentStore : le PDF remis au patient, chiffré.
+  pdfCle                String?         @unique @map("pdf_cle")
+  pdfTaille             Int?            @map("pdf_taille")
+  /// Montants calculés à l'émission, sans identité.
+  totaux                Json?
+  /// Avertissements relevés à l'émission : codes, sans texte libre.
+  controles             Json?
+  /// Offres choisies, rubriques 3 et 5 du devis.
+  offreEssai            RubriqueOffre?  @map("offre_essai")
+  offreRetenue          RubriqueOffre?  @map("offre_retenue")
+  /// Scan signé déposé, en attente de l'enregistrement de la signature.
+  scanSigneCle          String?         @unique @map("scan_signe_cle")
+  scanSigneType         String?         @map("scan_signe_type")
+  scanSigneTaille       Int?            @map("scan_signe_taille")
+  createdById           String          @map("created_by_id")
+  emisParId             String?         @map("emis_par_id")
+  createdAt             DateTime        @default(now()) @map("created_at")
+  updatedAt             DateTime        @updatedAt @map("updated_at")
+  organisation          Organisation    @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  dossier               Dossier         @relation(fields: [dossierId], references: [id], onDelete: Restrict)
+  createdBy             Utilisateur     @relation("DevisCree", fields: [createdById], references: [id], onDelete: Restrict)
+  emisPar               Utilisateur?    @relation("DevisEmis", fields: [emisParId], references: [id], onDelete: Restrict)
+  offres                DevisOffre[]
+  signature             SignatureDevis?
+
+  @@unique([dossierId, version])
+  @@unique([organisationId, numero, version])
+  @@map("devis")
+}
+
+/// Rubrique 1.1 ou 1.2 du devis.
+model DevisOffre {
+  id                      String        @id @default(uuid(7))
+  devisId                 String        @map("devis_id")
+  rubrique                RubriqueOffre
+  /// Parts AMC estimées, saisies à la main ; null si inconnues.
+  amcDroiteCentimes       Int?          @map("amc_droite_centimes")
+  amcGaucheCentimes       Int?          @map("amc_gauche_centimes")
+  amcConsommablesCentimes Int?          @map("amc_consommables_centimes")
+  devis                   Devis         @relation(fields: [devisId], references: [id], onDelete: Cascade)
+  lignes                  DevisLigne[]
+
+  @@unique([devisId, rubrique])
+  @@map("devis_offre")
+}
+
+/// Aide auditive (une par oreille et par offre) ou consommable. Prix TTC de référence, TVA conservée.
+model DevisLigne {
+  id                              String              @id @default(uuid(7))
+  offreId                         String              @map("offre_id")
+  ordre                           Int
+  nature                          NatureLigneDevis
+  /// Renseignés pour une aide auditive seulement (contrainte CHECK).
+  oreille                         Oreille?
+  classe                          ClasseLpp?
+  modeleId                        String?             @map("modele_id")
+  accessoireId                    String?             @map("accessoire_id")
+  quantite                        Int
+  prixUnitaireAvantRemiseCentimes Int                 @map("prix_unitaire_avant_remise_centimes")
+  prixUnitaireCentimes            Int                 @map("prix_unitaire_centimes")
+  /// Taux en pour dix mille (À VÉRIFIER, R18).
+  tauxTva                         Int                 @map("taux_tva")
+  /// Instantané du catalogue : pas de clé étrangère, la LPP et la fiche peuvent évoluer.
+  codeLpp                         String?             @map("code_lpp") @db.Char(7)
+  designation                     Json
+  offre                           DevisOffre          @relation(fields: [offreId], references: [id], onDelete: Cascade)
+  modele                          ModeleAideAuditive? @relation(fields: [modeleId], references: [id], onDelete: Restrict)
+  accessoire                      Accessoire?         @relation(fields: [accessoireId], references: [id], onDelete: Restrict)
+
+  @@unique([offreId, ordre])
+  @@index([modeleId])
+  @@index([accessoireId])
+  @@map("devis_ligne")
+}
+
+/// Signature d'un devis, en ajout seul (trigger). `SCAN` pour le MVP ; `ELECTRONIQUE` portera sa preuve.
+model SignatureDevis {
+  id            String        @id @default(uuid(7))
+  devisId       String        @unique @map("devis_id")
+  mode          ModeSignature
+  dateSignature DateTime      @map("date_signature") @db.Date
+  saisieParId   String        @map("saisie_par_id")
+  /// Requis en mode SCAN (contrainte CHECK). Clé opaque dans le DocumentStore.
+  scanCle       String?       @unique @map("scan_cle")
+  scanType      String?       @map("scan_type")
+  scanTaille    Int?          @map("scan_taille")
+  /// Référence de la preuve d'une signature électronique, sans donnée patient.
+  preuve        Json?
+  createdAt     DateTime      @default(now()) @map("created_at")
+  devis         Devis         @relation(fields: [devisId], references: [id], onDelete: Restrict)
+  saisiePar     Utilisateur   @relation(fields: [saisieParId], references: [id], onDelete: Restrict)
+
+  @@map("signature_devis")
 }
 
 // ---------------------------------------------------------------------------
