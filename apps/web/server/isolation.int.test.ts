@@ -10,6 +10,13 @@ import { viderBase } from '@/test/donnees';
 import { AccesRefuseError, type UtilisateurConnecte } from './auth/acces';
 import { base } from './chiffrement';
 import { importerLpp } from './lpp/importer';
+import {
+  enregistrerTonale,
+  lirePhotoOtoscopie,
+  listerBilans,
+  obtenirBilan,
+  syntheseBilan,
+} from './services/audiologie';
 import { obtenirAccessoire, obtenirFabricant, obtenirModele } from './services/catalogue';
 import { modifierCentre, obtenirCentre } from './services/centres';
 import {
@@ -43,6 +50,7 @@ const V908 = path.join(import.meta.dirname, '../../../fixtures/lpp/908');
 const TABLES_ISOLEES = [
   'accessoire',
   'appareil',
+  'bilan_audiologique',
   'cabine',
   'centre',
   'compte',
@@ -64,12 +72,15 @@ const TABLES_ISOLEES = [
   'facture_preparee',
   'journal_audit',
   'lecture_vitale',
+  'mesure_audiologique',
   'modele_aide_auditive',
   'modele_code_lpp',
+  'modele_formulaire',
   'mouvement_accessoire',
   'mouvement_appareil',
   'notification',
   'organisation',
+  'otoscopie',
   'parametres_reservation',
   'patient',
   'praticien',
@@ -79,6 +90,7 @@ const TABLES_ISOLEES = [
   'prise_en_charge',
   'prolongation_essai',
   'rendez_vous',
+  'reponse_formulaire',
   'reservation_en_ligne',
   'session',
   'signature_devis',
@@ -440,6 +452,25 @@ describe('identifiant d’un autre client forcé dans l’URL', () => {
   }[] = [
     { entite: 'patient', appel: (x, c) => obtenirPatient(x, c.patientId) },
     { entite: 'dossier', appel: (x, c) => obtenirDossier(x, c.dossierId) },
+    { entite: 'bilan audiologique', appel: (x, c) => obtenirBilan(x, c.bilanId) },
+    { entite: 'bilans du patient', appel: (x, c) => listerBilans(x, c.patientId) },
+    { entite: 'synthèse du bilan', appel: (x, c) => syntheseBilan(x, c.bilanId) },
+    { entite: 'photo d’otoscopie', appel: (x, c) => lirePhotoOtoscopie(x, c.bilanId, 'DROITE') },
+    {
+      entite: 'modification d’un audiogramme',
+      appel: (x, c) =>
+        enregistrerTonale(x, c.bilanId, {
+          appareil: null,
+          audiogramme: {
+            droite: {
+              aerienne: [{ frequence: 1000, seuil: 40, masque: null }],
+              osseuse: [],
+              inconfort: [],
+            },
+            gauche: { aerienne: [], osseuse: [], inconfort: [] },
+          },
+        }),
+    },
     { entite: 'devis', appel: (x, c) => obtenirDevis(x, c.devisId) },
     { entite: 'scan du devis', appel: (x, c) => lireScanDevis(x, c.devisId) },
     { entite: 'PDF du devis', appel: (x, c) => imprimerDevis(x, c.devisId) },

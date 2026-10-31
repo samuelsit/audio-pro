@@ -3,11 +3,19 @@ import { prisma } from '@ha/db/admin';
 import { base } from '@/server/chiffrement';
 import { documents } from '@/server/documents';
 import { creerRdv } from '@/server/services/agenda';
+import {
+  creerBilan,
+  enregistrerFormulaire,
+  enregistrerOtoscopie,
+  enregistrerTonale,
+} from '@/server/services/audiologie';
 import { enregistrerPec } from '@/server/services/factures';
 import { aujourdhui } from '@/server/services/patients';
 
 import { creerCatalogueDevis, dossierJusquAchat, identifierCentreA, SCAN } from './devis';
 import { creerJeuDeDonnees } from './donnees';
+
+const PHOTO_PNG = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00]);
 
 /**
  * Un client fictif avec au moins une ligne dans chaque table métier : le parcours passe par les vrais
@@ -181,6 +189,29 @@ export async function creerClientComplet(suffixe: string) {
       cleIdempotence: `cle${suffixe}`,
     },
   });
+  const bilanId = await creerBilan(audio, patientId, { dateBilan: '2026-01-05' });
+  await enregistrerTonale(audio, bilanId, {
+    appareil: null,
+    audiogramme: {
+      droite: {
+        aerienne: [{ frequence: 1000, seuil: 40, masque: null }],
+        osseuse: [],
+        inconfort: [],
+      },
+      gauche: { aerienne: [], osseuse: [], inconfort: [] },
+    },
+  });
+  await enregistrerOtoscopie(
+    audio,
+    bilanId,
+    { oreille: 'DROITE', conduit: 'LIBRE', tympan: 'NORMAL', observation: '' },
+    PHOTO_PNG,
+  );
+  const { id: modeleFormulaireId } = await prisma().modeleFormulaire.findFirstOrThrow({
+    where: { organisationId, nature: 'ANAMNESE' },
+    select: { id: true },
+  });
+  await enregistrerFormulaire(audio, bilanId, modeleFormulaireId, {});
   await prisma().session.create({
     data: {
       token: `jeton${suffixe}`,
@@ -208,6 +239,7 @@ export async function creerClientComplet(suffixe: string) {
     typeRdvId: typeRdv.id,
     rdvId,
     reservationId: reservation.id,
+    bilanId,
   };
 }
 

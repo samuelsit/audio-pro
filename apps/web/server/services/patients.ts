@@ -948,6 +948,10 @@ export async function fusionnerPatients(
         where: { patientId: doublonId },
         data: { patientId: conserveeId },
       });
+      await tx.bilanAudiologique.updateMany({
+        where: { patientId: doublonId },
+        data: { patientId: conserveeId },
+      });
       return { conservee, doublon, avant, apres };
     },
     ({ conservee, doublon, avant, apres }): EvenementAudit[] => [
