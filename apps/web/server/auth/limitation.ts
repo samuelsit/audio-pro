@@ -21,21 +21,23 @@ export async function enregistrerTentative(
   maintenant: number = Date.now(),
 ): Promise<boolean> {
   const debutFenetre = BigInt(maintenant - regle.fenetreSecondes * 1000);
-  const ligne = await clientPlateforme().$transaction(async (tx) => {
-    const existante = await tx.limitationDebit.findUnique({ where: { key: cle } });
-    if (!existante || existante.lastRequest < debutFenetre) {
-      return tx.limitationDebit.upsert({
-        where: { key: cle },
-        create: { key: cle, count: 1, lastRequest: BigInt(maintenant) },
-        update: { count: 1, lastRequest: BigInt(maintenant) },
-      });
-    }
-    return tx.limitationDebit.update({
-      where: { key: cle },
-      data: { count: { increment: 1 } },
-    });
-  });
-  return ligne.count <= regle.max;
+  const instant = BigInt(maintenant);
+  // Une seule instruction : deux connexions simultanées ne perdent aucune tentative, et une réinitialisation
+  // entre deux écritures ne fait pas échouer la connexion.
+  const [ligne] = await clientPlateforme().$queryRaw<{ count: number }[]>`
+    INSERT INTO limitation_debit (id, key, count, derniere_requete)
+    VALUES (gen_random_uuid()::text, ${cle}, 1, ${instant}::bigint)
+    ON CONFLICT (key) DO UPDATE SET
+      count = CASE
+        WHEN limitation_debit.derniere_requete < ${debutFenetre}::bigint THEN 1
+        ELSE limitation_debit.count + 1
+      END,
+      derniere_requete = CASE
+        WHEN limitation_debit.derniere_requete < ${debutFenetre}::bigint THEN ${instant}::bigint
+        ELSE limitation_debit.derniere_requete
+      END
+    RETURNING count`;
+  return (ligne?.count ?? 0) <= regle.max;
 }
 
 /** Réinitialise un compteur (connexion réussie). */

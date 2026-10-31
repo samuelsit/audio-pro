@@ -17,7 +17,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "db:migrate": "pnpm --filter @ha/db migrate",
-    "db:deploy": "pnpm --filter @ha/db deploy",
+    "db:deploy": "pnpm --filter @ha/db run deploy",
     "db:seed": "pnpm --filter @ha/db seed",
     "db:roles": "pnpm --filter @ha/db roles",
     "jobs:worker": "pnpm --filter @ha/jobs worker",

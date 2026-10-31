@@ -571,3 +571,31 @@ Les envois, imports et clôtures à venir exigent une file, sans ajouter de serv
 - La clé protège la file, pas l'historique : une fois le travail terminé, la même clé repart. Chaque travail reste idempotent par lui-même, comme le demande `CLAUDE.md`.
 - Un travail transverse (purge globale) n'a pas de place dans cette enveloppe : à décider à son arrivée.
 - Mailpit est dans docker-compose, mais rien n'envoie encore d'e-mail : le port `Notifier` arrive à l'étape 8.
+
+## ADR-019 – Références entre clients et charge sur les connexions
+
+- **Date** : 2026-10-31
+- **Statut** : acceptée. Complète l'ADR-016 : remplace sa conséquence sur les clés composites, et précise le contexte des travaux de l'ADR-018.
+
+### Contexte
+
+La revue de la branche a montré trois limites de l'ADR-016 et de l'ADR-018. Le trigger d'héritage ne contrôlait que l'`INSERT`, et un seul parent : un `UPDATE` ou une table à plusieurs parents pouvait référencer une ligne d'un autre client, car une clé étrangère ignore la RLS. Chaque requête ouvrant sa transaction, un service qui en lance dix en parallèle pouvait échouer faute de connexion. Une clé d'idempotence était commune à tous les clients.
+
+### Décision
+
+- **`verifier_meme_organisation`** : un trigger par référence entre tables d'organisation, généré depuis le catalogue PostgreSQL, en `BEFORE INSERT OR UPDATE OF` la colonne. Il s'applique aussi au rôle propriétaire. Un test compare les triggers aux clés étrangères : une référence nouvelle sans contrôle le fait échouer. Les clés composites ne sont plus nécessaires.
+- **Une migration postérieure doit recréer cette boucle** pour toute table nouvelle, ou appeler `verifier_meme_organisation` sur ses références.
+- **Pool** : 20 connexions par rôle, attente de 10 s et transaction de 15 s, pour qu'une requête attende une connexion au lieu d'échouer.
+- **Pas de lecture hors transaction dans `withAudit`** : `obtenirFicheAppareil` lit puis journalise, sans tenir une connexion.
+- **Clé d'idempotence** : préfixée par l'organisation.
+- **Travaux** : même chiffrement que l'application ; `CHAMPS_CHIFFRES` passe dans `@ha/adapters`.
+- **Réactivation** : le SUPERADMIN choisit `ACTIF` ou `ESSAI`, le statut d'avant la suspension n'étant pas conservé.
+- **Rôles sur une base de test** : les mots de passe ne sont posés que sur un rôle encore sans `LOGIN`. Ils valent pour tout le cluster.
+- **Limitation de débit** : une seule instruction `INSERT … ON CONFLICT`. La lecture suivie d'une écriture faisait échouer une connexion simultanée à une réinitialisation, et perdait des tentatives.
+
+### Conséquences
+
+- Chaque écriture relit ses parents : à mesurer avec les trois allers-retours de l'ADR-016, à l'étape 23.
+- Les lignes de journal sans organisation (compte inconnu, connexions de la console) ne sont lisibles que par le rôle propriétaire. Une tentative d'intrusion sur la console est donc tracée, mais sans écran. La console reste minimale : à traiter à l'étape 22.
+- Un travail n'écrit pas encore dans le journal d'audit : `withAudit` vit dans `apps/web`. À déplacer avec le premier travail qui touche un dossier patient.
+- L'adresse IP des tentatives de connexion vient de `x-forwarded-for`, que seul un proxy de confiance peut garantir. À imposer au déploiement, à l'étape 23.

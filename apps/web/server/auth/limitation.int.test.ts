@@ -1,3 +1,4 @@
+import { prisma } from '@ha/db/admin';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { viderBase } from '@/test/donnees';
@@ -26,5 +27,30 @@ describe('enregistrerTentative', () => {
     expect(await enregistrerTentative('connexion:b', regle, t0)).toBe(true);
     await reinitialiserTentatives('connexion:a');
     expect(await enregistrerTentative('connexion:a', regle, t0)).toBe(true);
+  });
+});
+
+describe('accès simultanés', () => {
+  it('ne perd aucune tentative', async () => {
+    const regle = { max: 100, fenetreSecondes: 60 };
+    await Promise.all(
+      Array.from({ length: 20 }, () => enregistrerTentative('connexion:simultane', regle)),
+    );
+    const ligne = await prisma().limitationDebit.findUniqueOrThrow({
+      where: { key: 'connexion:simultane' },
+    });
+    expect(ligne.count).toBe(20);
+  });
+
+  it('survit à une connexion réussie qui remet le compteur à zéro au même moment', async () => {
+    const regle = { max: 100, fenetreSecondes: 60 };
+    for (let tour = 0; tour < 30; tour += 1) {
+      await Promise.all([
+        enregistrerTentative('connexion:course', regle),
+        enregistrerTentative('connexion:course', regle),
+        reinitialiserTentatives('connexion:course'),
+        enregistrerTentative('connexion:course', regle),
+      ]);
+    }
   });
 });

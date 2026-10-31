@@ -54,7 +54,9 @@ function CreationVolee({
       <SheetContent className="w-full overflow-y-auto sm:max-w-lg">
         <SheetHeader>
           <SheetTitle>Nouveau prescripteur</SheetTitle>
-          <SheetDescription>La fiche sera disponible pour toute votre organisation.</SheetDescription>
+          <SheetDescription>
+            La fiche sera disponible pour toute votre organisation.
+          </SheetDescription>
         </SheetHeader>
         <form action={envoyer} className="grid gap-4 px-4 pb-4">
           <MessageFormulaire etat={etat} />

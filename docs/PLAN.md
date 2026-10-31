@@ -15,8 +15,9 @@ Numérotation du plan SaaS (ADR-015). Les références aux étapes dans `docs/DE
   - [x] Centre : SIRET obligatoire à la saisie, horaires d'ouverture
   - [x] Seed : réseau de 3 centres, centre indépendant, compte éditeur
   - [x] Tests : isolation sur chaque table et garde-fou du catalogue, identifiants forcés sur les services et en E2E, console, responsable
-  - reporté à l'étape 23 : création du premier SUPERADMIN en production, droits du rôle de migration
-  - à arbitrer à l'étape 22 : clés étrangères composites, 2FA du responsable, empreinte NIR et stockage par client
+  - reporté à l'étape 23 : création du premier SUPERADMIN en production, droits du rôle de migration, proxy de confiance pour `x-forwarded-for`
+  - [x] Références entre clients refusées par la base, sur 63 relations (ADR-019)
+  - à arbitrer à l'étape 22 : 2FA du responsable, empreinte NIR et stockage par client, consultation du journal sans organisation
 - [ ] **2** – Audit, chiffrement, interface — à mettre à niveau
   - [x] Journal : organisation avec clé étrangère, action SEND, ajout seul aussi par les droits ; lignes sans organisation invisibles des clients
   - [x] Menu : Agenda, Patients, Dossiers, Stock, Commandes, Facturation, Caisse, Tiers payant, SAV, Relances, Tableau de bord, Administration ; sous-navigations
