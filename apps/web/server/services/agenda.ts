@@ -16,6 +16,7 @@ import {
   instantDeDepose,
   instantSaisi,
   localDepuisInstant,
+  normaliserPourRecherche,
   peutAccederAuCentre,
   peutPasserA,
   plagesCabine,
@@ -54,6 +55,9 @@ const MS_PAR_MINUTE = 60_000;
 /** Fenêtre de la recherche du prochain créneau. */
 const HORIZON_RECHERCHE_JOURS = 60;
 const CRENEAUX_PROPOSES = 20;
+
+const LONGUEUR_MIN_RECHERCHE = 2;
+const PATIENTS_PROPOSES = 8;
 
 const horloge: Clock = new SystemClock();
 
@@ -100,6 +104,7 @@ const selectionGrille = {
   prospectTelephone: true,
   priseEnChargeLe: true,
   typeRdv: { select: { nom: true, couleur: true } },
+  cabine: { select: { nom: true } },
   patient: {
     select: { id: true, nomNaissance: true, nomUsage: true, prenoms: true, telephone: true },
   },
@@ -113,6 +118,7 @@ export interface RdvGrille {
   version: number;
   praticienId: string | null;
   cabineId: string | null;
+  cabine: string | null;
   debut: number;
   fin: number;
   statut: StatutRdv;
@@ -128,7 +134,11 @@ export interface RdvGrille {
   priseEnCharge: boolean;
 }
 
-function nomPatient(p: NonNullable<LigneGrille['patient']>): string {
+function nomPatient(p: {
+  readonly nomNaissance: string;
+  readonly nomUsage: string | null;
+  readonly prenoms: string;
+}): string {
   return `${p.nomUsage ?? p.nomNaissance} ${p.prenoms}`;
 }
 
@@ -144,6 +154,7 @@ function versRdvGrille(
     version: ligne.version,
     praticienId: ligne.praticienId,
     cabineId: ligne.cabineId,
+    cabine: ligne.cabine?.nom ?? null,
     debut: ligne.debut.getTime(),
     fin: ligne.fin.getTime(),
     statut: ligne.statut,
@@ -371,6 +382,51 @@ export async function listerRdvDuPatient(
     type: typeRdv.nom,
     centre: centre.nom,
     praticien: praticien && `${praticien.utilisateur.prenom} ${praticien.utilisateur.nom}`,
+  }));
+}
+
+export interface PatientPropose {
+  id: string;
+  nom: string;
+  dateNaissance: string;
+  telephone: string | null;
+}
+
+/** Recherche de patient pour un rendez-vous : bornée aux centres de l'utilisateur (ADR-002, ADR-020). */
+export async function rechercherPatientsPourRdv(
+  acteur: UtilisateurConnecte,
+  terme: string,
+): Promise<PatientPropose[]> {
+  const nom = normaliserPourRecherche(terme);
+  if (nom.length < LONGUEUR_MIN_RECHERCHE) {
+    return [];
+  }
+  const lignes = await base(acteur).patient.findMany({
+    where: {
+      fusionneDansId: null,
+      ...(acteur.role === 'ADMIN_CLIENT' ? {} : { centreId: { in: [...acteur.centreIds] } }),
+      OR: [
+        { nomNaissanceRecherche: { contains: nom } },
+        { nomUsageRecherche: { contains: nom } },
+        { prenomsRecherche: { contains: nom } },
+      ],
+    },
+    select: {
+      id: true,
+      nomNaissance: true,
+      nomUsage: true,
+      prenoms: true,
+      dateNaissance: true,
+      telephone: true,
+    },
+    orderBy: [{ nomNaissanceRecherche: 'asc' }, { prenomsRecherche: 'asc' }],
+    take: PATIENTS_PROPOSES,
+  });
+  return lignes.map((p) => ({
+    id: p.id,
+    nom: nomPatient(p),
+    dateNaissance: p.dateNaissance.toISOString().slice(0, 10),
+    telephone: p.telephone,
   }));
 }
 

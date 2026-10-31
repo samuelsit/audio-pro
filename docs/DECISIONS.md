@@ -602,3 +602,41 @@ La revue de la branche a montré trois limites de l'ADR-016 et de l'ADR-018. Le 
 - L'adresse retenue pour la limitation se lit depuis la fin de `x-forwarded-for`, selon `PROXIES_DE_CONFIANCE`. Sans proxy devant l'application, le client la choisit : à imposer au déploiement, à l'étape 23.
 - Un travail n'a pas encore de transaction interactive avec contexte : à ajouter avec le premier qui écrit plusieurs lignes.
 - `limitation_debit` grossit sans purge : premier candidat pour `packages/jobs`.
+
+## ADR-020 – Agenda multi-centres
+
+- **Date** : 2026-10-31
+- **Statut** : acceptée. Remplace, dans l'ADR-013, « sans agenda : Doctolib le reste ». Tranche le travail transverse laissé ouvert par l'ADR-018.
+
+### Contexte
+
+L'étape 7 remplace l'agenda externe. `EssaiRdv` n'est pas un créneau : c'est la trace, à la journée et avec compte rendu, d'un rendez-vous tenu pendant l'essai. Il fallait un modèle de créneaux, sans double réservation possible, y compris pour un praticien qui tourne sur plusieurs centres, dans un fuseau qui change d'heure deux fois par an.
+
+### Décision
+
+- **Ressources** : pas de table commune. `Praticien` existe, `Cabine` s'ajoute. Un RDV porte `praticienId?` et `cabineId?` : au plus un de chaque. Un praticien n'a qu'un planning, quels que soient ses centres.
+- **Double réservation** : deux contraintes `EXCLUDE USING gist` sur `rendez_vous`, avec `btree_gist`, bornes `[)`, hors `ANNULE` et `ABSENT`. `detecterConflits` donne le message ; la base reste le dernier rempart, car deux réservations simultanées ne se voient pas avant le `COMMIT`. Elles remontent en `P2039`, ou `P2034` si elles s'interbloquent, et se lisent dans `originalCode`.
+- **Conflits** : `PRATICIEN_PRIS` et `CABINE_PRISE` ne se forcent jamais. `HORS_DISPONIBILITES` et `CENTRE_FERME` se confirment en interne et le journal le note. Une origine `EN_LIGNE` ne confirme jamais.
+- **Disponibilités** : horaires hebdomadaires dans `PraticienCentre.horaires`, au format de `Centre.horairesOuverture`. Une cabine suit l'ouverture du centre. `ExceptionAgenda` ajoute ou retire, sans texte libre : un motif comme un arrêt maladie serait une donnée de santé en clair. Une disponibilité exceptionnelle ouvre aussi les cabines du centre.
+- **Dates** : `timestamptz`, une première dans ce schéma, requise par `tstzrange`. Le domaine compte en millisecondes, sans `new Date`, et `commun/fuseau.ts` passe par `Intl`.
+- **Changement d'heure** : une heure inexistante est refusée à la saisie et ramenée au premier instant valide dans une plage. Une heure ambiguë prend sa première occurrence à la saisie ; une plage s'élargit aux deux. Les créneaux avancent de 15 minutes en temps réel depuis minuit : les décalages de Paris étant en heures pleines, ils restent alignés sur l'heure locale. Un RDV de la seconde occurrence garde son instant tant que son heure locale ne bouge pas.
+- **Statuts** : ceux de l'énoncé, sans `EN_COURS`. La salle d'attente lit `priseEnChargeLe`.
+- **Concurrence** : toute écriture sur un RDV est conditionnée à `version`, qu'elle incrémente. Un glisser ne peut pas écraser une arrivée.
+- **Prospect** : colonnes du RDV, effacées à la conversion. L'identité obligatoire d'une fiche se demande à l'arrivée, et les doublons s'y contrôlent. Le patient et le RDV s'écrivent dans une transaction ; un CHECK interdit `ARRIVE` et `VU` sans patient.
+- **Périmètre** (précise l'ADR-002) : la recherche de patient reste bornée aux centres de l'utilisateur. Un RDV sur son centre lui montre pourtant le nom et le téléphone d'un patient rattaché ailleurs, sans lien vers la fiche : l'agenda ne fonctionne pas autrement.
+- **Audit** : la grille et la salle d'attente sont des listes, sans READ (ADR-006), et ne chargent ni notes ni dossier. Ouvrir un RDV écrit un READ. Les notes sont chiffrées et absentes du journal.
+- **Événements** : outbox `evenement_domaine`, écrite dans la transaction du métier, sans nom ni libellé de type, car « Fin d'essai » est déjà une donnée de santé. `diffuser-evenements` la diffuse aux abonnés, en au moins une fois, avec l'identifiant de l'événement comme clé d'idempotence.
+- **Travail transverse** : une tâche planifiée sans organisation ne fait qu'une chose, mettre en file des travaux par organisation. `ha_plateforme` n'a droit qu'à `organisation_id` et `diffuse_le` de l'outbox, jamais à `charge`.
+- **Grille** : composant maison à pointeurs, sans dépendance. FullCalendar réserve les vues par ressource à sa licence payante. Le panneau du RDV offre un formulaire de déplacement pour le clavier.
+- **Lien avec l'essai** : seulement préparé, par `dossierId` et `TypeRdv.natureEssai`. Aucun `EssaiRdv` n'est écrit : la trace exige un compte rendu, et un RDV planifié n'est pas un RDV tenu.
+
+### Conséquences
+
+- `btree_gist` doit exister chez l'hébergeur HDS : à vérifier à l'étape 23.
+- Un RDV n'a qu'un praticien et une cabine : deux praticiens sur un même RDV demanderaient une table de liaison.
+- Un utilisateur du seul centre B ne peut pas réserver pour un patient du seul centre A : à arbitrer. Il créerait sinon un doublon.
+- Seuls les AUDIO ont une fiche praticien : un dépistage fait par un assistant n'occupe qu'une cabine, sans trace de qui reçoit.
+- Les types par défaut existent en deux endroits : `TYPES_RDV_DEFAUT` et la migration, figée à sa date.
+- Le worker exige désormais `DATABASE_URL_PLATEFORME`.
+- Un prospect jamais converti reste en base, et `evenement_domaine` grossit sans purge : à traiter à l'étape 22.
+- Un praticien ne peut pas être retiré d'un centre où il a des RDV à venir. Sa désactivation ne le vérifie pas encore.

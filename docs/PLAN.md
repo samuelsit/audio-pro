@@ -40,7 +40,13 @@ Numérotation du plan SaaS (ADR-015). Les références aux étapes dans `docs/DE
 
 ## Phase D – Agenda et prise de RDV en ligne
 
-- [ ] **7** – Agenda
+- [x] **7** – Agenda (ADR-020)
+  - À VÉRIFIER : `btree_gist` chez l'hébergeur HDS (étape 23)
+  - à arbitrer : réservation pour un patient d'un centre hors périmètre, dépistage réalisé par un assistant (seuls les AUDIO ont une fiche praticien)
+  - reporté à l'étape 8 : délai minimal à brancher sur la recherche en ligne, port `Notifier`
+  - reporté à l'étape 13 : alimentation d'`EssaiRdv` depuis un RDV `VU` (`dossierId` et `natureEssai` sont prêts)
+  - reporté à l'étape 19 : abonnés aux événements `RDV_CREE`, `RDV_DEPLACE`, `RDV_ANNULE` (liste vide dans `packages/jobs/src/abonnes.ts`)
+  - reporté à l'étape 22 : durée de conservation des prospects jamais convertis, purge de `evenement_domaine`
 - [ ] **8** – Prise de RDV en ligne
 
 ## Phase E – Dossier audiologique et appareillage

@@ -3,6 +3,7 @@ import { hashPassword } from 'better-auth/crypto';
 import { creerPrismaClient } from '../src/client';
 import type { PrismaClient } from '../src/generated/prisma/client';
 import type { Role } from '../src/generated/prisma/enums';
+import { seedAgenda, seedTypesRdv } from './seed-agenda';
 import {
   NOMBRE_FABRICANTS_DEMO,
   NOMBRE_MODELES_DEMO,
@@ -15,7 +16,7 @@ import { nombreAppareilsDemo, seedStock } from './seed-stock';
 
 // Seed idempotent de démonstration. Toutes les données sont fictives (domaine exemple.test,
 // RPPS et NIR inventés). Les patients de démonstration sont dans seed-patients.ts.
-const SCHEMA_VERSION = '5';
+const SCHEMA_VERSION = '6';
 
 // Deux clients fictifs : un réseau de 3 centres et un centre indépendant (ADR-016).
 const ORGANISATION_ID = '019a3000-0000-7000-8000-000000000001';
@@ -126,6 +127,10 @@ const HORAIRES_DEMO = {
   dimanche: [],
 };
 
+// Camille tourne entre deux centres : ses horaires ne se chevauchent pas.
+const JOURS_DEBUT_SEMAINE = ['lundi', 'mardi', 'mercredi'] as const;
+const JOURS_FIN_SEMAINE = ['jeudi', 'vendredi', 'samedi'] as const;
+
 interface UtilisateurDemo {
   id: string;
   prenom: string;
@@ -158,6 +163,19 @@ const UTILISATEURS: readonly UtilisateurDemo[] = [
       id: '019a3000-0000-7000-8000-000000000301',
       rpps: '19999999907',
       centreIds: [NORD, CENTRE],
+    },
+  },
+  {
+    id: '019a3000-0000-7000-8000-000000000204',
+    prenom: 'Alix',
+    nom: 'Audio',
+    email: 'alix.audio@exemple.test',
+    role: 'AUDIO',
+    centreIds: [NORD],
+    praticien: {
+      id: '019a3000-0000-7000-8000-000000000304',
+      rpps: '19999999923',
+      centreIds: [NORD],
     },
   },
   {
@@ -338,6 +356,27 @@ async function main(): Promise<void> {
       PATIENTS_INDEPENDANT,
     );
     await seedCatalogueIndependant(db, ORGANISATION_INDEPENDANTE_ID);
+    await seedTypesRdv(db, ORGANISATION_INDEPENDANTE_ID);
+    await seedAgenda(db, ORGANISATION_ID, {
+      centres: [NORD, CENTRE, SUD],
+      centrePrincipal: NORD,
+      praticiens: [
+        { id: '019a3000-0000-7000-8000-000000000301', centreId: NORD, jours: JOURS_DEBUT_SEMAINE },
+        { id: '019a3000-0000-7000-8000-000000000301', centreId: CENTRE, jours: JOURS_FIN_SEMAINE },
+        {
+          id: '019a3000-0000-7000-8000-000000000304',
+          centreId: NORD,
+          jours: [...JOURS_DEBUT_SEMAINE, ...JOURS_FIN_SEMAINE],
+        },
+        {
+          id: '019a3000-0000-7000-8000-000000000302',
+          centreId: SUD,
+          jours: [...JOURS_DEBUT_SEMAINE, ...JOURS_FIN_SEMAINE],
+        },
+      ],
+      horaires: HORAIRES_DEMO,
+      creePar: ADMIN_ID,
+    });
 
     const seededAt = new Date().toISOString();
     for (const [key, value] of [

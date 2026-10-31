@@ -102,7 +102,7 @@ export async function etablirDevis(page: Page, prix: string): Promise<void> {
   await page.waitForLoadState('networkidle');
 }
 
-function baseE2e() {
+export function baseE2e() {
   process.env.DATABASE_URL_ADMIN = urlBaseJetable('DATABASE_URL_E2E');
   return prisma();
 }
