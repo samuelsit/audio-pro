@@ -10,7 +10,6 @@ import {
   dossierJusquAchat,
   identifierCentreA,
   offre100,
-  saisieDevis,
   SCAN,
   type CatalogueDevis,
   type Parcours,

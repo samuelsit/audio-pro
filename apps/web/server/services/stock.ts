@@ -114,7 +114,7 @@ export interface Mouvement {
   readonly centreId: string;
   readonly patientId: string | null;
   readonly motif: string;
-  /** Dossier qui provoque le mouvement : essai, puis vente (étape 12). */
+  /** Dossier qui provoque le mouvement : essai, puis vente (étape 14). */
   readonly dossierId?: string;
 }
 

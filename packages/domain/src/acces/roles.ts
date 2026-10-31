@@ -6,7 +6,7 @@ export const ROLES = ['ADMIN_CLIENT', 'RESPONSABLE_CENTRE', 'AUDIO', 'ASSISTANT'
 export const roleSchema = z.enum(ROLES, { error: 'Rôle inconnu.' });
 export type Role = z.infer<typeof roleSchema>;
 
-/** Console éditeur : hors de toute organisation, jamais assignable depuis un client (ADR-016). */
+/** Console éditeur : hors de toute organisation, jamais assignable depuis un client (ADR-017). */
 export const ROLE_SUPERADMIN = 'SUPERADMIN';
 export type RoleCompte = Role | typeof ROLE_SUPERADMIN;
 

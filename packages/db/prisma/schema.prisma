@@ -720,7 +720,7 @@ model MouvementAppareil {
   centreAvantId  String?               @map("centre_avant_id")
   centreApresId  String                @map("centre_apres_id")
   patientId      String?               @map("patient_id")
-  /// Dossier qui a provoqué le mouvement : essai, puis vente à l'étape 12.
+  /// Dossier qui a provoqué le mouvement : essai, puis vente à l'étape 14.
   dossierId      String?               @map("dossier_id")
   /// Chiffré (contexte « mouvement_appareil.motif ») : texte libre. Null pour la réception.
   motif          String?
@@ -1172,7 +1172,7 @@ model EssaiAppareil {
   oreille        Oreille
   poseLe         DateTime     @map("pose_le") @db.Date
   poseParId      String       @map("pose_par_id")
-  /// Nul tant que le lien est actif. Reste nul après l'achat, jusqu'à la vente (étape 12).
+  /// Nul tant que le lien est actif. Reste nul après l'achat, jusqu'à la vente (étape 14).
   retireLe       DateTime?    @map("retire_le") @db.Date
   retireParId    String?      @map("retire_par_id")
   /// Chiffré (contexte « essai_appareil.motif_retrait ») : changement d'appareil uniquement.

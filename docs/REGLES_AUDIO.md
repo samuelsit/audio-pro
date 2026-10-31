@@ -391,18 +391,18 @@ Le reste n'est pas dans les tests : il est calculé. Dans ces cas de tiers payan
 
 **Statut : Confirmé avec écart.** Une erreur bloque, un avertissement n'empêche rien. L'état se recalcule à chaque lecture.
 
-| Erreur bloquante                                                      | Source                                       |
-| --------------------------------------------------------------------- | -------------------------------------------- |
-| Couverture AMO absente ou à confirmer                                 | Convention art. 27, p. 26 ; délai À VÉRIFIER |
-| Droits non ouverts à la date de délivrance                            | Convention art. 27, p. 26                    |
-| Prescription absente, postérieure au devis, oreille non prescrite     | Devis p. 1 ; convention art. 28, p. 26       |
+| Erreur bloquante                                                             | Source                                       |
+| ---------------------------------------------------------------------------- | -------------------------------------------- |
+| Couverture AMO absente ou à confirmer                                        | Convention art. 27, p. 26 ; délai À VÉRIFIER |
+| Droits non ouverts à la date de délivrance                                   | Convention art. 27, p. 26                    |
+| Prescription absente, postérieure au devis, oreille non prescrite            | Devis p. 1 ; convention art. 28, p. 26       |
 | Renouvellement avant 4 ans à la délivrance réelle, sauf forçage ADMIN_CLIENT | Convention art. 22 § 1, p. 22                |
-| Devis non signé ou sans offre retenue                                 | Devis p. 2 § 5                               |
-| Numéro de série manquant                                              | Convention art. 21, p. 21                    |
-| Ventilation incohérente                                               | Contrôle de cohérence (R13)                  |
-| Prix au-dessus du plafond à la délivrance                             | Convention art. 25, p. 24 et art. 29, p. 27  |
-| Tarif LPP indisponible à la date de délivrance                        | Contrôle de cohérence                        |
-| PEC manquante ou en attente, si un tiers payant AMC est attendu       | Choix applicatif, voir R23                   |
+| Devis non signé ou sans offre retenue                                        | Devis p. 2 § 5                               |
+| Numéro de série manquant                                                     | Convention art. 21, p. 21                    |
+| Ventilation incohérente                                                      | Contrôle de cohérence (R13)                  |
+| Prix au-dessus du plafond à la délivrance                                    | Convention art. 25, p. 24 et art. 29, p. 27  |
+| Tarif LPP indisponible à la date de délivrance                               | Contrôle de cohérence                        |
+| PEC manquante ou en attente, si un tiers payant AMC est attendu              | Choix applicatif, voir R23                   |
 
 **Avertissements** : fin de droits inconnue, prescripteur (R10), RPPS manquant, renouvellement forcé, code LPP générique, article sans tarif, AMO différente du devis signé, PEC refusée, sans justificatif ou supérieure au reste, reste à charge sur une classe I avec contrat responsable et PEC accordée (ameli p. 1).
 

@@ -1,6 +1,6 @@
 import { gereLeCentre, type Role } from '../acces/roles';
 
-/** Annuler une vente touche la traçabilité d'un appareil délivré : réservé aux rôles de gestion (ADR-010, ADR-016). */
+/** Annuler une vente touche la traçabilité d'un appareil délivré : réservé aux rôles de gestion (ADR-010, ADR-017). */
 export function peutAnnulerVente(role: Role): boolean {
   return gereLeCentre(role);
 }

@@ -1,6 +1,6 @@
 import { peutActerAppareillage, type Role } from '../acces/roles';
 
-/** Passer outre une erreur bloquante engage le client : réservé à l'ADMIN_CLIENT (ADR-011, ADR-016). */
+/** Passer outre une erreur bloquante engage le client : réservé à l'ADMIN_CLIENT (ADR-011, ADR-017). */
 export function peutForcerPrescription(role: Role): boolean {
   return role === 'ADMIN_CLIENT';
 }

@@ -8,7 +8,19 @@ Numérotation du plan SaaS (ADR-015). Les références aux étapes dans `docs/DE
 
 - [x] **0** – Socle
 - [ ] **1** – Clients, centres, comptes — à mettre à niveau
+  - [x] Organisation (raison sociale, SIREN, adresse, statut, paramètres) ; `organisation_id` sur toutes les tables métier, RLS forcée, 4 rôles PostgreSQL (ADR-016) ; 6 migrations
+  - [x] Contexte client à chaque requête : `base(acteur)`, `enTransaction` ; `prisma()` réservé à `@ha/db/admin`
+  - [x] Rôles ADMIN_CLIENT, RESPONSABLE_CENTRE, AUDIO, ASSISTANT, SUPERADMIN ; 2FA obligatoire pour ADMIN_CLIENT et SUPERADMIN (ADR-017)
+  - [x] Console SUPERADMIN : liste, création, suspension et réactivation des clients
+  - [x] Centre : SIRET obligatoire à la saisie, horaires d'ouverture
+  - [x] Seed : réseau de 3 centres, centre indépendant, compte éditeur
+  - [x] Tests : isolation sur chaque table et garde-fou du catalogue, identifiants forcés sur les services et en E2E, console, responsable
+  - reporté à l'étape 23 : création du premier SUPERADMIN en production, droits du rôle de migration
+  - à arbitrer à l'étape 22 : clés étrangères composites, 2FA du responsable, empreinte NIR et stockage par client
 - [ ] **2** – Audit, chiffrement, interface — à mettre à niveau
+  - [x] Journal : organisation avec clé étrangère, action SEND, ajout seul aussi par les droits ; lignes sans organisation invisibles des clients
+  - [x] Menu : Agenda, Patients, Dossiers, Stock, Commandes, Facturation, Caisse, Tiers payant, SAV, Relances, Tableau de bord, Administration ; sous-navigations
+  - [x] `packages/jobs` (pg-boss, ADR-018) et Mailpit
   - reporté à l'étape 22 : adresse IP et agent utilisateur dans le journal, durée de conservation et purge, script de rechiffrement en masse
 
 ## Phase B – Patients et lecture Vitale
@@ -38,6 +50,7 @@ Numérotation du plan SaaS (ADR-015). Les références aux étapes dans `docs/DE
   - reporté à l'étape 29 : reprise des appareils de Cosium, sans passer par la machine à états
   - à planifier : recherche des détenteurs par modèle ou par lot pour la matériovigilance (art. 21), numéro de lot à décider
 - [ ] **11** – Dossier d'appareillage et prescription — à mettre à niveau
+  - [x] Statuts alignés sur le prompt 11 : `EXPORTE` et `FACTURE_EXTERNE` remplacés par `FACTURE` (ADR-015)
   - À VÉRIFIER : date de comparaison des 4 ans, exigence du RPPS du prescripteur, effet de la mention de renouvellement (voir `docs/REGLES_AUDIO.md`)
   - à arbitrer : retour arrière après un devis refusé
   - reporté à l'étape 14 : écriture de `Delivrance`

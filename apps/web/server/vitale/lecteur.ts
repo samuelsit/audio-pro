@@ -34,7 +34,7 @@ export async function cartesDeSimulation(): Promise<{ fichier: string; libelle: 
 }
 
 /**
- * Lecteur du poste. Tant qu'aucun lecteur réel n'est branché (AreaFSE, étape 17), hors simulation toute
+ * Lecteur du poste. Tant qu'aucun lecteur réel n'est branché (AreaFSE, étape 25), hors simulation toute
  * lecture échoue avec AUCUN_LECTEUR.
  */
 export function lecteurVitale(valeurSimulation: string | undefined): VitaleReader {

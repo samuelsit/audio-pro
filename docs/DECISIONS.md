@@ -472,3 +472,102 @@ L'étape 11 branche `ventilation` et `codePrestation` sur le dossier `A_FACTURER
 - Un patient reste `RESERVE` et absent de `Delivrance` tant que l'étape 12 n'existe pas. Son éligibilité au renouvellement n'en tient pas compte.
 - Une `FacturePreparee` n'existe qu'à partir de cette étape : un dossier déjà `A_FACTURER` avant la migration n'aurait pas de ligne. Aucune base n'en contient.
 - Les embouts sur mesure facturables après un abandon (devis p. 2 § 3) restent sans traitement : la préparation n'existe qu'après un achat.
+
+---
+
+## ADR-015 – SaaS complet, plus d'export vers Cosium
+
+- **Date** : 2026-10-31
+- **Statut** : acceptée. Remplace les ports de l'ADR-001 pour `LegacyExporter` et, dans l'ADR-014, tout ce qui suppose que la facture et l'encaissement restent dans Cosium.
+
+### Contexte
+
+Le logiciel n'est plus un outil interne qui prépare un dossier pour Cosium : c'est un SaaS multi-clients qui le remplace (nouveau `CLAUDE.md`, plan en 31 étapes). Aucun export n'avait été écrit : `LegacyExporter` n'existait que dans des commentaires, et aucun service n'écrivait `EXPORTE` ni `FACTURE_EXTERNE`.
+
+### Décision
+
+- **Cycle du dossier** : `A_FACTURER → FACTURE → CLOS`, comme au prompt 11. `EXPORTE` et `FACTURE_EXTERNE` disparaissent ; la migration convertit le premier en `A_FACTURER`, le second en `FACTURE`.
+- **`FacturePreparee` reste** : la facture de l'étape 14 en partira. « Prêt à exporter » devient « Prêt à facturer ».
+- **La vente, `Delivrance` et la sortie de stock** se rattachent à la validation de la facture (étape 14), plus à `FACTURE_EXTERNE`.
+- **Cosium reste une source d'import**, à l'étape 29 : `fixtures/import-cosium` et les mentions de reprise sont conservés.
+- **Numérotation** : `docs/PLAN.md` donne la correspondance entre anciennes et nouvelles étapes. Les ADR antérieures gardent l'ancienne, car une ADR acceptée ne se modifie pas.
+
+### Conséquences
+
+- Jusqu'à l'étape 14, aucun service n'atteint `FACTURE` : un dossier reste `A_FACTURER`, et l'historique des 4 ans reste vide pour lui, comme avant.
+- Les ports `BillingEngine`, `PecGateway`, `Notifier`, `ESignature` et `NoahConnector` sont cités par `CLAUDE.md` mais n'existent pas encore : ils arrivent à leurs étapes.
+- Le nom HA-Gestion, les paquets `@ha/*` et les bases `ha_*` restent en place : AudioGest est un nom de code, le renommage n'est pas demandé.
+
+## ADR-016 – Isolation par client : RLS, rôles PostgreSQL et contexte explicite
+
+- **Date** : 2026-10-31
+- **Statut** : acceptée
+
+### Contexte
+
+Le cloisonnement reposait sur le `organisationId` écrit dans chaque requête. La base n'imposait rien, et le rôle `ha` est superuser, `BYPASSRLS` et propriétaire de toutes les tables : des politiques RLS seules n'auraient eu aucun effet. `organisationId` est conservé tel quel plutôt que `organizationId`, pour rester cohérent avec le schéma en français ; `CLAUDE.md` est aligné sur ce mot.
+
+### Décision
+
+- **Quatre rôles** : `ha` (migrations, seed, import LPP, tests), `ha_app` (l'application, soumise à la RLS), `ha_plateforme` (`BYPASSRLS`, authentification et console, sans aucun droit sur les tables de données patient), `ha_jobs` (schéma `pgboss`). Les migrations les créent sans `LOGIN` ; `pnpm db:roles` pose les mots de passe.
+- **Pas de `ALTER DEFAULT PRIVILEGES`** : une table nouvelle reste inaccessible tant qu'elle n'a pas ses `GRANT` et sa politique.
+- **`organisation_id` sur chaque table métier**, rempli par un trigger d'héritage depuis le parent, lu à travers la RLS : un parent d'un autre client donne `NULL`, refusé par `NOT NULL`. La valeur par défaut `app_organisation_id()` dispense de le passer dans les créations imbriquées.
+- **`session`, `compte`, `deux_facteurs`** n'ont pas la colonne : Better Auth les écrit et un SUPERADMIN n'a pas d'organisation. Leur politique suit l'utilisateur.
+- **Politique** : `organisation_id = app_organisation_id()`, en `ENABLE` et `FORCE`. Sans contexte, la fonction renvoie `NULL` et rien ne passe.
+- **Contexte explicite, sans `AsyncLocalStorage`** : `base(acteur)` et `enTransaction(acteur, …)`. L'acteur est déjà passé à chaque service : une requête sans contexte ne compile pas, et les générateurs CSV exécutés après le handler restent couverts. Chaque requête hors transaction part dans un lot `BEGIN`, `set_config(…, true)`, requête, `COMMIT`.
+- **`prisma()` déménage dans `@ha/db/admin`**, interdit par ESLint dans l'application.
+- **Unicités portées par client** : RPPS, ADELI, FINESS et numéro de facturation, pour qu'un doublon ne révèle pas un autre client. L'e-mail reste global : la connexion le cherche avant de connaître le client.
+- **SUPERADMIN** : ligne de `utilisateur` sans organisation, garantie par un CHECK. Il ne reçoit jamais de service métier : `requireSession` le renvoie vers la console.
+- **Journal** : les lignes sans organisation (compte inconnu) ne sont plus visibles d'aucun client. `journal.ts` les montrait à tous, ce qui aurait fuité entre clients.
+
+### Conséquences
+
+- Chaque requête isolée coûte trois allers-retours de plus. À mesurer à l'étape 23.
+- Une clé étrangère ignore la RLS : sur une table à plusieurs parents, un service qui écrirait l'id d'un autre client sans le relire ne serait pas bloqué par la base. Les services relisent leurs références et les tests d'identifiant forcé le contrôlent. Clés composites à reprendre à l'étape 22.
+- L'empreinte du NIR et le bucket S3 restent communs à tous les clients ; les recherches sont filtrées et les clés sont aléatoires. Séparation par client à arbitrer à l'étape 22.
+- En production, le rôle des migrations ne sera pas superuser : il lui faudra `BYPASSRLS` pour remplir une colonne, à cause de `FORCE`, et `CREATEROLE` pour la migration des rôles. À traiter à l'étape 23, comme la création du premier SUPERADMIN.
+- Le test `isolation.int.test.ts` échoue si une table n'est ni isolée ni déclarée globale.
+
+## ADR-017 – Rôles d'un client
+
+- **Date** : 2026-10-31
+- **Statut** : acceptée
+
+### Contexte
+
+`ADMIN`, `AUDIO` et `ASSISTANT` ne couvraient ni le responsable de centre ni l'éditeur.
+
+### Décision
+
+- **`ADMIN` devient `ADMIN_CLIENT`** par `RENAME VALUE` : aucune ligne n'est réécrite, le journal en ajout seul n'est pas sollicité. Les anciennes lignes affichent le nouveau nom.
+- **`RESPONSABLE_CENTRE`** : droits métier sur ses seuls centres, avec « Tous mes centres ». Il annule une vente, voit les prix d'achat, corrige l'identité d'un appareil, abandonne un dossier, émet un devis, enregistre une signature, confirme un achat, fusionne des patients. Il ne force pas une prescription (réservé à l'ADMIN_CLIENT au prompt 11) et n'accède pas à Administration.
+- **« Tous mes centres »** : `centresDuPerimetre` borne le responsable à ses rattachements ; `null` reste réservé à l'ADMIN_CLIENT.
+- **2FA** obligatoire pour ADMIN_CLIENT et SUPERADMIN.
+- **`Role` du domaine** ne contient que les rôles d'un client : `SUPERADMIN` n'est pas assignable depuis un formulaire. `RoleCompte` couvre les deux.
+
+### Conséquences
+
+- La 2FA n'est pas imposée au responsable, qui voit pourtant les prix d'achat : à revoir à l'étape 22.
+- Le responsable n'a pas d'écran de gestion de son équipe : à décider avec l'étape 21.
+
+## ADR-018 – File de travaux sur PostgreSQL
+
+- **Date** : 2026-10-31
+- **Statut** : acceptée
+
+### Contexte
+
+Les envois, imports et clôtures à venir exigent une file, sans ajouter de service au socle.
+
+### Décision
+
+- **pg-boss** dans `packages/jobs`, schéma `pgboss` créé par la migration et possédé par `ha_jobs` (`createSchema: false` : ce rôle n'a pas le droit de créer un schéma).
+- **Enveloppe Zod obligatoire** : `{ organisationId, cleIdempotence, charge }`. Un travail s'exécute toujours dans le contexte de son organisation, par `clientOrganisation` (`ha_app`).
+- **Files `stately` avec `singletonKey`** : une même clé n'est pas mise deux fois en attente.
+- **Ouvrier à part** : `pnpm jobs:worker`, avec un seul travail, `diagnostic`, en attendant les premiers besoins.
+
+### Conséquences
+
+- La clé protège la file, pas l'historique : une fois le travail terminé, la même clé repart. Chaque travail reste idempotent par lui-même, comme le demande `CLAUDE.md`.
+- Un travail transverse (purge globale) n'a pas de place dans cette enveloppe : à décider à son arrivée.
+- Mailpit est dans docker-compose, mais rien n'envoie encore d'e-mail : le port `Notifier` arrive à l'étape 8.

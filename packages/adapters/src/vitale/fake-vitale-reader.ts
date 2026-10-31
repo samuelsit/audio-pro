@@ -135,7 +135,7 @@ export async function cartesSimulees(
 }
 
 /**
- * Lecteur utilisé tant qu'aucun lecteur réel n'est branché (AreaFSE, étape 17) et hors simulation :
+ * Lecteur utilisé tant qu'aucun lecteur réel n'est branché (AreaFSE, étape 25) et hors simulation :
  * toute lecture échoue avec AUCUN_LECTEUR.
  */
 export class LecteurVitaleAbsent implements VitaleReader {
