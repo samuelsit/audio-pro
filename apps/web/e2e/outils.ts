@@ -36,3 +36,41 @@ export async function ouvrirSelecteurCentre(page: Page): Promise<string[]> {
   await expect(page.getByRole('option')).toHaveCount(0);
   return options;
 }
+
+export const CONTENU_PDF_FICTIF = '%PDF-1.7 ordonnance fictive';
+export const PDF_FICTIF = {
+  name: 'ordonnance.pdf',
+  mimeType: 'application/pdf',
+  buffer: Buffer.from(CONTENU_PDF_FICTIF),
+};
+
+/** Crée un dossier depuis l'onglet « Dossiers » de la fiche patient. */
+export async function creerDossier(
+  page: Page,
+  patientId: string,
+  oreilles: string,
+  types: readonly [string, string][],
+): Promise<void> {
+  await page.goto(`/patients/${patientId}`);
+  await page.getByRole('link', { name: 'Dossiers', exact: true }).last().click();
+  await expect(page).toHaveURL(new RegExp(`/patients/${patientId}/dossiers$`));
+  await page.getByRole('link', { name: 'Nouveau dossier' }).click();
+  await page.waitForLoadState('networkidle');
+  await page.getByLabel('Audioprothésiste').selectOption({ label: 'Camille Audio' });
+  await page.getByLabel('Oreilles à appareiller').selectOption({ label: oreilles });
+  for (const [oreille, type] of types) {
+    await page.getByLabel(`${oreille} : type d’appareillage`).selectOption({ label: type });
+  }
+  await page.getByRole('button', { name: 'Créer le dossier' }).click();
+  await expect(page.getByText('Dossier créé.')).toBeVisible();
+  await page.waitForLoadState('networkidle');
+}
+
+export async function saisirPrescription(page: Page): Promise<void> {
+  await page.getByLabel('Rechercher un prescripteur').fill('Agathe');
+  await page.getByRole('button', { name: /Agathe Démo/ }).click();
+  await page.getByLabel('Date de la prescription').fill('2026-01-15');
+  await page.getByLabel('Oreilles prescrites').selectOption({ label: 'Les deux oreilles' });
+  await page.getByLabel('Scan de l’ordonnance').setInputFiles(PDF_FICTIF);
+  await page.getByRole('button', { name: 'Enregistrer la prescription' }).click();
+}

@@ -2,6 +2,7 @@ import { chargerTrousseau, ChiffreurAesGcm } from '@ha/adapters';
 
 import type { PrismaClient } from '../src/generated/prisma/client';
 import type { NatureAccessoire } from '../src/generated/prisma/enums';
+import { CODES_PILES } from './seed-catalogue';
 
 // Stock fictif : numéros de série inventés (préfixe DEMO), appareils en stock uniquement.
 // Le seed écrit sans l'extension Prisma de l'application : il chiffre lui-même, avec le même contexte que
@@ -15,24 +16,36 @@ const ACCESSOIRES: readonly {
   nom: string;
   nature: NatureAccessoire;
   prixCentimes: number;
+  codeLpp: string | null;
+  marque: string;
+  referenceCommerciale: string;
 }[] = [
   {
     id: '019a5000-0000-7000-8000-000000000001',
     nom: 'Piles 312 Démo (6)',
     nature: 'PILE',
-    prixCentimes: 500,
+    prixCentimes: 150,
+    codeLpp: CODES_PILES.PILES_312,
+    marque: 'Énergie Démo',
+    referenceCommerciale: 'ED-312-6',
   },
   {
     id: '019a5000-0000-7000-8000-000000000002',
     nom: 'Piles 13 Démo (6)',
     nature: 'PILE',
-    prixCentimes: 500,
+    prixCentimes: 150,
+    codeLpp: CODES_PILES.PILES_13,
+    marque: 'Énergie Démo',
+    referenceCommerciale: 'ED-13-6',
   },
   {
     id: '019a5000-0000-7000-8000-000000000003',
     nom: 'Kit d’entretien Démo',
     nature: 'ACCESSOIRE',
     prixCentimes: 1500,
+    codeLpp: null,
+    marque: 'Soin Démo',
+    referenceCommerciale: 'SD-KIT-1',
   },
 ];
 

@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 
+import { ENTETES_CSV_MODELES } from '@ha/domain';
 import { expect, test } from '@playwright/test';
 
 import { codeTotp, COMPTES, motDePasseDemo, ouvrirSelecteurCentre, seConnecter } from './outils';
@@ -104,18 +105,20 @@ test('l’ADMIN doit activer la 2FA, puis la saisir à chaque connexion', async 
     page.getByRole('row', { name: /Lyra Test Sonora Démo Lyra RIC Classe II 2/ }),
   ).toBeVisible();
 
-  const entete = 'fabricant;gamme;nom;type;classe;codes_lpp;prix_conseille;actif';
+  const entete = ENTETES_CSV_MODELES.join(';');
   const fichierCsv = (lignes: string) => ({
     name: 'modeles.csv',
     mimeType: 'text/csv',
     buffer: Buffer.from(`\uFEFF${entete}\n${lignes}\n`),
   });
-  await page.getByLabel('Fichier CSV').setInputFiles(fichierCsv('Inconnu;G;M;RIC;I;;950;oui'));
+  await page
+    .getByLabel('Fichier CSV')
+    .setInputFiles(fichierCsv('Inconnu;G;M;RIC;I;;950;;;;;;;;;;oui'));
   await page.getByRole('button', { name: 'Importer' }).click();
   await expect(page.getByText('Ligne 2 : Fabricant inconnu : Inconnu.')).toBeVisible();
   await page
     .getByLabel('Fichier CSV')
-    .setInputFiles(fichierCsv('Vibra Démo;Écho;Écho CSV;intra;I;2351057;900;oui'));
+    .setInputFiles(fichierCsv('Vibra Démo;Écho;Écho CSV;intra;I;2351057;900;;;;;;;;;;oui'));
   await page.getByRole('button', { name: 'Importer' }).click();
   await expect(page.getByText('Import terminé : 1 créé(s), 0 mis à jour.')).toBeVisible();
   await expect(page.getByRole('link', { name: 'Écho CSV' })).toBeVisible();

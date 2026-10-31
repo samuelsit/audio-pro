@@ -67,6 +67,8 @@ test('réception à la douchette, recherche, transfert et réservation d’un ap
   await expect(page.getByRole('button', { name: 'Annuler la vente' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Vendre' })).toHaveCount(0);
 
+  // Le panneau s'ouvre côté client : un clic avant l'hydratation serait perdu.
+  await page.waitForLoadState('networkidle');
   await page.getByRole('button', { name: 'Transférer' }).click();
   const transfert = page.getByRole('dialog');
   await transfert.getByLabel('Centre de destination').selectOption({ label: 'Centre Démo Nord' });

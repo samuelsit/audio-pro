@@ -1,52 +1,20 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { COMPTES, seConnecter as connexion } from './outils';
+import {
+  COMPTES,
+  creerDossier,
+  saisirPrescription,
+  seConnecter as connexion,
+  CONTENU_PDF_FICTIF as CONTENU_PDF,
+} from './outils';
 
 // Patients de démonstration : packages/db/prisma/seed-patients.ts (données fictives).
 const LEFEBVRE = '019a3000-0000-7000-8000-000000000506'; // Droite délivrée il y a 2 ans.
 const DUBOIS = '019a3000-0000-7000-8000-000000000508';
 
-const CONTENU_PDF = '%PDF-1.7 ordonnance fictive';
-const PDF_FICTIF = {
-  name: 'ordonnance.pdf',
-  mimeType: 'application/pdf',
-  buffer: Buffer.from(CONTENU_PDF),
-};
-
 async function seConnecter(page: Page): Promise<void> {
   await connexion(page, COMPTES.assistanteNord);
   await expect(page.getByRole('heading', { name: /^Bonjour/ })).toBeVisible();
-}
-
-/** Crée un dossier depuis l'onglet « Dossiers » de la fiche patient. */
-async function creerDossier(
-  page: Page,
-  patientId: string,
-  oreilles: string,
-  types: readonly [string, string][],
-): Promise<void> {
-  await page.goto(`/patients/${patientId}`);
-  await page.getByRole('link', { name: 'Dossiers', exact: true }).last().click();
-  await expect(page).toHaveURL(new RegExp(`/patients/${patientId}/dossiers$`));
-  await page.getByRole('link', { name: 'Nouveau dossier' }).click();
-  await page.waitForLoadState('networkidle');
-  await page.getByLabel('Audioprothésiste').selectOption({ label: 'Camille Audio' });
-  await page.getByLabel('Oreilles à appareiller').selectOption({ label: oreilles });
-  for (const [oreille, type] of types) {
-    await page.getByLabel(`${oreille} : type d’appareillage`).selectOption({ label: type });
-  }
-  await page.getByRole('button', { name: 'Créer le dossier' }).click();
-  await expect(page.getByText('Dossier créé.')).toBeVisible();
-  await page.waitForLoadState('networkidle');
-}
-
-async function saisirPrescription(page: Page): Promise<void> {
-  await page.getByLabel('Rechercher un prescripteur').fill('Agathe');
-  await page.getByRole('button', { name: /Agathe Démo/ }).click();
-  await page.getByLabel('Date de la prescription').fill('2026-01-15');
-  await page.getByLabel('Oreilles prescrites').selectOption({ label: 'Les deux oreilles' });
-  await page.getByLabel('Scan de l’ordonnance').setInputFiles(PDF_FICTIF);
-  await page.getByRole('button', { name: 'Enregistrer la prescription' }).click();
 }
 
 const etapeCourante = (page: Page) => page.locator('[aria-current="step"]');

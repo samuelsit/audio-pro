@@ -1,5 +1,9 @@
 import type { PrismaClient } from '../src/generated/prisma/client';
-import type { ClasseLpp, TypeAideAuditive } from '../src/generated/prisma/enums';
+import type {
+  ClasseLpp,
+  OptionAideAuditive,
+  TypeAideAuditive,
+} from '../src/generated/prisma/enums';
 
 // Catalogue fictif : fabricants, gammes et modèles inventés, prix de démonstration.
 // Les codes LPP sont les 8 codes génériques réels de la base 908 (voir ADR-008) : droite et gauche,
@@ -10,15 +14,52 @@ const CODES_GENERIQUES: Readonly<Record<ClasseLpp, readonly string[]>> = {
   CLASSE_II: ['2392530', '2341840', '2307926', '2369117'],
 };
 
+/** Piles 13 et 312, réelles elles aussi, pour les accessoires du seed. */
+export const CODES_PILES = { PILES_13: '2332976', PILES_312: '2356907' } as const;
+
 const ACOUSTIA = '019a4000-0000-7000-8000-000000000001';
 const SONORA = '019a4000-0000-7000-8000-000000000002';
 const VIBRA = '019a4000-0000-7000-8000-000000000003';
 
 const FABRICANTS = [
-  { id: ACOUSTIA, nom: 'Acoustia Démo' },
-  { id: SONORA, nom: 'Sonora Démo' },
-  { id: VIBRA, nom: 'Vibra Démo' },
+  {
+    id: ACOUSTIA,
+    nom: 'Acoustia Démo',
+    adresse: '10 rue de l’Exemple, 75000 Paris',
+    mandataire: null,
+  },
+  { id: SONORA, nom: 'Sonora Démo', adresse: '20 rue Fictive, 69000 Lyon', mandataire: null },
+  {
+    id: VIBRA,
+    nom: 'Vibra Démo',
+    adresse: '30 Example Street, Faketown',
+    mandataire: 'Vibra Démo France, 40 avenue Imaginaire, 31000 Toulouse',
+  },
 ] as const;
+
+const OPTIONS_CLASSE_I: OptionAideAuditive[] = [
+  'REDUCTEUR_ACOUPHENE',
+  'CONNECTIVITE_SANS_FIL',
+  'REDUCTEUR_BRUIT_VENT',
+];
+
+const OPTIONS_CLASSE_II: OptionAideAuditive[] = [...OPTIONS_CLASSE_I, 'SYNCHRONISATION_BINAURALE'];
+
+/** Mentions du devis normalisé, communes aux modèles fictifs : 12 canaux en classe I, 24 en classe II. */
+function ficheDevis({ gamme, nom, classe }: ModeleDemo) {
+  const classeI = classe === 'CLASSE_I';
+  return {
+    marque: gamme,
+    referenceCommerciale: `${gamme}-${nom}`.toUpperCase().replace(/\s+/g, '-'),
+    lieuFabrication: 'UE' as const,
+    nombreCanaux: classeI ? 12 : 24,
+    connectivite: classeI ? 'Bluetooth' : 'Bluetooth, télécommande',
+    antiLarsen: true,
+    reducteurAcouphenes: true,
+    bobineT: true,
+    options: classeI ? OPTIONS_CLASSE_I : OPTIONS_CLASSE_II,
+  };
+}
 
 interface ModeleDemo {
   fabricantId: string;
@@ -117,9 +158,11 @@ export const NOMBRE_MODELES_DEMO = MODELES.length;
 
 export async function seedCatalogue(db: PrismaClient, organisationId: string): Promise<void> {
   await db.lppCode.createMany({
-    data: Object.values(CODES_GENERIQUES)
-      .flat()
-      .map((code) => ({ code })),
+    data: [...Object.values(CODES_GENERIQUES).flat(), ...Object.values(CODES_PILES)].map(
+      (code) => ({
+        code,
+      }),
+    ),
     skipDuplicates: true,
   });
   for (const fabricant of FABRICANTS) {
@@ -130,8 +173,8 @@ export async function seedCatalogue(db: PrismaClient, organisationId: string): P
     const { fabricantId, gamme, nom } = modele;
     const { id } = await db.modeleAideAuditive.upsert({
       where: { fabricantId_gamme_nom: { fabricantId, gamme, nom } },
-      create: { ...modele, organisationId },
-      update: modele,
+      create: { ...modele, ...ficheDevis(modele), organisationId },
+      update: { ...modele, ...ficheDevis(modele) },
       select: { id: true },
     });
     await db.modeleCodeLpp.deleteMany({ where: { modeleId: id } });

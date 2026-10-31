@@ -10,9 +10,15 @@ import { nombreAppareilsDemo, seedStock } from './seed-stock';
 
 // Seed idempotent de démonstration. Toutes les données sont fictives (domaine exemple.test,
 // RPPS et NIR inventés). Les patients de démonstration sont dans seed-patients.ts.
-const SCHEMA_VERSION = '3';
+const SCHEMA_VERSION = '4';
 
 const ORGANISATION_ID = '019a3000-0000-7000-8000-000000000001';
+
+const ENTREPRISE_DEMO = {
+  raisonSociale: 'Audition Démo SAS',
+  rcs: 'RCS Démo 000 000 000',
+  tvaIntracommunautaire: 'FR00000000000',
+} as const;
 
 const CENTRES = [
   {
@@ -23,6 +29,9 @@ const CENTRES = [
     ville: 'Lille',
     email: 'nord@exemple.test',
     telephone: '0300000001',
+    finess: '000000001',
+    ...ENTREPRISE_DEMO,
+    siret: '00000000000011',
   },
   {
     id: '019a3000-0000-7000-8000-0000000000b1',
@@ -32,6 +41,9 @@ const CENTRES = [
     ville: 'Orléans',
     email: 'centre@exemple.test',
     telephone: '0200000002',
+    finess: '000000002',
+    ...ENTREPRISE_DEMO,
+    siret: '00000000000022',
   },
   {
     id: '019a3000-0000-7000-8000-0000000000c1',
@@ -41,6 +53,9 @@ const CENTRES = [
     ville: 'Marseille',
     email: 'sud@exemple.test',
     telephone: '0400000003',
+    finess: '000000003',
+    ...ENTREPRISE_DEMO,
+    siret: '00000000000033',
   },
 ] as const;
 
