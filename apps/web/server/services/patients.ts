@@ -157,17 +157,19 @@ export type Client = ClientTransaction | ReturnType<typeof base>;
 /**
  * Lit une fiche complète, couvertures comprises (lues directement : champs chiffrés).
  * Lève AccesRefuseError si la fiche n'existe pas dans l'organisation ou si son centre est hors des droits.
+ * `accesVerifie` : l'appelant a déjà établi le droit, par le centre d'un dossier de ce patient.
  */
 export async function lireFiche(
   client: Client,
   acteur: UtilisateurConnecte,
   patientId: string,
+  { accesVerifie = false }: { accesVerifie?: boolean } = {},
 ): Promise<PatientDetail> {
   const p: LignePatient | null = await client.patient.findFirst({
     where: { id: patientId, organisationId: acteur.organisationId },
     select: selectionPatient,
   });
-  if (!p || !peutAccederAuCentre(acteur, p.centreId)) {
+  if (!p || !(accesVerifie || peutAccederAuCentre(acteur, p.centreId))) {
     throw new AccesRefuseError();
   }
   const [amo, amc] = await Promise.all([
@@ -896,6 +898,14 @@ export async function fusionnerPatients(
       });
       // Les mouvements, immuables, gardent l'ancienne fiche : l'affichage suit `fusionneDansId`.
       await tx.appareil.updateMany({
+        where: { patientId: doublonId },
+        data: { patientId: conserveeId },
+      });
+      await tx.dossier.updateMany({
+        where: { patientId: doublonId },
+        data: { patientId: conserveeId },
+      });
+      await tx.delivrance.updateMany({
         where: { patientId: doublonId },
         data: { patientId: conserveeId },
       });

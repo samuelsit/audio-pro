@@ -1,4 +1,4 @@
-import type { DoublonsPossibles } from '@ha/domain';
+import type { DoublonsPossibles, ResultatControlePrescription } from '@ha/domain';
 
 /** État renvoyé par une server action de formulaire (partagé client/serveur). */
 export interface EtatFormulaire {
@@ -10,6 +10,8 @@ export interface EtatFormulaire {
   valeurs?: Readonly<Record<string, string | readonly string[] | boolean>>;
   /** Création suspendue : fiches patient qui correspondent peut-être à la saisie. */
   doublons?: DoublonsPossibles;
+  /** Prescription arrêtée par des erreurs bloquantes ; `forcable` si l'utilisateur peut passer outre. */
+  blocage?: { controle: ResultatControlePrescription; forcable: boolean };
 }
 
 export const ETAT_INITIAL: EtatFormulaire = {};
