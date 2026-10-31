@@ -47,6 +47,7 @@ test('le menu latéral mène aux écrans métier, sans la section Admin pour une
   await expect(menu.getByRole('link')).toHaveText([
     'Patients',
     'Dossiers',
+    'Essais en cours',
     'Prescripteurs',
     'Stock',
     'À facturer',

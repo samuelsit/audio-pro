@@ -1,26 +1,20 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { COMPTES, creerDossier, PDF_FICTIF, saisirPrescription, seConnecter } from './outils';
+import {
+  ajouterRdv,
+  COMPTES,
+  creerAppareilAurore,
+  creerDossier,
+  etablirDevis,
+  OFFRE_100,
+  PDF_FICTIF,
+  saisirPrescription,
+  seConnecter,
+  vieillirEssai,
+} from './outils';
 
 // Patient de démonstration : packages/db/prisma/seed-patients.ts (données fictives).
 const FONTAINE = '019a3000-0000-7000-8000-000000000504';
-
-const OFFRE_100 = 'Offre 100 % santé';
-
-async function etablirDevis(page: Page, prix: string): Promise<void> {
-  await page.getByRole('link', { name: 'Établir le devis' }).click();
-  await page.waitForLoadState('networkidle');
-  await page.getByLabel(`Aide auditive, ${OFFRE_100}, oreille droite`).selectOption({
-    label: 'Acoustia Démo Aurore Aurore 1 C',
-  });
-  await page.getByLabel(`Prix TTC (€), ${OFFRE_100}, oreille droite`).fill(prix);
-  await page.getByLabel(`Part AMC estimée (€), ${OFFRE_100}, oreille droite`).fill('710,00');
-  await page.getByLabel('Présentation de la bobine T réalisée').check();
-  await page.getByLabel('Fiche technique jointe').check();
-  await page.getByRole('button', { name: 'Enregistrer le brouillon' }).click();
-  await expect(page.getByText('Devis enregistré.')).toBeVisible();
-  await page.waitForLoadState('networkidle');
-}
 
 const etapeCourante = (page: Page) => page.locator('[aria-current="step"]');
 
@@ -29,7 +23,7 @@ const statutDevis = (page: Page, statut: string) =>
   expect(page.getByText(statut, { exact: true })).toBeVisible();
 
 // Parcours complet, avec un rendu Chromium réel : plus long que le délai par défaut.
-test.setTimeout(90_000);
+test.setTimeout(120_000);
 
 test('un devis passe du brouillon à la signature, puis à une nouvelle version', async ({
   page,
@@ -72,9 +66,20 @@ test('un devis passe du brouillon à la signature, puis à une nouvelle version'
   // Un devis émis ne se modifie plus directement.
   await expect(page.getByRole('link', { name: 'Modifier' })).toHaveCount(0);
 
+  await creerAppareilAurore('E2E-DEVIS-1');
   await page.getByLabel('Offre choisie pour l’essai').selectOption({ label: OFFRE_100 });
+  await page.getByLabel('Numéro de série, oreille droite').fill('E2E-DEVIS-1');
   await page.getByRole('button', { name: 'Démarrer l’essai' }).click();
   await expect(page.getByRole('button', { name: 'Déposer le scan' })).toBeVisible();
+  await page.waitForLoadState('networkidle');
+  const urlDevis = page.url();
+
+  // La signature se recueille à l'issue de l'essai : 30 jours et 2 rendez-vous.
+  await page.goto(dossier);
+  await vieillirEssai(page, 30);
+  await ajouterRdv(page, 'Pose', 'Pose et réglages');
+  await ajouterRdv(page, 'Fin d’essai', 'Bonne adaptation');
+  await page.goto(urlDevis);
   await page.waitForLoadState('networkidle');
 
   await page.getByLabel('Devis signé scanné').setInputFiles(PDF_FICTIF);
