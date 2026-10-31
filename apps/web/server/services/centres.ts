@@ -21,6 +21,10 @@ export interface CentreDetail {
   ville: string;
   finess: string | null;
   numeroFacturationAm: string | null;
+  raisonSociale: string | null;
+  siret: string | null;
+  rcs: string | null;
+  tvaIntracommunautaire: string | null;
   email: string;
   telephone: string;
   actif: boolean;
@@ -35,6 +39,10 @@ const selectionCentre = {
   ville: true,
   finess: true,
   numeroFacturationAm: true,
+  raisonSociale: true,
+  siret: true,
+  rcs: true,
+  tvaIntracommunautaire: true,
   email: true,
   telephone: true,
   actif: true,

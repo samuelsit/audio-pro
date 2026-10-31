@@ -1,4 +1,5 @@
 import { prisma } from '@ha/db';
+import { ENTETES_CSV_ACCESSOIRES, ENTETES_CSV_MODELES } from '@ha/domain';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { creerJeuDeDonnees, viderBase, type JeuDeDonnees } from '@/test/donnees';
@@ -26,8 +27,8 @@ import {
 let d: JeuDeDonnees;
 let fabricantId: string;
 
-const ENTETE_MODELES = 'fabricant;gamme;nom;type;classe;codes_lpp;prix_conseille;actif';
-const ENTETE_ACCESSOIRES = 'nom;nature;code_lpp;prix;actif';
+const ENTETE_MODELES = ENTETES_CSV_MODELES.join(';');
+const ENTETE_ACCESSOIRES = ENTETES_CSV_ACCESSOIRES.join(';');
 
 beforeEach(async () => {
   await viderBase();
@@ -254,8 +255,8 @@ describe('import CSV des modèles', () => {
     const bilan = await importerModelesCsv(
       d.acteurs.admin,
       fichier(
-        'Acoustia;Aurore;Aurore 3;RIC;I;2351057;"1 000,00";oui',
-        'Acoustia;Aurore;Aurore 5;contour;II;;1500;non',
+        'Acoustia;Aurore;Aurore 3;RIC;I;2351057;"1 000,00";;;;;;;;;;oui',
+        'Acoustia;Aurore;Aurore 5;contour;II;;1500;;;;;;;;;;non',
       ),
     );
 
@@ -277,7 +278,7 @@ describe('import CSV des modèles', () => {
   });
 
   it('un second import identique ne crée rien', async () => {
-    const texte = fichier('Acoustia;Aurore;Aurore 3;RIC;I;2351057;950;oui');
+    const texte = fichier('Acoustia;Aurore;Aurore 3;RIC;I;2351057;950;;;;;;;;;;oui');
     await importerModelesCsv(d.acteurs.admin, texte);
     expect(await importerModelesCsv(d.acteurs.admin, texte)).toEqual({ crees: 0, modifies: 1 });
     expect(await listerModeles(d.acteurs.admin)).toHaveLength(1);
@@ -288,9 +289,9 @@ describe('import CSV des modèles', () => {
       importerModelesCsv(
         d.acteurs.admin,
         fichier(
-          'Acoustia;Aurore;Aurore 3;RIC;I;2351057;950;oui',
-          'Inconnu;Aurore;Aurore 5;RIC;I;9999999;950;oui',
-          'Acoustia;Aurore;Aurore 3;RIC;I;2351057;950;oui',
+          'Acoustia;Aurore;Aurore 3;RIC;I;2351057;950;;;;;;;;;;oui',
+          'Inconnu;Aurore;Aurore 5;RIC;I;9999999;950;;;;;;;;;;oui',
+          'Acoustia;Aurore;Aurore 3;RIC;I;2351057;950;;;;;;;;;;oui',
         ),
       ),
     );
@@ -322,7 +323,7 @@ describe('import CSV des accessoires', () => {
 
     const bilan = await importerAccessoiresCsv(
       d.acteurs.admin,
-      fichier('Piles 13;piles;2332976;1,75;oui', 'Cordon;accessoire;;12;oui'),
+      fichier('Piles 13;piles;2332976;1,75;;;oui', 'Cordon;accessoire;;12;;;oui'),
     );
 
     expect(bilan).toEqual({ crees: 1, modifies: 1 });
@@ -335,9 +336,9 @@ describe('import CSV des accessoires', () => {
       importerAccessoiresCsv(
         d.acteurs.admin,
         fichier(
-          'Cordon;accessoire;;12;oui',
-          'Piles 13;piles;9999999;1,75;oui',
-          'Cordon;accessoire;;12;oui',
+          'Cordon;accessoire;;12;;;oui',
+          'Piles 13;piles;9999999;1,75;;;oui',
+          'Cordon;accessoire;;12;;;oui',
         ),
       ),
     );

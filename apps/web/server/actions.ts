@@ -1,5 +1,6 @@
 import { AccesRefuseError } from './auth/acces';
 import { ErreurSaisie } from './erreurs';
+import { ErreurDevisBloque } from './services/devis';
 import { ErreurPrescriptionBloquee } from './services/dossiers';
 import { ErreurDoublonPossible } from './services/patients';
 import type { EtatFormulaire } from '@/lib/formulaire';
@@ -23,6 +24,9 @@ export async function executer(
         valeurs,
         blocage: { controle: erreur.controle, forcable: erreur.forcable },
       };
+    }
+    if (erreur instanceof ErreurDevisBloque) {
+      return { message: erreur.message, valeurs, blocageDevis: erreur.controle };
     }
     if (erreur instanceof ErreurSaisie) {
       return { message: erreur.message, erreurs: erreur.erreurs, valeurs };

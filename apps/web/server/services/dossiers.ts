@@ -44,11 +44,11 @@ import { documents } from '../documents';
 import { ErreurSaisie, valider, type ErreursChamps } from '../erreurs';
 import { aujourdhui, lireFiche, type Client, type PatientDetail } from './patients';
 
-function versDate(iso: string): Date {
+export function versDate(iso: string): Date {
   return new Date(`${iso}T00:00:00.000Z`);
 }
 
-function depuisDate(date: Date): string {
+export function depuisDate(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
@@ -79,15 +79,16 @@ const selectionDossier = {
   organisationId: true,
   patientId: true,
   centreId: true,
+  praticienId: true,
   statut: true,
   typeDroite: true,
   typeGauche: true,
 } as const;
 
-type DossierLu = Prisma.DossierGetPayload<{ select: typeof selectionDossier }>;
+export type DossierLu = Prisma.DossierGetPayload<{ select: typeof selectionDossier }>;
 
 /** Lit le dossier et vérifie le droit sur son centre. */
-async function lireDossier(
+export async function lireDossier(
   client: Client,
   acteur: UtilisateurConnecte,
   dossierId: string,
@@ -138,7 +139,7 @@ export async function appliquerTransition(
 }
 
 /** Le motif n'entre jamais dans le journal : texte libre, chiffré dans la transition. */
-function evenementTransition(dossier: DossierLu, vers: StatutDossier): EvenementAudit {
+export function evenementTransition(dossier: DossierLu, vers: StatutDossier): EvenementAudit {
   return {
     action: 'UPDATE',
     entiteType: 'DOSSIER',
@@ -319,7 +320,7 @@ export async function listerDossiersDuPatient(
   return dossiers.map(versResume);
 }
 
-const constatSchema = z.object({
+export const constatSchema = z.object({
   code: z.enum(CODES_CONTROLE),
   oreille: z.enum(OREILLES).nullable(),
 });
@@ -577,7 +578,7 @@ export async function enregistrerPrescription(
   scan: Uint8Array,
 ): Promise<void> {
   const donnees = valider(prescriptionSaisieSchema, saisie);
-  const document = verifierDocument(scan);
+  const document = verifierDocument(scan, 'Joindre le scan de l’ordonnance.');
   if (!document.valide) {
     throw ErreurSaisie.surChamp('scan', document.message);
   }

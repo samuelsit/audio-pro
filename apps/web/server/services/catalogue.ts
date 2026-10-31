@@ -11,9 +11,11 @@ import {
   modeleSaisieSchema,
   type AccessoireSaisie,
   type ClasseLpp,
+  type LieuFabrication,
   type ErreurLigneCsv,
   type ModeleSaisie,
   type NatureAccessoire,
+  type OptionAideAuditive,
   type TypeAideAuditive,
 } from '@ha/domain';
 
@@ -28,6 +30,8 @@ export const TAILLE_MAX_CSV = 1024 * 1024;
 export interface FabricantResume {
   id: string;
   nom: string;
+  adresse: string | null;
+  mandataire: string | null;
   actif: boolean;
 }
 
@@ -41,6 +45,15 @@ export interface ModeleResume {
   classe: ClasseLpp;
   codesLpp: string[];
   prixConseilleCentimes: number;
+  marque: string | null;
+  referenceCommerciale: string | null;
+  lieuFabrication: LieuFabrication | null;
+  nombreCanaux: number | null;
+  connectivite: string | null;
+  antiLarsen: boolean | null;
+  reducteurAcouphenes: boolean | null;
+  bobineT: boolean | null;
+  options: OptionAideAuditive[];
   actif: boolean;
 }
 
@@ -50,6 +63,8 @@ export interface AccessoireResume {
   nature: NatureAccessoire;
   codeLpp: string | null;
   prixCentimes: number;
+  marque: string | null;
+  referenceCommerciale: string | null;
   actif: boolean;
 }
 
@@ -80,13 +95,21 @@ const DOUBLON_FABRICANT = {
   fabricant_organisation_id_nom_key: ['nom', 'Ce fabricant existe déjà.'],
 } as const;
 
+const selectionFabricant = {
+  id: true,
+  nom: true,
+  adresse: true,
+  mandataire: true,
+  actif: true,
+} as const;
+
 export async function listerFabricants(acteur: UtilisateurConnecte): Promise<FabricantResume[]> {
   return prisma().fabricant.findMany({
     where: {
       organisationId: acteur.organisationId,
       ...(acteur.role === 'ADMIN' ? {} : { actif: true }),
     },
-    select: { id: true, nom: true, actif: true },
+    select: selectionFabricant,
     orderBy: { nom: 'asc' },
   });
 }
@@ -97,7 +120,7 @@ export async function obtenirFabricant(
 ): Promise<FabricantResume> {
   const f = await prisma().fabricant.findFirst({
     where: { id: fabricantId, organisationId: acteur.organisationId },
-    select: { id: true, nom: true, actif: true },
+    select: selectionFabricant,
   });
   if (!f) {
     throw new AccesRefuseError();
@@ -148,7 +171,16 @@ export async function modifierFabricant(
         action: 'UPDATE',
         entiteType: 'FABRICANT',
         entiteId: fabricantId,
-        champs: differencesAuditees('FABRICANT', { nom: actuel.nom, actif: actuel.actif }, donnees),
+        champs: differencesAuditees(
+          'FABRICANT',
+          {
+            nom: actuel.nom,
+            adresse: actuel.adresse,
+            mandataire: actuel.mandataire,
+            actif: actuel.actif,
+          },
+          donnees,
+        ),
       },
     );
   } catch (erreur) {
@@ -167,6 +199,15 @@ const selectionModele = {
   type: true,
   classe: true,
   prixConseilleCentimes: true,
+  marque: true,
+  referenceCommerciale: true,
+  lieuFabrication: true,
+  nombreCanaux: true,
+  connectivite: true,
+  antiLarsen: true,
+  reducteurAcouphenes: true,
+  bobineT: true,
+  options: true,
   actif: true,
   codesLpp: { select: { code: true }, orderBy: { code: 'asc' } },
 } as const;
@@ -301,6 +342,15 @@ export async function modifierModele(
             classe: actuel.classe,
             codesLpp: actuel.codesLpp,
             prixConseilleCentimes: actuel.prixConseilleCentimes,
+            marque: actuel.marque,
+            referenceCommerciale: actuel.referenceCommerciale,
+            lieuFabrication: actuel.lieuFabrication,
+            nombreCanaux: actuel.nombreCanaux,
+            connectivite: actuel.connectivite,
+            antiLarsen: actuel.antiLarsen,
+            reducteurAcouphenes: actuel.reducteurAcouphenes,
+            bobineT: actuel.bobineT,
+            options: actuel.options,
             actif: actuel.actif,
           },
           { ...donnees, codesLpp },
@@ -320,6 +370,8 @@ const selectionAccessoire = {
   nature: true,
   codeLpp: true,
   prixCentimes: true,
+  marque: true,
+  referenceCommerciale: true,
   actif: true,
 } as const;
 
@@ -408,6 +460,8 @@ export async function modifierAccessoire(
             nature: actuel.nature,
             codeLpp: actuel.codeLpp,
             prixCentimes: actuel.prixCentimes,
+            marque: actuel.marque,
+            referenceCommerciale: actuel.referenceCommerciale,
             actif: actuel.actif,
           },
           donnees,

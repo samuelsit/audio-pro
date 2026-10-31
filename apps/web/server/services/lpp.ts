@@ -3,7 +3,9 @@ import { prisma } from '@ha/db';
 import {
   CODES_LPP_TARIFS_AUDIO,
   tarifEnVigueur,
+  centimes,
   tarifsAudioDepuisLpp,
+  type Centimes,
   type Clock,
   type TarifsAudio,
 } from '@ha/domain';
@@ -96,6 +98,19 @@ export async function decrireCodesLpp(
 export async function tarifsAudioEnVigueur(date: string): Promise<TarifsAudio | null> {
   const decrits = await decrireCodesLpp(Object.values(CODES_LPP_TARIFS_AUDIO), { date });
   return tarifsAudioDepuisLpp(new Map(decrits.map((d) => [d.code, d.tarif])));
+}
+
+/** Tarif LPP unitaire des codes valides à une date ; les autres sont absents, donc non remboursés. */
+export async function tarifsConsommablesEnVigueur(
+  codes: readonly string[],
+  date: string,
+): Promise<ReadonlyMap<string, Centimes>> {
+  const decrits = await decrireCodesLpp(codes, { date });
+  return new Map(
+    decrits.flatMap(({ code, tarif }) =>
+      tarif === null ? [] : [[code, centimes(tarif.baseRemboursementCentimes)] as const],
+    ),
+  );
 }
 
 /** Codes de la liste absents du référentiel. */

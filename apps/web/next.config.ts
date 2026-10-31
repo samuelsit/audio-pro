@@ -13,7 +13,13 @@ const nextConfig: NextConfig = {
   // Les règles pour les agents sont dans CLAUDE.md à la racine.
   agentRules: false,
   transpilePackages: ['@ha/domain', '@ha/adapters', '@ha/db'],
-  serverExternalPackages: ['@prisma/client', '@prisma/adapter-pg', 'pg', '@aws-sdk/client-s3'],
+  serverExternalPackages: [
+    '@prisma/client',
+    '@prisma/adapter-pg',
+    'pg',
+    '@aws-sdk/client-s3',
+    'playwright-core',
+  ],
   // Un scan d'ordonnance va jusqu'à 10 Mo (TAILLE_MAX_DOCUMENT_OCTETS), le reste du formulaire en plus.
   experimental: {
     serverActions: { bodySizeLimit: '12mb' },
