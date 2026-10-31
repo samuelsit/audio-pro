@@ -7,11 +7,14 @@ import {
   ENTETES_CSV_MODELES,
   fabricantSaisieSchema,
   LIBELLES_CLASSES_LPP,
+  LIBELLES_LIEUX_FABRICATION,
   LIBELLES_NATURES_ACCESSOIRE,
+  LIBELLES_OPTIONS_AIDE_AUDITIVE,
   LIBELLES_TYPES_AIDE_AUDITIVE,
   ligneCsvAccessoireSchema,
   ligneCsvModeleSchema,
   modeleSaisieSchema,
+  OPTIONS_AIDE_AUDITIVE,
 } from './catalogue';
 
 const MODELE = {
@@ -22,7 +25,20 @@ const MODELE = {
   classe: 'CLASSE_II',
   codesLpp: '2392530, 2341840',
   prixConseilleCentimes: '1 490,50',
+  options: '',
   actif: true,
+};
+
+const FICHE_VIDE = {
+  marque: null,
+  referenceCommerciale: null,
+  lieuFabrication: null,
+  nombreCanaux: null,
+  connectivite: null,
+  antiLarsen: null,
+  reducteurAcouphenes: null,
+  bobineT: null,
+  options: [],
 };
 
 describe('libellés', () => {
@@ -30,6 +46,12 @@ describe('libellés', () => {
     expect(Object.keys(LIBELLES_TYPES_AIDE_AUDITIVE)).toEqual(['CONTOUR', 'INTRA', 'RIC']);
     expect(Object.keys(LIBELLES_CLASSES_LPP)).toEqual(['CLASSE_I', 'CLASSE_II']);
     expect(Object.keys(LIBELLES_NATURES_ACCESSOIRE)).toEqual(['ACCESSOIRE', 'PILE']);
+    expect(Object.keys(LIBELLES_LIEUX_FABRICATION)).toEqual(['UE', 'HORS_UE']);
+    expect(Object.keys(LIBELLES_OPTIONS_AIDE_AUDITIVE)).toEqual([...OPTIONS_AIDE_AUDITIVE]);
+  });
+
+  it('reprennent les 8 options du devis normalisé', () => {
+    expect(OPTIONS_AIDE_AUDITIVE).toHaveLength(8);
   });
 });
 
@@ -67,6 +89,45 @@ describe('modeleSaisieSchema', () => {
   });
 });
 
+describe('modeleSaisieSchema : mentions du devis normalisé', () => {
+  it('laisse inconnu ce qui n’est pas renseigné', () => {
+    expect(modeleSaisieSchema.parse(MODELE)).toMatchObject(FICHE_VIDE);
+  });
+
+  it('convertit les champs renseignés', () => {
+    const r = modeleSaisieSchema.parse({
+      ...MODELE,
+      marque: ' Acoustia ',
+      referenceCommerciale: 'AU3-R',
+      lieuFabrication: 'hors ue',
+      nombreCanaux: '16',
+      connectivite: 'Bluetooth',
+      antiLarsen: 'oui',
+      reducteurAcouphenes: 'NON',
+      bobineT: 'Oui',
+      options: 'reducteur_acouphene, CONNECTIVITE_SANS_FIL;REDUCTEUR_ACOUPHENE',
+    });
+    expect(r).toMatchObject({
+      marque: 'Acoustia',
+      lieuFabrication: 'HORS_UE',
+      nombreCanaux: 16,
+      antiLarsen: true,
+      reducteurAcouphenes: false,
+      bobineT: true,
+      options: ['REDUCTEUR_ACOUPHENE', 'CONNECTIVITE_SANS_FIL'],
+    });
+  });
+
+  it.each([
+    { cas: 'nombre de canaux nul', champs: { nombreCanaux: '0' } },
+    { cas: 'lieu inconnu', champs: { lieuFabrication: 'Lune' } },
+    { cas: 'oui/non illisible', champs: { antiLarsen: 'peut-être' } },
+    { cas: 'option inconnue', champs: { options: 'TURBO' } },
+  ])('refuse : $cas', ({ champs }) => {
+    expect(modeleSaisieSchema.safeParse({ ...MODELE, ...champs }).success).toBe(false);
+  });
+});
+
 describe('accessoireSaisieSchema', () => {
   it.each([
     { codeLpp: '', attendu: null },
@@ -91,7 +152,7 @@ describe('import CSV des modèles', () => {
     { classe: 'ii', type: 'ric', attendu: { classe: 'CLASSE_II', type: 'RIC' } },
   ])('lit classe $classe, type $type', ({ classe, type, attendu }) => {
     const { lignes, erreurs } = interpreterCsv(
-      `${ENTETE}\nAcoustia;Aurore;Aurore 3;${type};${classe};2392530|2341840;"1 490,00";Oui\n`,
+      `${ENTETE}\nAcoustia;Aurore;Aurore 3;${type};${classe};2392530|2341840;"1 490,00";;;;;;;;;;Oui\n`,
       ENTETES_CSV_MODELES,
       ligneCsvModeleSchema,
     );
@@ -102,6 +163,7 @@ describe('import CSV des modèles', () => {
       nom: 'Aurore 3',
       codesLpp: ['2392530', '2341840'],
       prixConseilleCentimes: 149_000,
+      ...FICHE_VIDE,
       actif: true,
       ...attendu,
     });
@@ -109,7 +171,7 @@ describe('import CSV des modèles', () => {
 
   it('liste les erreurs de chaque ligne', () => {
     const { erreurs } = interpreterCsv(
-      `${ENTETE}\nAcoustia;Aurore;A;BOITIER;III;123;x;peut-être\n`,
+      `${ENTETE}\nAcoustia;Aurore;A;BOITIER;III;123;x;;;;;;;;;;peut-être\n`,
       ENTETES_CSV_MODELES,
       ligneCsvModeleSchema,
     );
@@ -132,7 +194,7 @@ describe('import CSV des accessoires', () => {
     { nature: 'accessoire', attendu: 'ACCESSOIRE' },
   ])('lit la nature $nature', ({ nature, attendu }) => {
     const { lignes } = interpreterCsv(
-      `${ENTETE}\nPiles 13;${nature};2332976;1,50;non\n`,
+      `${ENTETE}\nPiles 13;${nature};2332976;1,50;Rayonac;RAY-13;non\n`,
       ENTETES_CSV_ACCESSOIRES,
       ligneCsvAccessoireSchema,
     );
@@ -141,13 +203,15 @@ describe('import CSV des accessoires', () => {
       nature: attendu,
       codeLpp: '2332976',
       prixCentimes: 150,
+      marque: 'Rayonac',
+      referenceCommerciale: 'RAY-13',
       actif: false,
     });
   });
 
   it('refuse une nature inconnue', () => {
     const { erreurs } = interpreterCsv(
-      `${ENTETE}\nPiles 13;bonbon;;1,50;oui\n`,
+      `${ENTETE}\nPiles 13;bonbon;;1,50;;;oui\n`,
       ENTETES_CSV_ACCESSOIRES,
       ligneCsvAccessoireSchema,
     );

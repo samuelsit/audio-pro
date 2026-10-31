@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="fr">
+<head><meta charset="utf-8"><title>Devis normalisé</title><style>@page { size: A4; margin: 9mm 12mm 11mm; }
+* { box-sizing: border-box; }
+body { margin: 0; font: 7.6pt/1.17 Arial, Helvetica, sans-serif; color: #000; }
+.page { min-height: 277mm; display: flex; flex-direction: column; break-after: page; }
+.page:last-child { break-after: auto; }
+.notes { margin-top: auto; padding-top: 3mm; font-size: 6.2pt; font-style: italic; }
+.notes::before { content: ''; display: block; width: 45mm; border-top: 0.5pt solid #000; margin-bottom: 1mm; }
+.notes p { margin: 0; }
+header { position: relative; min-height: 16mm; text-align: center; }
+.logo { position: absolute; left: 0; top: 0; width: 37mm; height: 15mm; border: 0.75pt solid #000; }
+h1 { margin: 2mm 0 0.5mm 38mm; font-size: 9.5pt; font-weight: bold; }
+.sous-titre { margin: 0 0 0 38mm; font-size: 6.8pt; }
+.identites { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; margin: 1.5mm 7mm 0; }
+.cadre { border: 0.5pt dotted #000; padding: 1mm 1.5mm; margin-bottom: 1.5mm; }
+.cadre.large { margin: 0.5mm 0 1mm; }
+.oreilles { margin: 0 0 1mm 8mm; }
+.oreilles p { margin: 0; }
+.avertissement { border: 0.75pt dotted #000; padding: 0.8mm 1.5mm; margin: 0 0 1mm; font-weight: bold; font-size: 7.8pt; text-align: justify; }
+h2 { margin: 1.5mm 0 0.7mm; font-size: 8.4pt; font-weight: bold; text-decoration: underline; }
+.titre-offre { margin-left: 3mm; }
+p { margin: 0.6mm 0; text-align: justify; }
+small { font-size: 6.2pt; }
+table.offre { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.offre th, .offre td { border: 0.5pt dotted #000; padding: 0.5mm 1mm; vertical-align: top; font-weight: normal; text-align: left; }
+.offre thead th:first-child { font-weight: bold; }
+.offre tr { break-inside: avoid; }
+.offre td.prix { white-space: nowrap; text-align: right; }
+.offre col.libelle { width: 35mm; }
+.offre col.prix { width: 20mm; }
+.total td { font-weight: bold; text-align: right; }
+.encadre { border: 0.75pt solid #000; padding: 0.5mm 1.5mm; margin: 1mm 0; }
+.signature-patient { min-height: 13mm; }
+.identification { font-size: 6.8pt; margin-top: 1mm; }
+.case { display: inline-block; width: 2.3mm; height: 2.3mm; border: 0.6pt solid #000; vertical-align: -0.3mm; position: relative; }
+.case.cochee::after { content: 'X'; position: absolute; inset: 0; font: bold 6.4pt/2.2mm Arial, Helvetica, sans-serif; text-align: center; }</style></head>
+<body>
+<section class="page">
+<header>
+  <div class="logo"></div>
+  <h1>ANNEXE I. - DEVIS NORMALISÉ RELATIF AUX AIDES AUDITIVES</h1>
+  <p class="sous-titre">(à délivrer au patient avant tout achat d’aides auditives)<br>(article L.165-9 du code de la sécurité sociale et L.112-1 du code de la consommation)</p>
+</header>
+<div class="identites">
+  <div>
+    <div class="cadre">
+      <strong>Nom de l’entreprise</strong> Audition Démo SAS – Centre Démo Nord<br>
+      <strong>Audioprothésiste</strong> (prénom, nom) Camille Audio<br>
+      Adresse d’exercice 12 rue de l’Exemple, 59000 Lille<br>
+      Tél 0300000001<br>
+      Courriel nord@exemple.test<br>
+      N° d’identification ADELI ou RPPS 00000000000
+    </div>
+    <div class="cadre">
+      <strong>N° du devis</strong> 2026-000001 v1<br>
+      Date et lieu d’émission : 30/10/2026 à Lille<br>
+      Valable jusqu’au (validité d’au moins 2 mois) : 30/12/2026
+    </div>
+  </div>
+  <div>
+    <div class="cadre">
+      <strong>Patient</strong> (prénom, nom) Michel Lefebvre<br>
+      N° de sécurité sociale 150037500000000<br>
+      Organisme complémentaire d’assurance maladie (facultatif) Mutuelle Démo
+    </div>
+    <div class="cadre">Date de la prescription médicale préalable obligatoire : 15/10/2026</div>
+  </div>
+</div>
+<div class="oreilles">
+  <p>Oreille droite : <span class="case"></span> Premier appareillage ; <span class="case cochee"></span> Renouvellement (si oui, date du précédent appareillage : 02/05/2019)</p>
+  <p>Oreille gauche : <span class="case cochee"></span> Premier appareillage ; <span class="case"></span> Renouvellement (si oui, date du précédent appareillage : …/…/……)</p>
+</div>
+<div class="avertissement">Ce devis vous est remis pour information, et ne vous engage pas à l’achat jusqu’à la signature du point 5. Les prix ci-dessous incluent les prestations d’adaptation indissociables de l’appareil proposé dont le suivi par l’audioprothésiste pendant toute la durée d’utilisation de l’aide auditive (voir détail au verso). La fiche technique présentant les principales spécificités de l’appareil proposé doit obligatoirement être jointe au devis.</div>
+<h2 class="titre-offre">1.1. Offre 100% santé<sup>1</sup>:</h2>
+<div class="cadre large">Les équipements proposés dans l’offre 100% santé répondent à des exigences de qualité définies après avis de la Haute Autorité de santé. Le professionnel de santé s’engage à respecter le prix limite de vente défini. Ces aides auditives couvrent les besoins essentiels de la très grande majorité des malentendants. Elles disposent au minimum de 3 options parmi les suivantes : réducteur d’acouphène, connectivité sans fil, réducteur de bruit du vent, synchronisation binaurale, directivité microphonique adaptative, bande passante élargie ≥ 6 000Hz, apprentissage de sonie, réducteur de réverbération.</div>
+<table class="offre">
+  <colgroup><col class="libelle"><col><col class="prix"><col class="prix"></colgroup>
+  <thead><tr><th colspan="2">Aide(s) auditive(s) proposée(s) incluant tous les accessoires nécessaires au fonctionnement :</th><th>Prix HT</th><th>Prix TTC</th></tr></thead>
+  <tbody>
+    <tr class="ligne-offre"><td class="libelle">Aide auditive droite<br><small>(P1D)</small></td><td>Acoustia Démo, 1 rue de l’Exemple, 75000 Paris<br>Marque : Acoustia ; modèle : Aurore Essentiel ; référence commerciale : AU-ESS-1 ;<br>Lieu de fabrication : UE ;<br>Caractéristiques essentielles, notamment :<br>- type : Contour, nombre de canaux : 12 ;<br>- dispositifs de connectivité : Bluetooth ;<br>- anti-larsen : oui ;<br>- réducteur d’acouphènes : oui ;<br>- accessibilité de la boucle magnétique ou bobine T : oui</td><td class="prix">900,47 €</td><td class="prix">950,00 €</td></tr><tr class="ligne-offre"><td class="libelle">Aide auditive gauche<br><small>(P1G)</small></td><td>Identique à l’aide auditive droite.</td><td class="prix">900,47 €</td><td class="prix">950,00 €</td></tr>
+    <tr class="ligne-offre"><td class="libelle">Consommables, piles et accessoires<br><small>(PIL)</small></td><td>Rayonac, Piles 312, référence RAY-312 × 4</td><td class="prix">5,00 €</td><td class="prix">6,00 €</td></tr>
+    <tr class="total"><td colspan="2">Total offre 100% santé</td><td class="prix">1 805,94 €</td><td class="prix">1 906,00 €</td></tr><tr><td colspan="2">Montant pris en charge par l’assurance maladie obligatoire<sup>2</sup> :</td><td></td><td class="prix">483,60 €</td></tr><tr><td colspan="2">Montant pris en charge par l’organisme complémentaire d’assurance maladie, si connu <sup>3</sup> :</td><td></td><td class="prix">1 422,40 €</td></tr><tr><td colspan="2">Montant total du reste à charge, si connu :</td><td></td><td class="prix">0,00 €</td></tr>
+  </tbody>
+</table>
+<h2 class="titre-offre">1.2. Autre offre :</h2>
+<table class="offre">
+  <colgroup><col class="libelle"><col><col class="prix"><col class="prix"><col class="prix"></colgroup>
+  <thead><tr><th colspan="2">Aide(s) auditive(s) proposée(s) incluant tous les accessoires nécessaires au fonctionnement :</th><th>Prix HT</th><th>Prix HT après remise</th><th>Prix TTC</th></tr></thead>
+  <tbody><tr class="ligne-offre"><td class="libelle">Aide auditive droite<br><small>(P2D)</small></td><td>Acoustia Démo, 1 rue de l’Exemple, 75000 Paris<br>Mandataire : Mandataire Démo, 2 rue de l’Essai, 69000 Lyon<br>Marque : Acoustia ; modèle : Boréale Premium ; référence commerciale : BO-PRE-1 ;<br>Lieu de fabrication : hors UE ;<br>Caractéristiques essentielles, notamment :<br>- type : RIC, nombre de canaux : 24 ;<br>- dispositifs de connectivité : Bluetooth ;<br>- anti-larsen : oui ;<br>- réducteur d’acouphènes : oui ;<br>- accessibilité de la boucle magnétique ou bobine T : oui</td><td class="prix">1 800,95 €</td><td class="prix">1 706,16 €</td><td class="prix">1 800,00 €</td></tr><tr class="ligne-offre"><td class="libelle">Aide auditive gauche<br><small>(P2G)</small></td><td>Identique à l’aide auditive droite.</td><td class="prix">1 800,95 €</td><td class="prix">1 706,16 €</td><td class="prix">1 800,00 €</td></tr></tbody>
+</table>
+<div class="notes"><p><sup>1</sup> Seuls les produits et prestations remboursables par la Sécurité sociale peuvent être mentionnés dans cette rubrique.</p><p><sup>2</sup> Dès 2020, ces solutions bénéficient d’un reste à charge maîtrisé. À compter de 2021, les aides auditives sont prises en charge à 100% par l’Assurance maladie obligatoire et complémentaire dès lors que vous êtes couvert par un contrat dit « responsable », contrat qui représente la grande majorité de ceux présents sur le marché, ou par la CMU-c ;</p><p><sup>3</sup> Votre organisme complémentaire est tenu de vous informer du montant de prise en charge dont vous bénéficiez au regard des conditions particulières de votre contrat.</p></div>
+</section>
+<section class="page">
+<table class="offre">
+  <colgroup><col class="libelle"><col><col class="prix"><col class="prix"><col class="prix"></colgroup>
+  <tbody>
+    <tr class="ligne-offre"><td class="libelle">Consommables, piles et accessoires<br><small>(code de regroupement)</small></td><td>Marque, modèle, référence commerciale dans le catalogue du fabricant.</td><td class="prix"></td><td class="prix"></td><td class="prix"></td></tr>
+    <tr class="total"><td colspan="2">Total autre offre</td><td class="prix">3 601,90 €</td><td class="prix">3 412,32 €</td><td class="prix">3 600,00 €</td></tr><tr><td colspan="3">Montant pris en charge par l’assurance maladie obligatoire :</td><td></td><td class="prix">480,00 €</td></tr><tr><td colspan="3">Montant pris en charge par l’organisme complémentaire d’assurance maladie, si connu <sup>3</sup> :</td><td></td><td class="prix"></td></tr><tr><td colspan="3">Montant total du reste à charge, si connu :</td><td></td><td class="prix"></td></tr>
+  </tbody>
+</table>
+<h2>2. Présentation de la bobine T :</h2>
+<p>Les aides auditives avec bobine T (ou bobine magnétique à induction) disposent de programmes (position T ou MT) qui permettent une meilleure accessibilité du son dans différents environnements comprenant une boucle magnétique (télévision, téléphonie, salle de réunion, salles de spectacle, cinéma, etc.).</p>
+<p><span class="case cochee"></span> <small>La présentation de la bobine T a été réalisée (informations explicatives, et démonstration de son utilisation)</small></p>
+<div class="encadre">
+  <h2>3. Essai de l’aide auditive sans engagement de votre part :</h2>
+  <p>- L’aide auditive proposée doit être systématiquement confiée pour une période d’adaptation probatoire réalisée sur une période d’au moins 30 jours (qui peut être portée à 45 jours à la demande du prescripteur dans des cas spécifiques). Á l’issue de cette période, en cas d’échec, vous pouvez demander une nouvelle période d’adaptation avec une autre aide auditive.</p>
+  <p>- L’essai est indissociable d’une prestation d’adaptation notamment des préréglages et ajustements anatomiques.</p>
+  <p>- La réalisation de l’essai ne peut vous être facturée quand bien même vous ne procéderiez pas à l’achat final de l’aide auditive. Dans ce dernier cas, les embouts ou coques sur mesure peuvent toutefois vous être facturés. Aucune facturation de l’appareillage ne peut avoir lieu avant la fin de la période d’essai.</p>
+  <p>- Montant du dépôt de garantie pour le matériel confié pendant les essais, le cas échéant : 100,00 €</p>
+  <p><strong><u>Offre choisie pour la réalisation de l’essai</u> :</strong> &nbsp;&nbsp; <span class="case"></span> Offre 100% santé (1.1) &nbsp;&nbsp;&nbsp; <span class="case"></span> Autre offre (1.2)</p>
+</div>
+<h2>4. Informations sur les prestations et garanties :</h2>
+<p>Toutes les prestations ci-dessous sont comprises dans le prix du devis. Hormis la personnalisation anatomique des embouts et coques fabriqués sur mesure, <strong>aucun frais supplémentaire ne peut donc vous être demandé, avant, pendant ou après l’achat de votre appareil, pour l’une de ces prestations</strong>.</p>
+<p><strong>- votre prise en charge avant l’achat de l’aide auditive</strong> (notamment, analyse détaillée de vos antécédents auditifs, de vos capacités auditives ; l’examen de vos conduits auditifs ; la mesure de votre audition, de votre tolérance aux sons forts, de votre compréhension de la parole ; la prise d’empreinte de vos conduits auditifs externes, le cas échéant ; une information exhaustive sur les différents appareillages envisageables : utilisation, entretien, coût, conditions de remboursement par les organismes de prise en charge…).</p>
+<p><strong>- l’adaptation de votre aide auditive, la délivrance et le contrôle immédiat de votre appareillage</strong> (notamment, le contrôle immédiat de l’efficacité prothétique en utilisant tous les tests audiométriques nécessaires ; une information exhaustive sur l’utilisation et l’entretien de votre aide auditive ; votre choix définitif de l’appareil ; la fourniture de l’indication du coût de votre appareil et du coût total de votre appareillage ; les contrôles d’efficacité et modifications de réglages ; tous les tests nécessaires), <strong>l’éducation prothétique</strong> (notamment, les conseils d’adaptation, de manipulation de votre appareil, l’information sur le changement et sur les conditions de remboursement des piles par les organismes de prise en charge, et l’information sur les conditions d’utilisation et sur l’entretien de votre aide auditive).</p>
+<p><strong>- le suivi prothétique régulier et le contrôle permanent de votre aide auditive jusqu’à la fin d’utilisation de votre appareil</strong> (notamment, les séances de contrôle de l’efficacité de votre aide auditive aux <strong><u>3<sup>e</sup>, 6<sup>e</sup> et 12<sup>e</sup> mois</u></strong> après sa délivrance ; puis, <strong><u>au moins deux rendez-vous de suivi par an</u></strong> selon vos besoins ; tous les tests nécessaires à la vérification de l’efficacité de votre appareillage; la modification des réglages ainsi que l’entretien et les réparations nécessaires de votre appareil), la <strong>gestion administrative de votre dossier</strong> (notamment, l’élaboration du ou des compte (s) rendu (s) de votre appareillage au médecin prescripteur et au médecin traitant).</p>
+<p><strong>En cas de déménagement ou lorsque vous souhaitez changer d’audioprothésiste, le professionnel de santé s’engage à faciliter le changement d’audioprothésiste réalisant le suivi prothétique.</strong></p>
+<p>Une garantie minimale de 4 ans est assurée par le fabricant de l’appareil. Cette garantie couvre les vices de formes, défauts de fabrication, pannes survenant au cours d’un usage habituel (pièces, main d’œuvre et transport). Cette garantie produit ses effets, même si vous consultez un audioprothésiste différent de celui consulté lors de la délivrance de votre appareil et ayant réalisé le bilan initial. Des garanties légales de conformité et des vices cachés sont également applicables aux produits qui vous sont délivrés.</p>
+<p><small>Autres informations pouvant figurer sur un document à part : acompte, délai de livraison, conditions générales de vente, assurance perte/vol/casse, autres produits ou prestations non remboursables, etc.</small></p>
+<div class="encadre">
+  <h2>5. Validation de la commande et engagement final :</h2>
+  <p>Á l’issue de la période d’essai, et en cas d’acceptation de votre part, une signature vous sera demandée, afin de valider la commande et formaliser votre engagement. La date de facturation marque la délivrance de l’appareil auditif.</p>
+  <p><strong><u>Offre choisie à l’issue de la réalisation de l’essai</u> :</strong> &nbsp;&nbsp; <span class="case"></span> Offre 100% Santé (1.1) &nbsp;&nbsp;&nbsp; <span class="case"></span> Autre offre (1.2)</p>
+  <p>Nom, prénom et signature de l’audioprothésiste D.E ayant réalisé le devis : Camille Audio</p>
+  <p class="signature-patient">Signature du patient lors de l’acceptation des conditions du devis<sup>4</sup> à l’issue de la période d’essai (précédée de la mention « <em>bon pour accord</em> » et de la date) <strong>:</strong></p>
+</div>
+<p class="identification">Informations d’identification de l’entreprise (n° SIRET, n° RCS, n° FINESS, n° TVA intracommunautaire) : 00000000000000 ; RCS Démo 000 000 000 ; 000000000 ; FR00000000000</p>
+<div class="notes"><p><sup>4</sup> Les informations de ce devis sont susceptibles de faire l’objet de traitements informatisés visant à votre prise en charge par l’audioprothésiste, et à la prise en charge des produits et prestations par l’Assurance maladie et par votre organisme complémentaire, à qui elles peuvent être transmises. En application du règlement général sur la protection des données et de la loi n°78-17 du 6 janvier 1978 dite « Informatique et libertés », vous disposez d’un droit d’accès, de rectification et d’opposition. Plus d’informations sont disponibles auprès de votre opticien et de votre organisme complémentaire.</p></div>
+</section>
+</body>
+</html>

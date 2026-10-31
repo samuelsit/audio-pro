@@ -15,9 +15,9 @@ import {
 const AUTORISEES: Readonly<Record<StatutDossier, readonly StatutDossier[]>> = {
   BROUILLON: ['PRESCRIPTION_OK', 'ABANDONNE'],
   PRESCRIPTION_OK: ['DEVIS_EMIS', 'ABANDONNE'],
-  DEVIS_EMIS: ['DEVIS_SIGNE', 'ABANDONNE'],
-  DEVIS_SIGNE: ['EN_ESSAI', 'ABANDONNE'],
-  EN_ESSAI: ['A_FACTURER', 'ABANDONNE'],
+  DEVIS_EMIS: ['EN_ESSAI', 'ABANDONNE'],
+  EN_ESSAI: ['DEVIS_SIGNE', 'ABANDONNE'],
+  DEVIS_SIGNE: ['A_FACTURER', 'EN_ESSAI', 'ABANDONNE'],
   A_FACTURER: ['EXPORTE'],
   EXPORTE: ['FACTURE_EXTERNE'],
   FACTURE_EXTERNE: ['CLOS'],
@@ -46,6 +46,7 @@ describe('transitionDossierAutorisee', () => {
 
   it.each([
     { de: 'DEVIS_EMIS', vers: 'BROUILLON' },
+    { de: 'EN_ESSAI', vers: 'DEVIS_EMIS' },
     { de: 'CLOS', vers: 'FACTURE_EXTERNE' },
     { de: 'ABANDONNE', vers: 'BROUILLON' },
   ] as const)('refuse le retour arrière $de → $vers', ({ de, vers }) => {

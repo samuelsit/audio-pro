@@ -11,3 +11,4 @@ docs/ref
 docs/vendor
 fixtures
 CLAUDE.md
+**/__snapshots__/

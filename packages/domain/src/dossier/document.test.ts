@@ -15,6 +15,7 @@ const PDF = octets('%PDF-1.7 fictif');
 const JPEG = Uint8Array.of(0xff, 0xd8, 0xff, 0xe0, 0x00);
 const PNG = Uint8Array.of(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00);
 const HTML = octets('<html><script>alert(1)</script></html>');
+const VIDE = 'Joindre le scan.';
 
 describe('detecterTypeDocument', () => {
   it.each([
@@ -42,14 +43,14 @@ describe('verifierDocument', () => {
   it('accepte un fichier de la taille maximale', () => {
     const contenu = new Uint8Array(TAILLE_MAX_DOCUMENT_OCTETS);
     contenu.set(PDF);
-    expect(verifierDocument(contenu)).toEqual({ valide: true, type: 'application/pdf' });
+    expect(verifierDocument(contenu, VIDE)).toEqual({ valide: true, type: 'application/pdf' });
   });
 
   it.each([
     {
       cas: 'fichier vide',
       contenu: new Uint8Array(0),
-      message: 'Joindre le scan de l’ordonnance.',
+      message: VIDE,
     },
     {
       cas: 'un octet de trop',
@@ -62,6 +63,6 @@ describe('verifierDocument', () => {
       message: 'Le fichier doit être un PDF, un JPEG ou un PNG.',
     },
   ])('refuse : $cas', ({ contenu, message }) => {
-    expect(verifierDocument(contenu)).toEqual({ valide: false, message });
+    expect(verifierDocument(contenu, VIDE)).toEqual({ valide: false, message });
   });
 });

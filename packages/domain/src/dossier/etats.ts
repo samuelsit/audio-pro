@@ -2,8 +2,8 @@ export const STATUTS_DOSSIER = [
   'BROUILLON',
   'PRESCRIPTION_OK',
   'DEVIS_EMIS',
-  'DEVIS_SIGNE',
   'EN_ESSAI',
+  'DEVIS_SIGNE',
   'A_FACTURER',
   'EXPORTE',
   'FACTURE_EXTERNE',
@@ -16,8 +16,8 @@ export const LIBELLES_STATUTS_DOSSIER: Readonly<Record<StatutDossier, string>> =
   BROUILLON: 'Brouillon',
   PRESCRIPTION_OK: 'Prescription OK',
   DEVIS_EMIS: 'Devis émis',
-  DEVIS_SIGNE: 'Devis signé',
   EN_ESSAI: 'En essai',
+  DEVIS_SIGNE: 'Devis signé',
   A_FACTURER: 'À facturer',
   EXPORTE: 'Exporté',
   FACTURE_EXTERNE: 'Facturé (Cosium)',
@@ -30,13 +30,13 @@ export const ETAPES_DOSSIER: readonly StatutDossier[] = STATUTS_DOSSIER.filter(
   (statut) => statut !== 'ABANDONNE',
 );
 
-/** Après l'essai, l'aide est délivrée puis la facture part vers Cosium : un abandon n'a plus de sens. */
+/** Une fois le dossier à facturer, l'aide est délivrée : un abandon n'a plus de sens. */
 const ABANDON_POSSIBLE: readonly StatutDossier[] = [
   'BROUILLON',
   'PRESCRIPTION_OK',
   'DEVIS_EMIS',
-  'DEVIS_SIGNE',
   'EN_ESSAI',
+  'DEVIS_SIGNE',
 ];
 
 /** Une nouvelle prescription changerait la base d'un devis déjà émis. */
@@ -45,12 +45,17 @@ const PRESCRIPTION_MODIFIABLE: readonly StatutDossier[] = ['BROUILLON', 'PRESCRI
 export const MESSAGE_TRANSITION_DOSSIER_REFUSEE = 'Ce changement de statut n’est pas autorisé.';
 
 /**
- * Le dossier passe à l'étape suivante, sans en sauter, ou est abandonné. Pas de retour arrière.
- * Choix d'organisation (ADR-011), pas une règle réglementaire.
+ * Le dossier passe à l'étape suivante, sans en sauter, ou est abandonné. Seul retour arrière : un devis
+ * signé remplacé par une nouvelle version, dont la signature reste à recueillir (ADR-012).
+ * L'essai précède la signature : modele-devis-audio.pdf p. 1 et p. 2 § 5.
+ * L'enchaînement reste un choix d'organisation (ADR-011), pas une règle réglementaire.
  */
 export function transitionDossierAutorisee(de: StatutDossier, vers: StatutDossier): boolean {
   if (vers === 'ABANDONNE') {
     return ABANDON_POSSIBLE.includes(de);
+  }
+  if (de === 'DEVIS_SIGNE' && vers === 'EN_ESSAI') {
+    return true;
   }
   const rang = ETAPES_DOSSIER.indexOf(de);
   return rang !== -1 && ETAPES_DOSSIER[rang + 1] === vers;

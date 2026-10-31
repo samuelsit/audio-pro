@@ -10,6 +10,10 @@ const base = {
   ville: 'Lille',
   finess: '',
   numeroFacturationAm: null,
+  raisonSociale: ' Audition Démo SAS ',
+  siret: '000 000 000 00000',
+  rcs: 'RCS Démo 000 000 000',
+  tvaIntracommunautaire: 'FR 00 000000000',
   email: 'nord@exemple.test',
   telephone: '03 00 00 00 01',
   actif: true,
@@ -22,6 +26,9 @@ describe('centreSaisieSchema', () => {
       adresseLigne2: null,
       finess: null,
       numeroFacturationAm: null,
+      raisonSociale: 'Audition Démo SAS',
+      siret: '00000000000000',
+      tvaIntracommunautaire: 'FR00000000000',
       telephone: '0300000001',
     });
   });

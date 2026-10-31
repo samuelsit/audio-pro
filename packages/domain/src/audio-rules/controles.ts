@@ -11,6 +11,12 @@ export const CODES_CONTROLE = [
   'VALIDITE_DEVIS_INSUFFISANTE',
   'BOBINE_T_NON_PRESENTEE',
   'FICHE_TECHNIQUE_MANQUANTE',
+  'OPTIONS_100_SANTE_INSUFFISANTES',
+  'LIGNE_NON_REMBOURSABLE_OFFRE_100_SANTE',
+  'FICHE_CATALOGUE_INCOMPLETE',
+  'DATE_PRECEDENT_APPAREILLAGE_MANQUANTE',
+  'IDENTIFICATION_ENTREPRISE_INCOMPLETE',
+  'IDENTIFIANTS_ENTREPRISE_A_COMPLETER',
   'RENOUVELLEMENT_AVANT_DELAI',
   'TRANCHE_AGE_CHANGE_AVANT_DELIVRANCE',
   'PRESCRIPTEUR_NON_CONFORME',
@@ -24,7 +30,8 @@ export type CodeControle = (typeof CODES_CONTROLE)[number];
 
 export const LIBELLES_CONTROLES: Readonly<Record<CodeControle, string>> = {
   AUCUNE_OREILLE_APPAREILLEE: 'Le devis ne comporte aucune oreille à appareiller.',
-  OFFRE_CLASSE_I_MANQUANTE: 'Proposer au moins une aide auditive de classe I pour cette oreille.',
+  OFFRE_CLASSE_I_MANQUANTE:
+    'L’offre 100 % santé doit proposer une aide de classe I pour cette oreille.',
   PRIX_SUPERIEUR_PRIX_LIMITE: 'Le prix de l’aide de classe I dépasse le prix limite de vente.',
   PRIX_SUPERIEUR_PLAFOND_C2S:
     'Le prix dépasse le prix maximal applicable au bénéficiaire de la C2S.',
@@ -34,6 +41,17 @@ export const LIBELLES_CONTROLES: Readonly<Record<CodeControle, string>> = {
   VALIDITE_DEVIS_INSUFFISANTE: 'Le devis doit rester valable au moins 2 mois.',
   BOBINE_T_NON_PRESENTEE: 'La présentation de la bobine T n’est pas réalisée.',
   FICHE_TECHNIQUE_MANQUANTE: 'La fiche technique doit être jointe au devis.',
+  OPTIONS_100_SANTE_INSUFFISANTES:
+    'L’aide de l’offre 100 % santé doit disposer d’au moins 3 options parmi les 8 du devis normalisé.',
+  LIGNE_NON_REMBOURSABLE_OFFRE_100_SANTE:
+    'L’offre 100 % santé ne peut mentionner que des produits remboursables (code LPP requis).',
+  FICHE_CATALOGUE_INCOMPLETE:
+    'Compléter la fiche du catalogue : le devis normalisé exige ces mentions (adresse, marque, référence, caractéristiques).',
+  DATE_PRECEDENT_APPAREILLAGE_MANQUANTE: 'Indiquer la date du précédent appareillage.',
+  IDENTIFICATION_ENTREPRISE_INCOMPLETE:
+    'Compléter la raison sociale et le SIRET du centre (écran d’administration des centres).',
+  IDENTIFIANTS_ENTREPRISE_A_COMPLETER:
+    'Vérifier le RCS, le FINESS et le n° de TVA intracommunautaire du centre (à vérifier).',
   RENOUVELLEMENT_AVANT_DELAI:
     'Moins de 4 ans depuis la dernière délivrance sur cette oreille : pas de prise en charge, sauf renouvellement anticipé accepté par la caisse.',
   TRANCHE_AGE_CHANGE_AVANT_DELIVRANCE:

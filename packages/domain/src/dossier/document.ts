@@ -29,9 +29,9 @@ export type ResultatDocument =
   | { readonly valide: true; readonly type: TypeDocument }
   | { readonly valide: false; readonly message: string };
 
-export function verifierDocument(contenu: Uint8Array): ResultatDocument {
+export function verifierDocument(contenu: Uint8Array, messageVide: string): ResultatDocument {
   if (contenu.length === 0) {
-    return { valide: false, message: 'Joindre le scan de l’ordonnance.' };
+    return { valide: false, message: messageVide };
   }
   if (contenu.length > TAILLE_MAX_DOCUMENT_OCTETS) {
     return { valide: false, message: 'Le fichier dépasse 10 Mo.' };

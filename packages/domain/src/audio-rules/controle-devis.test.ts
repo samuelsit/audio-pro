@@ -11,15 +11,32 @@ const TARIFS: TarifsAudio = {
 };
 
 const CLASSE_I = {
+  rubrique: 'OFFRE_100_SANTE',
   classe: 'CLASSE_I',
   prixTTC: centimes(95_000),
   priseEnChargeAMC: centimes(71_000),
+  nombreOptions: 3,
+  ficheComplete: true,
 } as const;
 const CLASSE_II = {
+  rubrique: 'AUTRE_OFFRE',
   classe: 'CLASSE_II',
   prixTTC: centimes(180_000),
   priseEnChargeAMC: centimes(50_000),
+  nombreOptions: 0,
+  ficheComplete: true,
 } as const;
+
+const ENTREPRISE = {
+  raisonSociale: 'Audition Démo SAS',
+  siret: '00000000000000',
+  rcs: 'RCS Démo 000 000 000',
+  finess: '000000000',
+  tvaIntracommunautaire: 'FR00000000000',
+};
+
+const DROITE = { oreille: 'DROITE', type: 'PRIMO', datePrecedentAppareillage: null } as const;
+const GAUCHE = { oreille: 'GAUCHE', type: 'PRIMO', datePrecedentAppareillage: null } as const;
 
 const DEVIS: DevisAControler = {
   dateNaissance: '1950-03-12',
@@ -38,13 +55,15 @@ const DEVIS: DevisAControler = {
   bobineTPresentee: true,
   ficheTechniqueJointe: true,
   oreilles: [
-    { oreille: 'DROITE', type: 'PRIMO', offres: [CLASSE_I, CLASSE_II] },
-    { oreille: 'GAUCHE', type: 'PRIMO', offres: [CLASSE_I, CLASSE_II] },
+    { ...DROITE, offres: [CLASSE_I, CLASSE_II] },
+    { ...GAUCHE, offres: [CLASSE_I, CLASSE_II] },
   ],
+  consommables: [{ rubrique: 'OFFRE_100_SANTE', remboursable: true, ficheComplete: true }],
+  entreprise: ENTREPRISE,
   historiqueDelivrances: [],
 };
 
-const droite = { oreille: 'DROITE', type: 'PRIMO' } as const;
+const droite = DROITE;
 
 describe('controleDevis : devis conforme', () => {
   it('ne relève rien', () => {
@@ -63,6 +82,55 @@ describe('controleDevis : erreurs bloquantes', () => {
       cas: 'pas d’offre classe I à droite',
       modif: { oreilles: [{ ...droite, offres: [CLASSE_II] }] },
       erreurs: [{ code: 'OFFRE_CLASSE_I_MANQUANTE', oreille: 'DROITE' }],
+    },
+    {
+      cas: 'classe I proposée seulement en autre offre',
+      modif: { oreilles: [{ ...droite, offres: [{ ...CLASSE_I, rubrique: 'AUTRE_OFFRE' }] }] },
+      erreurs: [{ code: 'OFFRE_CLASSE_I_MANQUANTE', oreille: 'DROITE' }],
+    },
+    {
+      cas: 'classe II en offre 100 % santé',
+      modif: { oreilles: [{ ...droite, offres: [{ ...CLASSE_II, rubrique: 'OFFRE_100_SANTE' }] }] },
+      erreurs: [{ code: 'OFFRE_CLASSE_I_MANQUANTE', oreille: 'DROITE' }],
+    },
+    {
+      cas: 'moins de 3 options en offre 100 % santé',
+      modif: { oreilles: [{ ...droite, offres: [{ ...CLASSE_I, nombreOptions: 2 }] }] },
+      erreurs: [{ code: 'OPTIONS_100_SANTE_INSUFFISANTES', oreille: 'DROITE' }],
+    },
+    {
+      cas: 'fiche du catalogue incomplète, sur une aide',
+      modif: { oreilles: [{ ...droite, offres: [{ ...CLASSE_I, ficheComplete: false }] }] },
+      erreurs: [{ code: 'FICHE_CATALOGUE_INCOMPLETE', oreille: 'DROITE' }],
+    },
+    {
+      cas: 'fiche du catalogue incomplète, sur un consommable',
+      modif: {
+        consommables: [{ rubrique: 'AUTRE_OFFRE', remboursable: true, ficheComplete: false }],
+      },
+      erreurs: [{ code: 'FICHE_CATALOGUE_INCOMPLETE', oreille: null }],
+    },
+    {
+      cas: 'renouvellement sans date du précédent appareillage',
+      modif: { oreilles: [{ ...droite, type: 'RENOUVELLEMENT', offres: [CLASSE_I] }] },
+      erreurs: [{ code: 'DATE_PRECEDENT_APPAREILLAGE_MANQUANTE', oreille: 'DROITE' }],
+    },
+    {
+      cas: 'consommable non remboursable en offre 100 % santé',
+      modif: {
+        consommables: [{ rubrique: 'OFFRE_100_SANTE', remboursable: false, ficheComplete: true }],
+      },
+      erreurs: [{ code: 'LIGNE_NON_REMBOURSABLE_OFFRE_100_SANTE', oreille: null }],
+    },
+    {
+      cas: 'raison sociale absente',
+      modif: { entreprise: { ...ENTREPRISE, raisonSociale: null } },
+      erreurs: [{ code: 'IDENTIFICATION_ENTREPRISE_INCOMPLETE', oreille: null }],
+    },
+    {
+      cas: 'SIRET absent',
+      modif: { entreprise: { ...ENTREPRISE, siret: null } },
+      erreurs: [{ code: 'IDENTIFICATION_ENTREPRISE_INCOMPLETE', oreille: null }],
     },
     {
       cas: 'pas d’offre du tout',
@@ -122,6 +190,32 @@ describe('controleDevis : erreurs bloquantes', () => {
 describe('controleDevis : avertissements', () => {
   it.each<{ cas: string; modif: Partial<DevisAControler>; avertissements: object[] }>([
     {
+      cas: 'consommable non remboursable en autre offre : rien',
+      modif: {
+        consommables: [{ rubrique: 'AUTRE_OFFRE', remboursable: false, ficheComplete: true }],
+      },
+      avertissements: [],
+    },
+    {
+      cas: 'renouvellement daté : rien',
+      modif: {
+        oreilles: [
+          {
+            ...droite,
+            type: 'RENOUVELLEMENT',
+            datePrecedentAppareillage: '2020-01-10',
+            offres: [CLASSE_I],
+          },
+        ],
+      },
+      avertissements: [],
+    },
+    ...(['rcs', 'finess', 'tvaIntracommunautaire'] as const).map((champ) => ({
+      cas: `${champ} absent`,
+      modif: { entreprise: { ...ENTREPRISE, [champ]: null } },
+      avertissements: [{ code: 'IDENTIFIANTS_ENTREPRISE_A_COMPLETER', oreille: null }],
+    })),
+    {
       cas: 'renouvellement avant 4 ans',
       modif: {
         historiqueDelivrances: [{ oreille: 'GAUCHE', dateDelivrance: '2024-01-10' }],
@@ -158,7 +252,7 @@ describe('controleDevis : avertissements', () => {
             offres: [
               CLASSE_I,
               {
-                classe: 'CLASSE_II',
+                ...CLASSE_II,
                 prixTTC: centimes(250_000),
                 priseEnChargeAMC: centimes(146_001),
               },
@@ -178,7 +272,7 @@ describe('controleDevis : avertissements', () => {
             offres: [
               CLASSE_I,
               {
-                classe: 'CLASSE_II',
+                ...CLASSE_II,
                 prixTTC: centimes(250_000),
                 priseEnChargeAMC: centimes(146_001),
               },
@@ -197,7 +291,7 @@ describe('controleDevis : avertissements', () => {
             offres: [
               CLASSE_I,
               {
-                classe: 'CLASSE_II',
+                ...CLASSE_II,
                 prixTTC: centimes(250_000),
                 priseEnChargeAMC: centimes(146_000),
               },

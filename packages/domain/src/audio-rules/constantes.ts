@@ -91,6 +91,33 @@ export const VALIDITE_MINIMALE_DEVIS_MOIS: ConstanteReglementaire<number> = {
   source: 'modele-devis-audio.pdf p. 1 (modèle non daté)',
 };
 
+export const OPTIONS_MINIMUM_OFFRE_100_SANTE: ConstanteReglementaire<number> = {
+  valeur: 3,
+  dateEffet: null,
+  source: 'modele-devis-audio.pdf p. 1 § 1.1 (modèle non daté)',
+};
+
+export const GARANTIE_MINIMALE_ANNEES: ConstanteReglementaire<number> = {
+  valeur: 4,
+  dateEffet: null,
+  source: 'modele-devis-audio.pdf p. 2 § 4 (modèle non daté)',
+};
+
+/** Taux en pour dix mille, 550 pour 5,5 %. */
+// À VÉRIFIER : aucun document de docs/ref ne donne de taux de TVA (R18).
+export const TAUX_TVA_AIDE_AUDITIVE: ConstanteReglementaire<number> = {
+  valeur: 550,
+  dateEffet: null,
+  source: 'À VÉRIFIER : absent de docs/ref',
+};
+
+// À VÉRIFIER : aucun document de docs/ref ne donne de taux de TVA (R18).
+export const TAUX_TVA_CONSOMMABLES: ConstanteReglementaire<number> = {
+  valeur: 2000,
+  dateEffet: null,
+  source: 'À VÉRIFIER : absent de docs/ref',
+};
+
 // À VÉRIFIER : aucun document de docs/ref ne donne ce seuil (R10).
 export const AGE_SEUIL_PRESCRIPTION: ConstanteReglementaire<number> = {
   valeur: 6,

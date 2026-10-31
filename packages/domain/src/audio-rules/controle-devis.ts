@@ -3,7 +3,11 @@ import { ajouterMois } from '../commun/date';
 import type { Centimes } from '../money';
 import { ageAt } from '../patient/age';
 import type { Oreille } from './code-prestation';
-import { PLAFOND_CONTRAT_RESPONSABLE, VALIDITE_MINIMALE_DEVIS_MOIS } from './constantes';
+import {
+  OPTIONS_MINIMUM_OFFRE_100_SANTE,
+  PLAFOND_CONTRAT_RESPONSABLE,
+  VALIDITE_MINIMALE_DEVIS_MOIS,
+} from './constantes';
 import { sansDoublons, type CodeControle, type Constat } from './controles';
 import {
   prescriptionValide,
@@ -15,16 +19,40 @@ import { baseRemboursement, plafondC2S, plafondPrixVente, type TarifsAudio } fro
 import { trancheAge } from './tranche-age';
 import { ventilation } from './ventilation';
 
+export const RUBRIQUES_OFFRE = ['OFFRE_100_SANTE', 'AUTRE_OFFRE'] as const;
+export type RubriqueOffre = (typeof RUBRIQUES_OFFRE)[number];
+
 export interface OffreDevis {
+  /** Rubrique du devis normalisé : 1.1 ou 1.2. */
+  readonly rubrique: RubriqueOffre;
   readonly classe: ClasseLpp;
   readonly prixTTC: Centimes;
   readonly priseEnChargeAMC: Centimes;
+  /** Nombre d'options de l'aide parmi les 8 du devis normalisé. */
+  readonly nombreOptions: number;
+  readonly ficheComplete: boolean;
 }
 
 export interface OreilleDevis {
   readonly oreille: Oreille;
   readonly type: TypeAppareillage;
+  /** Exigée en renouvellement. */
+  readonly datePrecedentAppareillage: string | null;
   readonly offres: readonly OffreDevis[];
+}
+
+export interface ConsommableDevis {
+  readonly rubrique: RubriqueOffre;
+  readonly remboursable: boolean;
+  readonly ficheComplete: boolean;
+}
+
+export interface EntrepriseDevis {
+  readonly raisonSociale: string | null;
+  readonly siret: string | null;
+  readonly rcs: string | null;
+  readonly finess: string | null;
+  readonly tvaIntracommunautaire: string | null;
 }
 
 export interface DevisAControler {
@@ -46,6 +74,8 @@ export interface DevisAControler {
   readonly ficheTechniqueJointe: boolean;
   /** Oreilles à appareiller, avec leurs offres. */
   readonly oreilles: readonly OreilleDevis[];
+  readonly consommables: readonly ConsommableDevis[];
+  readonly entreprise: EntrepriseDevis;
   readonly historiqueDelivrances: readonly Delivrance[];
 }
 
@@ -61,17 +91,53 @@ function constatsDevis(codes: readonly (CodeControle | false)[]): Constat[] {
 /**
  * Contrôles portant sur tout le devis.
  * Source : modele-devis-audio.pdf p. 1 (prescription préalable, validité d'au moins 2 mois, fiche
- * technique) et p. 2 § 2 (bobine T) ; convention-audioprothesistes.pdf, art. 18 3°, p. 19 et 20.
+ * technique, marque et référence des consommables, note 1 : seuls les produits remboursables figurent
+ * en 1.1) et p. 2 § 2 (bobine T) et pied de page (identification de l'entreprise) ;
+ * convention-audioprothesistes.pdf, art. 18 3°, p. 19 et 20.
+ * `IDENTIFICATION_ENTREPRISE_INCOMPLETE` se limite à la raison sociale et au SIRET.
+ * À VÉRIFIER : caractère obligatoire de chaque identifiant, une structure pouvant ne pas avoir de RCS.
  */
 function erreursDevis(devis: DevisAControler): Constat[] {
   const finMinimale = ajouterMois(devis.dateDevis, VALIDITE_MINIMALE_DEVIS_MOIS.valeur);
+  const { raisonSociale, siret } = devis.entreprise;
   return constatsDevis([
     devis.oreilles.length === 0 && 'AUCUNE_OREILLE_APPAREILLEE',
     devis.dateFinValidite < finMinimale && 'VALIDITE_DEVIS_INSUFFISANTE',
     devis.prescription === null && 'PRESCRIPTION_ABSENTE',
     !devis.bobineTPresentee && 'BOBINE_T_NON_PRESENTEE',
     !devis.ficheTechniqueJointe && 'FICHE_TECHNIQUE_MANQUANTE',
+    devis.consommables.some((c) => c.rubrique === 'OFFRE_100_SANTE' && !c.remboursable) &&
+      'LIGNE_NON_REMBOURSABLE_OFFRE_100_SANTE',
+    devis.consommables.some((c) => !c.ficheComplete) && 'FICHE_CATALOGUE_INCOMPLETE',
+    (raisonSociale === null || siret === null) && 'IDENTIFICATION_ENTREPRISE_INCOMPLETE',
   ]);
+}
+
+/** À VÉRIFIER : identifiants d'entreprise simplement signalés (voir `erreursDevis`). */
+function identifiantsIncomplets({ rcs, finess, tvaIntracommunautaire }: EntrepriseDevis): boolean {
+  return rcs === null || finess === null || tvaIntracommunautaire === null;
+}
+
+/**
+ * Exigences propres à une oreille : offre 1.1 de classe I, ses options, les mentions du catalogue et la
+ * date du précédent appareillage.
+ * Source : convention-audioprothesistes.pdf, art. 18 3°, p. 19 ; ameli-100-sante-audio.pdf p. 1 ;
+ * modele-devis-audio.pdf p. 1 (en-tête, § 1.1 et tableaux des offres).
+ */
+function erreursOreille({ oreille, type, datePrecedentAppareillage, offres }: OreilleDevis) {
+  const classeI = offres.filter(
+    (offre) => offre.rubrique === 'OFFRE_100_SANTE' && offre.classe === 'CLASSE_I',
+  );
+  const codes: (CodeControle | false)[] = [
+    classeI.length === 0 && 'OFFRE_CLASSE_I_MANQUANTE',
+    classeI.some((offre) => offre.nombreOptions < OPTIONS_MINIMUM_OFFRE_100_SANTE.valeur) &&
+      'OPTIONS_100_SANTE_INSUFFISANTES',
+    offres.some((offre) => !offre.ficheComplete) && 'FICHE_CATALOGUE_INCOMPLETE',
+    type === 'RENOUVELLEMENT' &&
+      datePrecedentAppareillage === null &&
+      'DATE_PRECEDENT_APPAREILLAGE_MANQUANTE',
+  ];
+  return codes.flatMap((code) => (code === false ? [] : [{ code, oreille }]));
 }
 
 /**
@@ -127,8 +193,7 @@ function depassementContratResponsable(
 
 /**
  * Contrôle d'un devis avant remise : les erreurs le bloquent, les avertissements sont à arbitrer.
- * L'offre de classe I pour chaque oreille vient de convention-audioprothesistes.pdf, art. 18 3°, p. 19
- * et ameli-100-sante-audio.pdf p. 1. Âge lu à la date de délivrance prévue (R2).
+ * Âge lu à la date de délivrance prévue (R2).
  * `tarifs` : tarifs LPP résolus à cette même date.
  */
 export function controleDevis(devis: DevisAControler, tarifs: TarifsAudio): ResultatControleDevis {
@@ -136,12 +201,12 @@ export function controleDevis(devis: DevisAControler, tarifs: TarifsAudio): Resu
   const erreurs = erreursDevis(devis);
   const avertissements = constatsDevis([
     trancheInstable(devis) && 'TRANCHE_AGE_CHANGE_AVANT_DELIVRANCE',
+    identifiantsIncomplets(devis.entreprise) && 'IDENTIFIANTS_ENTREPRISE_A_COMPLETER',
   ]);
 
-  for (const { oreille, type, offres } of devis.oreilles) {
-    if (!offres.some((offre) => offre.classe === 'CLASSE_I')) {
-      erreurs.push({ code: 'OFFRE_CLASSE_I_MANQUANTE', oreille });
-    }
+  for (const donnees of devis.oreilles) {
+    const { oreille, type, offres } = donnees;
+    erreurs.push(...erreursOreille(donnees));
     for (const offre of offres) {
       const erreur = erreurPrix(offre, devis, age, tarifs);
       if (erreur !== null) {
