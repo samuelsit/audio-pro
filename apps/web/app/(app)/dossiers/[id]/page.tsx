@@ -17,11 +17,13 @@ import { ouIntrouvable, requireSession } from '@/server/auth/gardes';
 import { listerDevisDuDossier } from '@/server/services/devis';
 import { appareilsProposables, obtenirEssai } from '@/server/services/essais';
 import { obtenirDossier, type PrescriptionAffichee } from '@/server/services/dossiers';
+import { obtenirFacture } from '@/server/services/factures';
 
 import { AlerteDroits, EntetePatient } from '../../patients/entete-patient';
 import { AbandonDossier } from './abandon-dossier';
 import { BlocDevis } from './devis/bloc-devis';
 import { BlocEssai } from './essai/bloc-essai';
+import { BlocFacture } from './facture/bloc-facture';
 import { FormulairePrescription } from './formulaire-prescription';
 import { FriseStatuts } from './frise-statuts';
 import { ListeConstats } from './liste-constats';
@@ -128,6 +130,7 @@ export default async function PageDossier({ params }: PageProps<'/dossiers/[id]'
   const dossier = await ouIntrouvable(obtenirDossier(acteur, id));
   const devis = await listerDevisDuDossier(acteur, id);
   const essai = await obtenirEssai(acteur, id);
+  const facture = await obtenirFacture(acteur, id);
   const proposables = essai?.actions.changerAppareil ? await appareilsProposables(acteur, id) : [];
   const { fiche } = dossier;
   const [courante, ...anciennes] = dossier.prescriptions;
@@ -206,6 +209,12 @@ export default async function PageDossier({ params }: PageProps<'/dossiers/[id]'
             essai={essai}
             proposables={proposables}
           />
+        </Bloc>
+      ) : null}
+
+      {facture ? (
+        <Bloc titre="Facture préparée">
+          <BlocFacture dossierId={dossier.id} detail={facture} />
         </Bloc>
       ) : null}
 
