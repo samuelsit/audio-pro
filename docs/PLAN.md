@@ -43,11 +43,16 @@ Numérotation du plan SaaS (ADR-015). Les références aux étapes dans `docs/DE
 - [x] **7** – Agenda (ADR-020)
   - À VÉRIFIER : `btree_gist` chez l'hébergeur HDS (étape 23)
   - à arbitrer : réservation pour un patient d'un centre hors périmètre, dépistage réalisé par un assistant (seuls les AUDIO ont une fiche praticien)
-  - reporté à l'étape 8 : délai minimal à brancher sur la recherche en ligne, port `Notifier`
   - reporté à l'étape 13 : alimentation d'`EssaiRdv` depuis un RDV `VU` (`dossierId` et `natureEssai` sont prêts)
   - reporté à l'étape 19 : abonnés aux événements `RDV_CREE`, `RDV_DEPLACE`, `RDV_ANNULE` (liste vide dans `packages/jobs/src/abonnes.ts`)
   - reporté à l'étape 22 : durée de conservation des prospects jamais convertis, purge de `evenement_domaine`
-- [ ] **8** – Prise de RDV en ligne
+- [x] **8** – Prise de RDV en ligne (ADR-021)
+  - À VÉRIFIER : texte du consentement RGPD et base légale des SMS de confirmation, absents de `docs/ref`
+  - À VÉRIFIER : le nom du centre dans un SMS révèle le recours à un audioprothésiste
+  - à choisir : fournisseur de SMS et d'e-mail (documentation à déposer dans `docs/vendor`) ; sans lui, la réservation reste fermée en production
+  - bloquant avant ouverture, reporté à l'étape 23 : `PROXIES_DE_CONFIANCE`, sinon la limitation par adresse IP se contourne
+  - reporté à l'étape 19 : messages aux patients qui n'ont pas réservé en ligne
+  - reporté à l'étape 22 : durées de conservation (prospects jamais convertis, notifications, contacts)
 
 ## Phase E – Dossier audiologique et appareillage
 

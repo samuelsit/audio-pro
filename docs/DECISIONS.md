@@ -640,3 +640,40 @@ L'étape 7 remplace l'agenda externe. `EssaiRdv` n'est pas un créneau : c'est l
 - Le worker exige désormais `DATABASE_URL_PLATEFORME`.
 - Un prospect jamais converti reste en base, et `evenement_domaine` grossit sans purge : à traiter à l'étape 22.
 - Un praticien ne peut pas être retiré d'un centre où il a des RDV à venir. Sa désactivation ne le vérifie pas encore.
+
+## ADR-021 – Prise de rendez-vous en ligne
+
+- **Date** : 2026-10-31
+- **Statut** : acceptée. Complète l'ADR-020. Ajoute le port `Captcha`, absent de la liste de CLAUDE.md. Admet une tâche transverse qui écrit, en exception à l'ADR-020.
+
+### Contexte
+
+L'étape 8 ouvre l'agenda à des visiteurs sans compte. Tout y supposait un utilisateur connecté : services, `withAudit`, `created_by_id`. Aucune route n'était publique, et un anonyme peut désormais créer une charge, envoyer des SMS payants et tenir des créneaux.
+
+### Décision
+
+- **URL** : `/rdv/<client>/<centre>`, par slugs générés depuis le nom. Le slug d'un client est fixé à sa création, celui d'un centre se règle dans ses paramètres. `lien` est réservé.
+- **Sans contexte, une seule étape** : `ha_plateforme` résout les slugs (`GRANT SELECT (slug)`), puis tout passe sous RLS par `base`/`enTransaction({ organisationId })`. Client suspendu, centre fermé, réservation inactive ou absence de fournisseur de SMS répondent tous 404.
+- **Verrou** : une table `reservation_en_ligne`, pas une ligne de `rendez_vous`. Aucun nouveau statut, et les CHECK de l'agenda restent vrais. Deux contraintes d'exclusion `WHERE statut = 'VERROU'` départagent les patients. Un prédicat d'exclusion ne lit pas l'heure : un verrou expiré se supprime dans une instruction séparée, juste avant l'insertion, et le rendez-vous est relu juste après.
+- **Un verrou ne bloque pas l'accueil** : `VERROU_EN_LIGNE` se confirme en interne et se trace, comme un créneau hors disponibilités. Sinon quelques visiteurs anonymes gèleraient l'agenda. Conséquence acceptée : l'accueil qui passe outre fait perdre le créneau au patient, jamais de double rendez-vous, l'exclusion de `rendez_vous` tranchant à la finalisation.
+- **Fenêtre** : le délai le plus long du centre et du type s'applique. À la finalisation, il se juge à l'instant du verrou : saisir son code ne fait pas perdre sa place. Horaires, congés et ressources sont, eux, rejugés.
+- **« À valider »** : `EN_LIGNE` + `PLANIFIE` + réservation liée, sans nouveau statut. Un déplacement par le patient y revient en validation manuelle.
+- **Rapprochement** : après le code SMS seulement, à l'échelle du client, par téléphone, nom et date de naissance. Le prénom départage des jumeaux ; le doute reste un prospect. La réponse est identique dans tous les cas, pour ne pas révéler qu'une personne est patiente. L'e-mail saisi, non vérifié, ne s'écrit jamais sur une fiche existante. Le consentement SMS coché s'y reporte, avec une ligne d'audit.
+- **Minimisation** : le motif passe chiffré dans `rendez_vous.notes`. L'identité s'efface au rapprochement, ou à la conversion du prospect. Le contact sert aux messages, puis s'efface après le rendez-vous.
+- **Jeton de parcours** : aléatoire, stocké en empreinte, dans l'état du formulaire et jamais dans l'URL, où les journaux d'accès le garderaient.
+- **Lien du patient** : `/rdv/lien/<organisationId>.<reservationId>.<hmac>`, recalculable par le travail d'envoi, donc sans stockage, avec une clé dédiée `LIEN_RDV_CLE`. La signature se vérifie avant tout `base()`. Il ne dépend ni des slugs ni de `actif` : un patient garde l'annulation si le centre ferme la réservation. La page ne dit ni le nom ni le type, et n'agit qu'en POST : un scanner de liens n'annule rien.
+- **Messages** : table `notification`, écrite dans la transaction du métier, envoyée par `packages/jobs` (cron à la minute, reprise, abandon après 5 essais). Au moins une fois : un message peut très rarement partir deux fois. Seul le code SMS part directement du web et n'est jamais stocké. Les gabarits n'acceptent que centre, date, heure et téléphone du centre.
+- **Captcha** : ALTCHA auto-hébergé, preuve de travail sans tiers ni cookie, résolue sans case à cocher au choix du créneau. Une réponse ne se rejoue pas.
+- **Limitation** : compteurs avant toute lecture. Le téléphone y figure en empreinte de sa forme canonique.
+- **Widget** : une iframe, seule à accepter `frame-ancestors *`, sans liste de domaines par client. Le logiciel et le lien du patient refusent tout cadre, ce qui n'existait pas avant cette étape.
+- **Purge de `limitation_debit`** : tâche transverse qui écrit, en exception à l'ADR-020. La table est technique, sans organisation.
+
+### Conséquences
+
+- La réservation n'ouvre pas en production : aucun fournisseur de SMS ni d'e-mail n'est retenu, `docs/vendor` n'en documente aucun. Le worker démarre sans les envois, et la page répond 404.
+- La confirmation par SMS et e-mail part sous une minute environ, et non à l'instant : l'écran, lui, confirme aussitôt.
+- Un widget sur un site encore en HTTP n'a pas WebCrypto, même servi en HTTPS : il renvoie vers la page complète.
+- `adresseClient` dépend de `PROXIES_DE_CONFIANCE` (ADR-019) : sans proxy, la limitation publique se contourne. Bloquant avant ouverture (étape 23).
+- `journal_audit` note « Réservation en ligne » comme auteur, sans personne ni adresse IP.
+- Un message envoyé par un travail n'écrit pas de ligne `SEND` : la table `notification` en tient lieu 30 jours (ADR-019).
+- Un déplacement par l'accueil ne prévient que les patients venus en ligne : les autres attendent l'étape 19.
