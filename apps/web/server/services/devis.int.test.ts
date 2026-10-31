@@ -39,11 +39,7 @@ import {
   obtenirDevis,
   supprimerBrouillon,
 } from './devis';
-import {
-  creerDossier,
-  ErreurConflitDossier,
-  obtenirDossier,
-} from './dossiers';
+import { creerDossier, ErreurConflitDossier, obtenirDossier } from './dossiers';
 import { aujourdhui } from './patients';
 
 const V908 = path.join(import.meta.dirname, '../../../../fixtures/lpp/908');

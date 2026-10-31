@@ -149,7 +149,7 @@ export function FormulaireChangement({
         suggestions="appareils-changement"
         requis
       />
-      <ZoneDeTexte etat={etat} nom="motif" libelle="Motif du changement" lignes={2} requis />
+      <ZoneDeTexte etat={etat} nom="motifRetrait" libelle="Motif du changement" lignes={2} requis />
       <div>
         <BoutonEnvoi variant="outline">Changer l’appareil</BoutonEnvoi>
       </div>

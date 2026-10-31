@@ -116,7 +116,7 @@ const changement = (numeroSerie: string, surcharge: Record<string, unknown> = {}
   statutAttendu: 'EN_ESSAI',
   oreille: 'DROITE',
   numeroSerie,
-  motif: 'Larsen persistant',
+  motifRetrait: 'Larsen persistant',
   ...surcharge,
 });
 

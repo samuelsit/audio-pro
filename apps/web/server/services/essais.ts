@@ -18,7 +18,6 @@ import {
   type EtatEssai,
   type IssueEssai,
   type Oreille,
-  type OreillesDossier,
   type Pagination,
   type Perimetre,
   type StatutDossier,
@@ -233,7 +232,7 @@ export async function changerAppareilEssai(
   dossierId: string,
   saisie: unknown,
 ): Promise<void> {
-  const { statutAttendu, oreille, numeroSerie, motif } = valider(
+  const { statutAttendu, oreille, numeroSerie, motifRetrait } = valider(
     changementAppareilSaisieSchema,
     saisie,
   );
@@ -254,7 +253,7 @@ export async function changerAppareilEssai(
         essai.id,
         oreille,
         jour,
-        motif,
+        motifRetrait,
       );
       if (ancien.numeroSerie === numeroSerie) {
         throw ErreurSaisie.surChamp('numeroSerie', 'Cet appareil est déjà celui de l’essai.');
@@ -266,7 +265,7 @@ export async function changerAppareilEssai(
         modeleAttendu: null,
         champ: 'numeroSerie',
         jour,
-        motif,
+        motif: motifRetrait,
       });
       return { dossier, essaiId: essai.id, evenements: [evenement, pose] };
     },
@@ -510,10 +509,7 @@ export interface LigneEssai {
   dossierId: string;
   patient: string;
   centre: string;
-  oreilles: OreillesDossier;
-  statut: StatutDossier;
   numerosSerie: string[];
-  dateDebut: string;
   joursEcoules: number;
   echeance: string;
   joursRestants: number;
@@ -555,8 +551,6 @@ export async function listerEssaisEnCours(
       dossier: {
         select: {
           id: true,
-          statut: true,
-          oreilles: true,
           centre: { select: { nom: true } },
           patient: { select: { nomNaissance: true, nomUsage: true, prenoms: true } },
         },
@@ -581,10 +575,7 @@ export async function listerEssaisEnCours(
         dossierId: e.dossier.id,
         patient: `${patient.nomUsage ?? patient.nomNaissance} ${patient.prenoms}`,
         centre: e.dossier.centre.nom,
-        oreilles: e.dossier.oreilles,
-        statut: e.dossier.statut,
         numerosSerie: e.appareils.map((a) => a.appareil.numeroSerie),
-        dateDebut: depuisDate(e.dateDebut),
         joursEcoules: etat.joursEcoules,
         echeance: etat.echeance,
         joursRestants: etat.joursRestants,

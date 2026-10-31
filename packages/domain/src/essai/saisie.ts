@@ -59,7 +59,7 @@ export const changementAppareilSaisieSchema = z.object({
   statutAttendu: statutAttenduSchema,
   oreille: z.enum(OREILLES, { error: 'Choisir l’oreille.' }),
   numeroSerie: numeroSerieSchema,
-  motif: motifSchema,
+  motifRetrait: motifSchema,
 });
 export type ChangementAppareilSaisie = z.output<typeof changementAppareilSaisieSchema>;
 

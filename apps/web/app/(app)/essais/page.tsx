@@ -1,4 +1,3 @@
-import { LIBELLES_OREILLES_DOSSIER } from '@ha/domain';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 
@@ -35,12 +34,10 @@ const COLONNES: readonly Colonne<LigneEssai>[] = [
     ),
   },
   { libelle: 'Centre', rendu: (l) => l.centre },
-  { libelle: 'Oreilles', rendu: (l) => LIBELLES_OREILLES_DOSSIER[l.oreilles] },
   {
     libelle: 'Numéros de série',
     rendu: (l) => <span className="font-mono">{l.numerosSerie.join(', ')}</span>,
   },
-  { libelle: 'Début', rendu: (l) => formaterDate(l.dateDebut) },
   { libelle: 'Jours écoulés', rendu: (l) => l.joursEcoules },
   { libelle: 'Échéance', rendu: libelleEcheance },
   { libelle: 'RDV réalisés', rendu: (l) => l.rdvRealises },

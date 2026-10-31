@@ -65,7 +65,7 @@ export async function changerAppareilAction(
     statutAttendu: texte(formData, 'statutAttendu'),
     oreille: texte(formData, 'oreille'),
     numeroSerie: texte(formData, 'numeroSerie'),
-    motif: texte(formData, 'motif'),
+    motifRetrait: texte(formData, 'motifRetrait'),
   };
   const erreur = await executer(() => changerAppareilEssai(acteur, dossierId, donnees), donnees);
   return erreur ?? terminer(dossierId, 'Appareil changé.');

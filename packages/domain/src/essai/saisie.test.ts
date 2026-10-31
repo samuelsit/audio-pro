@@ -63,7 +63,7 @@ describe('changementAppareilSaisieSchema', () => {
     statutAttendu: 'EN_ESSAI',
     oreille: 'DROITE',
     numeroSerie: ' ab 123 ',
-    motif: 'Larsen persistant',
+    motifRetrait: 'Larsen persistant',
   };
 
   it('normalise le numéro de série', () => {
@@ -73,7 +73,7 @@ describe('changementAppareilSaisieSchema', () => {
   it.each([
     { cas: 'oreille inconnue', champ: { oreille: 'LES_DEUX' } },
     { cas: 'numéro invalide', champ: { numeroSerie: 'a' } },
-    { cas: 'motif vide', champ: { motif: '' } },
+    { cas: 'motif vide', champ: { motifRetrait: '' } },
     { cas: 'statut inconnu', champ: { statutAttendu: 'ESSAI' } },
   ])('refuse : $cas', ({ champ }) => {
     expect(changementAppareilSaisieSchema.safeParse({ ...SAISIE, ...champ }).success).toBe(false);
