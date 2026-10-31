@@ -17,6 +17,7 @@ import {
   type NatureAccessoire,
   type OptionAideAuditive,
   type TypeAideAuditive,
+  peutVoirPrixAchat,
 } from '@ha/domain';
 
 import { AccesRefuseError, verifierRole, type UtilisateurConnecte } from '../auth/acces';
@@ -66,6 +67,11 @@ export interface AccessoireResume {
   marque: string | null;
   referenceCommerciale: string | null;
   actif: boolean;
+}
+
+export interface AccessoireDetail extends AccessoireResume {
+  /** Toujours null pour un rôle qui n'y a pas droit. */
+  prixAchatCentimes: number | null;
 }
 
 /** Bilan d'un import CSV réussi. Si une ligne est refusée, rien n'est écrit. */
@@ -393,15 +399,15 @@ export async function listerAccessoires(acteur: UtilisateurConnecte): Promise<Ac
 export async function obtenirAccessoire(
   acteur: UtilisateurConnecte,
   accessoireId: string,
-): Promise<AccessoireResume> {
+): Promise<AccessoireDetail> {
   const a = await base(acteur).accessoire.findFirst({
     where: { id: accessoireId, organisationId: acteur.organisationId },
-    select: selectionAccessoire,
+    select: { ...selectionAccessoire, prixAchatCentimes: true },
   });
   if (!a) {
     throw new AccesRefuseError();
   }
-  return a;
+  return { ...a, prixAchatCentimes: peutVoirPrixAchat(acteur.role) ? a.prixAchatCentimes : null };
 }
 
 async function validerAccessoire(saisie: unknown): Promise<AccessoireSaisie> {
@@ -460,6 +466,7 @@ export async function modifierAccessoire(
             nature: actuel.nature,
             codeLpp: actuel.codeLpp,
             prixCentimes: actuel.prixCentimes,
+            prixAchatCentimes: actuel.prixAchatCentimes,
             marque: actuel.marque,
             referenceCommerciale: actuel.referenceCommerciale,
             actif: actuel.actif,

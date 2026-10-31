@@ -94,6 +94,8 @@ model Organisation {
   reservationsEnLigne   ReservationEnLigne[]
   notifications         Notification[]
   bilansAudiologiques   BilanAudiologique[]
+  inventaires           Inventaire[]
+  lignesInventaire      InventaireLigne[]
   mesuresAudiologiques  MesureAudiologique[]
   otoscopies            Otoscopie[]
   modelesFormulaire     ModeleFormulaire[]
@@ -143,6 +145,7 @@ model Centre {
   rendezVous            RendezVous[]
   dossiers              Dossier[]
   bilansAudiologiques   BilanAudiologique[]
+  inventaires           Inventaire[]
   parametresReservation ParametresReservation?
   typesRdvEnLigne       TypeRdvEnLigne[]
   reservationsEnLigne   ReservationEnLigne[]
@@ -201,6 +204,8 @@ model Utilisateur {
   rendezVousCrees       RendezVous[]          @relation("RendezVousCreateur")
   exceptionsCreees      ExceptionAgenda[]     @relation("ExceptionAgendaCreateur")
   bilansCrees           BilanAudiologique[]
+  inventairesOuverts    Inventaire[]          @relation("InventaireOuvertPar")
+  inventairesClotures   Inventaire[]          @relation("InventaireCloturePar")
   mesuresAudiologiques  MesureAudiologique[]
   otoscopies            Otoscopie[]
   modelesFormulaire     ModeleFormulaire[]
@@ -662,6 +667,8 @@ model Accessoire {
   nature               NatureAccessoire
   codeLpp              String?               @map("code_lpp") @db.Char(7)
   prixCentimes         Int                   @map("prix_centimes")
+  /// Réservé aux rôles de gestion, comme celui d'un appareil. Base de la valeur du stock (ADR-023).
+  prixAchatCentimes    Int?                  @map("prix_achat_centimes")
   /// Mentions du devis normalisé : nullables pour les fiches anciennes, le manque bloque l'émission.
   marque               String?
   referenceCommerciale String?               @map("reference_commerciale")
@@ -673,6 +680,7 @@ model Accessoire {
   stocks               StockAccessoire[]
   mouvements           MouvementAccessoire[]
   lignesDevis          DevisLigne[]
+  lignesInventaire     InventaireLigne[]
 
   @@unique([organisationId, nom])
   @@index([codeLpp])
@@ -705,6 +713,13 @@ enum TypeMouvementAccessoire {
   SORTIE
   TRANSFERT_SORTANT
   TRANSFERT_ENTRANT
+  INVENTAIRE_ENTREE
+  INVENTAIRE_SORTIE
+}
+
+enum StatutInventaire {
+  EN_COURS
+  CLOTURE
 }
 
 /// Aide auditive physique, suivie au numéro de série. Jamais supprimée (traçabilité, convention art. 21).
@@ -736,6 +751,7 @@ model Appareil {
   patient                   Patient?            @relation(fields: [patientId], references: [id], onDelete: Restrict)
   mouvements                MouvementAppareil[]
   essais                    EssaiAppareil[]
+  lignesInventaire          InventaireLigne[]
 
   @@unique([fabricantId, numeroSerie])
   @@index([organisationId, numeroSerie])
@@ -763,6 +779,8 @@ model MouvementAppareil {
   patientId      String?               @map("patient_id")
   /// Dossier qui a provoqué le mouvement : essai, puis vente à l'étape 14.
   dossierId      String?               @map("dossier_id")
+  /// Commande fabricant à l'origine de la réception. Sans clé étrangère avant l'étape 17 (ADR-023).
+  commandeId     String?               @map("commande_id")
   /// Chiffré (contexte « mouvement_appareil.motif ») : texte libre. Null pour la réception.
   motif          String?
   organisation   Organisation          @relation(fields: [organisationId], references: [id], onDelete: Restrict)
@@ -776,6 +794,7 @@ model MouvementAppareil {
   @@index([appareilId, horodatage])
   @@index([patientId])
   @@index([dossierId])
+  @@index([commandeId])
   @@map("mouvement_appareil")
 }
 
@@ -808,6 +827,8 @@ model MouvementAccessoire {
   quantiteApres  Int                     @map("quantite_apres")
   horodatage     DateTime                @default(now())
   utilisateurId  String                  @map("utilisateur_id")
+  /// Commande fabricant à l'origine de l'entrée. Sans clé étrangère avant l'étape 17 (ADR-023).
+  commandeId     String?                 @map("commande_id")
   /// Chiffré (contexte « mouvement_accessoire.motif »).
   motif          String
   organisation   Organisation            @relation(fields: [organisationId], references: [id], onDelete: Restrict)
@@ -816,7 +837,68 @@ model MouvementAccessoire {
   utilisateur    Utilisateur             @relation(fields: [utilisateurId], references: [id], onDelete: Restrict)
 
   @@index([centreId, accessoireId, horodatage])
+  @@index([commandeId])
   @@map("mouvement_accessoire")
+}
+
+/// Inventaire d'un centre (ADR-023). Un seul ouvert par centre (index partiel), figé une fois clôturé (trigger).
+/// `valeurCentimes` et `articlesSansPrix` photographient la valeur à la clôture.
+model Inventaire {
+  id               String            @id @default(uuid(7))
+  organisationId   String            @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  centreId         String            @map("centre_id")
+  statut           StatutInventaire  @default(EN_COURS)
+  ouvertParId      String            @map("ouvert_par_id")
+  clotureParId     String?           @map("cloture_par_id")
+  clotureLe        DateTime?         @map("cloture_le") @db.Timestamptz(3)
+  /// Réservés aux rôles de gestion, comme tout prix d'achat.
+  valeurCentimes   Int?              @map("valeur_centimes")
+  articlesSansPrix Int?              @map("articles_sans_prix")
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+  organisation     Organisation      @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  centre           Centre            @relation(fields: [centreId], references: [id], onDelete: Restrict)
+  ouvertPar        Utilisateur       @relation("InventaireOuvertPar", fields: [ouvertParId], references: [id], onDelete: Restrict)
+  cloturePar       Utilisateur?      @relation("InventaireCloturePar", fields: [clotureParId], references: [id], onDelete: Restrict)
+  lignes           InventaireLigne[]
+
+  @@index([centreId, createdAt])
+  @@index([organisationId])
+  @@map("inventaire")
+}
+
+/// Appareil (`numeroSerie`) ou accessoire (`accessoireId`) d'un inventaire, jamais les deux (contrainte CHECK).
+/// Une ligne d'appareil naît d'un pointage, ou d'une justification pour un appareil non pointé.
+/// `quantiteTheorique` est relevée au comptage : les ventes de la journée ne faussent pas l'écart.
+/// Lu directement, jamais par relation imbriquée : justification chiffrée.
+model InventaireLigne {
+  id                String       @id @default(uuid(7))
+  organisationId    String       @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  inventaireId      String       @map("inventaire_id")
+  /// Forme normalisée ; le numéro d'un excédent peut être inconnu du stock.
+  numeroSerie       String?      @map("numero_serie")
+  appareilId        String?      @map("appareil_id")
+  pointe            Boolean      @default(false)
+  /// Posé à la clôture : l'écart ne se recalcule plus ensuite, le stock ayant bougé.
+  ecart             Boolean      @default(false)
+  accessoireId      String?      @map("accessoire_id")
+  quantiteTheorique Int?         @map("quantite_theorique")
+  quantiteComptee   Int?         @map("quantite_comptee")
+  /// Chiffré (contexte « inventaire_ligne.justification ») : obligatoire pour clôturer sur un écart.
+  justification     String?
+  createdAt         DateTime     @default(now()) @map("created_at")
+  updatedAt         DateTime     @updatedAt @map("updated_at")
+  organisation      Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  inventaire        Inventaire   @relation(fields: [inventaireId], references: [id], onDelete: Restrict)
+  appareil          Appareil?    @relation(fields: [appareilId], references: [id], onDelete: Restrict)
+  accessoire        Accessoire?  @relation(fields: [accessoireId], references: [id], onDelete: Restrict)
+
+  @@unique([inventaireId, numeroSerie])
+  @@unique([inventaireId, accessoireId])
+  @@index([organisationId])
+  @@index([appareilId])
+  @@index([accessoireId])
+  @@map("inventaire_ligne")
 }
 
 // ---------------------------------------------------------------------------

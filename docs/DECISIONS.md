@@ -714,3 +714,32 @@ L'étape 9 ouvre les premières données cliniques du logiciel : anamnèse, otos
 - Aucun questionnaire validé n'est livré (R26) : chaque client saisit les siens, sous sa responsabilité sur les droits d'usage.
 - Le parcours E2E de l'éditeur de modèles est dans `admin-2fa.spec.ts`, seule spec qui tient une session ADMIN_CLIENT ouverte.
 - `lireFiche` fait encore un `Promise.all` dans une transaction, ce qui déclenche un avertissement de dépréciation de `pg`. Antérieur à cette étape, non traité ici.
+
+## ADR-023 – Stock : réception réutilisable, inventaire et valeur
+
+- **Date** : 2026-11-01
+- **Statut** : acceptée. Complète l'ADR-010.
+
+### Contexte
+
+La mise à niveau de l'étape 10 demande des mouvements liables à une commande, une réception réutilisable par l'étape 17, un inventaire par centre avec des écarts justifiés et la valeur du stock. Le statut `PRET` existait déjà (appareil prêté, ADR-010) ; il n'avait pas de test d'intégration.
+
+### Décision
+
+- **Commande** : `commande_id` nullable sur `mouvement_appareil` et `mouvement_accessoire`, indexé, sans clé étrangère. La table n'existe qu'à l'étape 17, qui posera la FK et son trigger `verifier_meme_organisation`. Créer une table vide maintenant aurait figé son modèle avant son étape.
+- **Réception** : `receptionnerDansTransaction(tx, acteur, entree)` dans `services/reception.ts`. Elle prend des données déjà interprétées (centimes), plusieurs modèles et des accessoires, et rend les événements d'audit à journaliser par l'appelant : l'étape 17 l'appellera dans sa propre transaction. `receptionner` l'enveloppe, `recevoirAppareils` reste l'adaptateur du formulaire.
+- **Droit sur le prix** : contrôlé au formulaire seulement. Un prix de commande n'est pas une saisie de l'utilisateur : un assistant qui réceptionne une commande chiffrée reste légitime.
+- **Inventaire** : `Inventaire` et `InventaireLigne`, un seul ouvert par centre (index partiel), figés à la clôture par triggers.
+- **Appareils attendus** : `EN_STOCK` et `RESERVE`. Ils sont recalculés à la lecture et à la clôture, sans liste figée à l'ouverture : un appareil vendu pendant l'inventaire n'est pas un manquant. Un appareil en essai, prêté ou au SAV n'est pas sur l'étagère.
+- **Accessoires** : la quantité théorique est relevée au comptage, et la clôture applique l'écart relevé à la quantité du moment. Une vente postérieure au comptage reste comptée une seule fois.
+- **Clôture** : tout accessoire en stock doit être compté et tout écart justifié, en texte chiffré. Les accessoires sont corrigés par `INVENTAIRE_ENTREE` et `INVENTAIRE_SORTIE`, la justification servant de motif. Un appareil manquant ne change pas de statut : aucun statut ne dit « perdu », en créer un dépasse cette étape. L'écart reste consigné dans la ligne.
+- **Droits** : ouvrir, justifier et clôturer sont réservés aux rôles de gestion ; le pointage et le comptage sont ouverts à tous dans leurs centres.
+- **Valeur** : au prix d'achat. Comptent `EN_STOCK`, `RESERVE`, `EN_ESSAI`, `PRET` et `SAV`, propriété du client ; ne comptent ni la consignation, propriété du fabricant, ni `VENDU`, ni `RETOUR_FABRICANT`. Un article sans prix est compté à part, jamais à zéro. La clôture photographie la valeur. Choix de gestion, sans texte de référence.
+- **`Accessoire.prixAchatCentimes`** : ajouté, nullable, réservé aux rôles de gestion. Absent de `AccessoireResume`, qui part vers des écrans ouverts à tous.
+
+### Conséquences
+
+- L'étape 17 doit poser les clés étrangères de `commande_id`, avec leur trigger.
+- Deux fabricants peuvent partager un numéro de série : un pointage vaut alors pour les deux appareils du centre.
+- Un appareil réellement perdu reste `EN_STOCK` : il ressortira manquant à chaque inventaire jusqu'à ce qu'un statut de sortie existe.
+- La valeur n'est une valeur d'inventaire comptable que si les prix sont saisis : le seed les renseigne, sauf pour les appareils en consignation.

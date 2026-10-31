@@ -8,12 +8,12 @@ import { executer } from '@/server/actions';
 import { requireSession } from '@/server/auth/gardes';
 import { notifier } from '@/server/notifications';
 import { listerPatients, type PatientResume } from '@/server/services/patients';
+import { recevoirAppareils } from '@/server/services/reception';
 import {
   annulerVente,
   changerStatut,
   entreeAccessoire,
   modifierAppareil,
-  recevoirAppareils,
   sortieAccessoire,
   transfererAccessoire,
   transfererAppareil,

@@ -4,7 +4,7 @@ import type { PrismaClient } from '../src/generated/prisma/client';
 import type { NatureAccessoire } from '../src/generated/prisma/enums';
 import { CODES_PILES } from './seed-catalogue';
 
-// Stock fictif : numéros de série inventés (préfixe DEMO), appareils en stock uniquement.
+// Stock fictif : numéros de série inventés (préfixe DEMO), appareils en stock et un appareil prêté.
 // Le seed écrit sans l'extension Prisma de l'application : il chiffre lui-même, avec le même contexte que
 // apps/web/server/chiffrement.ts. Les mouvements sont en ajout seul : un nouveau seed ne les modifie pas.
 
@@ -16,6 +16,7 @@ const ACCESSOIRES: readonly {
   nom: string;
   nature: NatureAccessoire;
   prixCentimes: number;
+  prixAchatCentimes: number;
   codeLpp: string | null;
   marque: string;
   referenceCommerciale: string;
@@ -25,6 +26,7 @@ const ACCESSOIRES: readonly {
     nom: 'Piles 312 Démo (6)',
     nature: 'PILE',
     prixCentimes: 150,
+    prixAchatCentimes: 60,
     codeLpp: CODES_PILES.PILES_312,
     marque: 'Énergie Démo',
     referenceCommerciale: 'ED-312-6',
@@ -34,6 +36,7 @@ const ACCESSOIRES: readonly {
     nom: 'Piles 13 Démo (6)',
     nature: 'PILE',
     prixCentimes: 150,
+    prixAchatCentimes: 60,
     codeLpp: CODES_PILES.PILES_13,
     marque: 'Énergie Démo',
     referenceCommerciale: 'ED-13-6',
@@ -43,6 +46,7 @@ const ACCESSOIRES: readonly {
     nom: 'Kit d’entretien Démo',
     nature: 'ACCESSOIRE',
     prixCentimes: 1500,
+    prixAchatCentimes: 700,
     codeLpp: null,
     marque: 'Soin Démo',
     referenceCommerciale: 'SD-KIT-1',
@@ -56,6 +60,48 @@ function idFixe(prefixe: string, rang: number): string {
 
 export function nombreAppareilsDemo(centres: number): number {
   return centres * APPAREILS_PAR_CENTRE;
+}
+
+/** Dernier appareil du dernier centre : loin de ceux qu'utilisent les dossiers de démonstration. */
+async function seedAppareilPrete(
+  db: PrismaClient,
+  organisationId: string,
+  centreIds: readonly string[],
+  utilisateurId: string,
+  appareils: readonly { id: string; centreId: string }[],
+): Promise<void> {
+  const appareil = appareils.at(-1);
+  const centreId = centreIds.at(-1);
+  const patient = await db.patient.findFirst({
+    where: { organisationId, centreId: centreId ?? '' },
+    select: { id: true },
+    orderBy: { id: 'asc' },
+  });
+  if (!appareil || !patient) {
+    return;
+  }
+  const { count } = await db.appareil.updateMany({
+    where: { id: appareil.id, statut: 'EN_STOCK' },
+    data: { statut: 'PRET', patientId: patient.id },
+  });
+  if (count === 1) {
+    const chiffreur = new ChiffreurAesGcm(chargerTrousseau(process.env));
+    await db.mouvementAppareil.create({
+      data: {
+        id: idFixe('b', appareils.length + 1),
+        organisationId,
+        appareilId: appareil.id,
+        type: 'CHANGEMENT_STATUT',
+        utilisateurId,
+        statutAvant: 'EN_STOCK',
+        statutApres: 'PRET',
+        centreAvantId: appareil.centreId,
+        centreApresId: appareil.centreId,
+        patientId: patient.id,
+        motif: chiffreur.chiffrer('Prêt de démonstration', 'mouvement_appareil.motif'),
+      },
+    });
+  }
 }
 
 export async function seedStock(
@@ -87,6 +133,7 @@ export async function seedStock(
         numeroSerie: `DEMO${String(rang).padStart(6, '0')}`,
         dateReception: new Date('2026-10-01T00:00:00.000Z'),
         referenceBonLivraison: `BL-DEMO-${c + 1}`,
+        prixAchatCentimes: a === 0 ? null : 60_000 + 5_000 * a,
         enConsignation: a === 0,
       };
     }),
@@ -105,6 +152,7 @@ export async function seedStock(
     })),
     skipDuplicates: true,
   });
+  await seedAppareilPrete(db, organisationId, centreIds, utilisateurId, appareils);
 
   for (const accessoire of ACCESSOIRES) {
     const donnees = { ...accessoire, organisationId };

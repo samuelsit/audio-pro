@@ -8,6 +8,7 @@ import { base } from '../chiffrement';
 import { ErreurSaisie } from '../erreurs';
 import { modifierModele } from './catalogue';
 import { fusionnerPatients } from './patients';
+import { recevoirAppareils } from './reception';
 import {
   annulerVente,
   centresDeDestination,
@@ -21,7 +22,6 @@ import {
   listerStockAccessoires,
   modifierAppareil,
   obtenirFicheAppareil,
-  recevoirAppareils,
   rechercherParNumeroSerie,
   sortieAccessoire,
   transfererAccessoire,
@@ -444,6 +444,44 @@ describe('machine à états, par le service', () => {
       expect(historique[i]?.statutAvant).toBe(historique[i - 1]?.statutApres);
       expect(historique[i]?.centreAvantId).toBe(historique[i - 1]?.centreApresId);
     }
+  });
+});
+
+describe('prêt', () => {
+  it('prête un appareil à un patient, puis le reprend en stock', async () => {
+    const id = await recevoirUn();
+    await changerStatut(audio, id, {
+      statut: 'PRET',
+      statutAttendu: 'EN_STOCK',
+      patientId: patientA,
+      motif: 'Appareil de prêt pendant une réparation',
+    });
+    expect(await prisma().appareil.findUniqueOrThrow({ where: { id } })).toMatchObject({
+      statut: 'PRET',
+      patientId: patientA,
+    });
+    await changerStatut(audio, id, {
+      statut: 'EN_STOCK',
+      statutAttendu: 'PRET',
+      patientId: '',
+      motif: 'Rendu par le patient',
+    });
+    expect(await prisma().appareil.findUniqueOrThrow({ where: { id } })).toMatchObject({
+      statut: 'EN_STOCK',
+      patientId: null,
+    });
+  });
+
+  it('refuse un prêt sans patient', async () => {
+    const id = await recevoirUn();
+    await expect(
+      changerStatut(audio, id, {
+        statut: 'PRET',
+        statutAttendu: 'EN_STOCK',
+        patientId: '',
+        motif: 'Prêt',
+      }),
+    ).rejects.toBeInstanceOf(ErreurSaisie);
   });
 });
 

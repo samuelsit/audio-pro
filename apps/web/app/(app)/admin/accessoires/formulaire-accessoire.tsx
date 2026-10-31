@@ -11,14 +11,14 @@ import {
   MessageFormulaire,
 } from '@/components/formulaire';
 import { ETAT_INITIAL, type EtatFormulaire } from '@/lib/formulaire';
-import type { AccessoireResume } from '@/server/services/catalogue';
+import type { AccessoireDetail } from '@/server/services/catalogue';
 
 export function FormulaireAccessoire({
   action,
   accessoire,
 }: {
   action: (etat: EtatFormulaire, formData: FormData) => Promise<EtatFormulaire>;
-  accessoire?: AccessoireResume;
+  accessoire?: AccessoireDetail;
 }) {
   const [etat, envoyer] = useActionState(action, ETAT_INITIAL);
   return (
@@ -52,6 +52,16 @@ export function FormulaireAccessoire({
           requis
         />
       </div>
+      <ChampTexte
+        etat={etat}
+        nom="prixAchatCentimes"
+        libelle="Prix d’achat (€)"
+        defaut={
+          accessoire?.prixAchatCentimes == null
+            ? ''
+            : (accessoire.prixAchatCentimes / 100).toFixed(2).replace('.', ',')
+        }
+      />
       <div className="grid gap-4 sm:grid-cols-2">
         <ChampTexte etat={etat} nom="marque" libelle="Marque" defaut={accessoire?.marque} />
         <ChampTexte

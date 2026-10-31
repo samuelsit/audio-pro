@@ -169,6 +169,7 @@ export const CHAMPS_VISIBLES_AUDIT: Readonly<Record<TypeEntite, readonly string[
   ],
   EXCEPTION_AGENDA: ['type', 'praticienId', 'cabineId', 'centreId', 'debut', 'fin'],
   STOCK_ACCESSOIRE: [],
+  INVENTAIRE: [],
 };
 
 export interface ChampModifie {

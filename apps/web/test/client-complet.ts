@@ -219,6 +219,12 @@ export async function creerClientComplet(suffixe: string) {
       userId: utilisateurId,
     },
   });
+  const inventaire = await prisma().inventaire.create({
+    data: { organisationId, centreId: d.centres.a.id, ouvertParId: utilisateurId },
+  });
+  await prisma().inventaireLigne.create({
+    data: { organisationId, inventaireId: inventaire.id, numeroSerie: 'INVENTAIRE1' },
+  });
   await prisma().compte.create({
     data: { accountId: utilisateurId, providerId: 'credential', userId: utilisateurId },
   });

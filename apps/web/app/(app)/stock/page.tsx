@@ -1,6 +1,8 @@
 import {
   calculerPagination,
+  formatEuros,
   LIBELLES_STATUTS_APPAREIL,
+  peutVoirPrixAchat,
   STATUTS_APPAREIL,
   type Pagination,
 } from '@ha/domain';
@@ -21,6 +23,7 @@ import { premieresValeurs, urlAvecParametres, type ParametresRecherche } from '@
 import { perimetreCourant } from '@/server/auth/gardes';
 import { ErreurSaisie } from '@/server/erreurs';
 import { listerFabricants, listerModeles } from '@/server/services/catalogue';
+import { valeurDuStock } from '@/server/services/inventaires';
 import { LIGNES_PAR_PAGE_STOCK, listerStock, type LigneStock } from '@/server/services/stock';
 
 import { BadgeStatut } from './badge-statut';
@@ -75,6 +78,7 @@ export default async function PageStock({
   const filtres = Object.fromEntries(
     FILTRES.flatMap((cle) => (parametres[cle] ? [[cle, parametres[cle]]] : [])),
   );
+  const valeur = peutVoirPrixAchat(acteur.role) ? await valeurDuStock(acteur, perimetre) : null;
 
   return (
     <div className="grid gap-6">
@@ -87,6 +91,9 @@ export default async function PageStock({
         <div className="flex flex-wrap gap-2">
           <Button asChild variant="outline">
             <Link href="/stock/accessoires">Accessoires et piles</Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href="/stock/inventaires">Inventaires</Link>
           </Button>
           {etat.erreurs ? null : (
             <Button asChild variant="outline">
@@ -105,6 +112,15 @@ export default async function PageStock({
           </Button>
         </div>
       </div>
+
+      {valeur ? (
+        <p>
+          Valeur du stock : {formatEuros(valeur.valeurCentimes)}
+          {valeur.articlesSansPrix > 0
+            ? `, hors ${valeur.articlesSansPrix} article(s) sans prix d’achat.`
+            : '.'}
+        </p>
+      ) : null}
 
       <form action="/stock/recherche" className="grid max-w-md gap-1.5">
         <Label htmlFor="numero">Rechercher un numéro de série</Label>

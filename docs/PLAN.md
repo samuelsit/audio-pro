@@ -61,7 +61,9 @@ Numérotation du plan SaaS (ADR-015). Les références aux étapes dans `docs/DE
   - reporté à l'étape 24 : port `NoahConnector`, import, correspondance des champs sur la documentation HIMSA, schéma de relecture sans le pas de 5 dB
   - reporté à l'étape 11 : lien entre un bilan et un dossier d'appareillage
   - reporté à l'étape 22 : durée de conservation des bilans et des photos, retrait d'une photo seule
-- [ ] **10** – Stock — à mettre à niveau
+- [x] **10** – Stock (ADR-023)
+  - reporté à l'étape 17 : clés étrangères de `commande_id`, avec leur trigger ; appel de `receptionnerDansTransaction`
+  - à arbitrer : statut de sortie pour un appareil perdu (reste `EN_STOCK`, ressort manquant à chaque inventaire)
   - reporté à l'étape 14 : vente pilotée par le dossier
   - reporté à l'étape 29 : reprise des appareils de Cosium, sans passer par la machine à états
   - à planifier : recherche des détenteurs par modèle ou par lot pour la matériovigilance (art. 21), numéro de lot à décider

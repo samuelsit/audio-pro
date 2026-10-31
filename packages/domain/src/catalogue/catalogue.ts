@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { texteObligatoire, texteOptionnelSchema } from '../commun/texte';
 import { codeLppSchema } from '../lpp/lignes';
 import { centimesDepuisSaisieEuros } from '../money';
+import { prixAchatSchema } from '../stock/saisie';
 
 export const TYPES_AIDE_AUDITIVE = ['CONTOUR', 'INTRA', 'RIC'] as const;
 export type TypeAideAuditive = (typeof TYPES_AIDE_AUDITIVE)[number];
@@ -151,6 +152,7 @@ export const accessoireSaisieSchema = z.object({
   nature: z.enum(NATURES_ACCESSOIRE, { error: 'Choisir une nature.' }),
   codeLpp: codeLppOptionnelSchema,
   prixCentimes: prixSchema,
+  prixAchatCentimes: prixAchatSchema,
   marque: texteOptionnelSchema,
   referenceCommerciale: texteOptionnelSchema,
   actif: z.boolean(),

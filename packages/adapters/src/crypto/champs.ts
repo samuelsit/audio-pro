@@ -9,6 +9,7 @@ export const CHAMPS_CHIFFRES: ConfigurationChampsChiffres = {
   CouvertureAmo: { nir: 'couverture_amo.nir', ald: 'couverture_amo.ald' },
   MouvementAppareil: { motif: 'mouvement_appareil.motif' },
   MouvementAccessoire: { motif: 'mouvement_accessoire.motif' },
+  InventaireLigne: { justification: 'inventaire_ligne.justification' },
   Dossier: { surdicecite: 'dossier.surdicecite' },
   TransitionDossier: { motif: 'transition_dossier.motif' },
   Prescription: { motifForcage: 'prescription.motif_forcage' },

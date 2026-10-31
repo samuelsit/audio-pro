@@ -24,6 +24,8 @@ const LIBELLES_TYPE: Readonly<Record<MouvementAccessoireAffiche['type'], string>
   SORTIE: 'Sortie',
   TRANSFERT_SORTANT: 'Transfert sortant',
   TRANSFERT_ENTRANT: 'Transfert entrant',
+  INVENTAIRE_ENTREE: 'Inventaire, écart positif',
+  INVENTAIRE_SORTIE: 'Inventaire, écart négatif',
 };
 
 export default async function PageHistoriqueAccessoire({

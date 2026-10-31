@@ -1,11 +1,9 @@
-import { SystemClock } from '@ha/adapters';
 import type { Prisma } from '@ha/db';
 import {
   annulationVenteSaisieSchema,
   calculerPagination,
   cellulesCsvStock,
   changementStatutSaisieSchema,
-  dateReceptionValide,
   differencesAuditees,
   entetesCsvStock,
   ENTETES_CSV_STOCK_ACCESSOIRES,
@@ -22,13 +20,11 @@ import {
   peutCorrigerIdentite,
   peutTransferer,
   peutVoirPrixAchat,
-  receptionSaisieSchema,
   transfertAccessoireSaisieSchema,
   transfertSaisieSchema,
   transitionsPossibles,
   verifierAnnulationVente,
   verifierTransitionManuelle,
-  type Clock,
   type FiltreStock,
   type NatureAccessoire,
   type Pagination,
@@ -50,12 +46,6 @@ import { centresDuPerimetre } from '../perimetre';
 export const LIGNES_PAR_PAGE_STOCK = 50;
 const LOT_EXPORT = 1000;
 const LIGNES_HISTORIQUE_ACCESSOIRE = 200;
-
-const horloge: Clock = new SystemClock();
-
-function versDate(iso: string): Date {
-  return new Date(`${iso}T00:00:00.000Z`);
-}
 
 function depuisDate(date: Date): string {
   return date.toISOString().slice(0, 10);
@@ -197,7 +187,7 @@ async function verifierPatient(
   }
 }
 
-async function verifierCentreActif(
+export async function verifierCentreActif(
   client: Pick<ClientTransaction, 'centre'>,
   acteur: UtilisateurConnecte,
   centreId: string,
@@ -346,20 +336,12 @@ export async function annulerVente(
   );
 }
 
-// --- Réception ----------------------------------------------------------------------------------
-
-const DOUBLON_APPAREIL = {
-  appareil_fabricant_id_numero_serie_key: [
-    'numerosSerie',
-    'Un numéro de série existe déjà chez ce fabricant.',
-  ],
-} as const;
-
-async function lireModeleActif(
+export async function lireModeleActif(
+  client: Pick<ClientTransaction, 'modeleAideAuditive'>,
   acteur: UtilisateurConnecte,
   modeleId: string,
 ): Promise<{ id: string; fabricantId: string }> {
-  const modele = await base(acteur).modeleAideAuditive.findFirst({
+  const modele = await client.modeleAideAuditive.findFirst({
     where: { id: modeleId, organisationId: acteur.organisationId, actif: true },
     select: { id: true, fabricantId: true },
   });
@@ -367,85 +349,6 @@ async function lireModeleActif(
     throw ErreurSaisie.surChamp('modeleId', 'Modèle inconnu.');
   }
   return modele;
-}
-
-/**
- * Tout ou rien, comme un import CSV : si un numéro est refusé, rien n'est écrit et l'erreur liste chaque
- * numéro en cause. L'unicité reste garantie par la base en cas de réceptions simultanées.
- */
-export async function recevoirAppareils(
-  acteur: UtilisateurConnecte,
-  saisie: unknown,
-): Promise<string[]> {
-  const donnees = valider(receptionSaisieSchema, saisie);
-  verifierAccesCentre(acteur, donnees.centreId);
-  if (donnees.prixAchatCentimes !== null && !peutVoirPrixAchat(acteur.role)) {
-    throw new AccesRefuseError();
-  }
-  if (!dateReceptionValide(donnees.dateReception, horloge.now().slice(0, 10))) {
-    throw ErreurSaisie.surChamp('dateReception', 'La date de réception ne peut pas être future.');
-  }
-  await verifierCentreActif(base(acteur), acteur, donnees.centreId, 'centreId');
-  const modele = await lireModeleActif(acteur, donnees.modeleId);
-  const { numerosSerie, dateReception, ...communs } = donnees;
-
-  const existants = await base(acteur).appareil.findMany({
-    where: { fabricantId: modele.fabricantId, numeroSerie: { in: numerosSerie } },
-    select: { numeroSerie: true },
-    orderBy: { numeroSerie: 'asc' },
-  });
-  if (existants.length > 0) {
-    throw new ErreurSaisie({
-      numerosSerie: existants.map((a) => `Déjà enregistré chez ce fabricant : ${a.numeroSerie}.`),
-    });
-  }
-
-  try {
-    const appareils = await withAudit(
-      acteur,
-      async (tx) => {
-        const crees = await tx.appareil.createManyAndReturn({
-          data: numerosSerie.map((numeroSerie) => ({
-            ...communs,
-            numeroSerie,
-            organisationId: acteur.organisationId,
-            fabricantId: modele.fabricantId,
-            dateReception: versDate(dateReception),
-          })),
-          select: { id: true, numeroSerie: true },
-        });
-        await tx.mouvementAppareil.createMany({
-          data: crees.map((a) => ({
-            organisationId: acteur.organisationId,
-            appareilId: a.id,
-            type: 'RECEPTION' as const,
-            utilisateurId: acteur.id,
-            statutApres: 'EN_STOCK' as const,
-            centreApresId: donnees.centreId,
-          })),
-        });
-        return crees;
-      },
-      (crees) =>
-        crees.map((a) => ({
-          action: 'CREATE',
-          entiteType: 'APPAREIL',
-          entiteId: a.id,
-          centreId: donnees.centreId,
-          champs: differencesAuditees('APPAREIL', null, {
-            numeroSerie: a.numeroSerie,
-            modeleId: modele.id,
-            referenceBonLivraison: donnees.referenceBonLivraison,
-            referenceFactureFabricant: donnees.referenceFactureFabricant,
-            enConsignation: donnees.enConsignation,
-          }),
-          details: { mouvement: 'RECEPTION' },
-        })),
-    );
-    return appareils.map((a) => a.id);
-  } catch (erreur) {
-    traduireDoublon(erreur, DOUBLON_APPAREIL, 'Un numéro de série existe déjà.');
-  }
 }
 
 // --- Modification de la fiche -------------------------------------------------------------------
@@ -499,7 +402,7 @@ export async function modifierAppareil(
             );
           }
           if (modeleId !== avant.modeleId) {
-            ({ fabricantId } = await lireModeleActif(acteur, modeleId));
+            ({ fabricantId } = await lireModeleActif(base(acteur), acteur, modeleId));
           }
         }
         const apres = await tx.appareil.update({
@@ -940,7 +843,13 @@ export interface LigneStockAccessoire {
 
 export interface MouvementAccessoireAffiche {
   id: string;
-  type: 'ENTREE' | 'SORTIE' | 'TRANSFERT_SORTANT' | 'TRANSFERT_ENTRANT';
+  type:
+    | 'ENTREE'
+    | 'SORTIE'
+    | 'TRANSFERT_SORTANT'
+    | 'TRANSFERT_ENTRANT'
+    | 'INVENTAIRE_ENTREE'
+    | 'INVENTAIRE_SORTIE';
   centre: string;
   quantite: number;
   quantiteApres: number;
@@ -949,11 +858,12 @@ export interface MouvementAccessoireAffiche {
   motif: string;
 }
 
-async function verifierAccessoire(
+export async function verifierAccessoire(
+  client: Pick<ClientTransaction, 'accessoire'>,
   acteur: UtilisateurConnecte,
   accessoireId: string,
 ): Promise<void> {
-  const accessoire = await base(acteur).accessoire.findFirst({
+  const accessoire = await client.accessoire.findFirst({
     where: { id: accessoireId, organisationId: acteur.organisationId },
     select: { id: true },
   });
@@ -964,21 +874,23 @@ async function verifierAccessoire(
 
 type TypeAccessoire = MouvementAccessoireAffiche['type'];
 
-interface OperationAccessoire {
+export interface OperationAccessoire {
   readonly centreId: string;
   readonly accessoireId: string;
   readonly quantite: number;
   readonly motif: string;
+  /** Commande fabricant à l'origine d'une entrée (étape 17). */
+  readonly commandeId?: string | null;
 }
 
-async function ecrireMouvementAccessoire(
+export async function ecrireMouvementAccessoire(
   tx: ClientTransaction,
   acteur: UtilisateurConnecte,
   type: TypeAccessoire,
   operation: OperationAccessoire,
   quantiteApres: number,
 ): Promise<EvenementAudit> {
-  const { centreId, accessoireId, quantite, motif } = operation;
+  const { centreId, accessoireId, quantite, motif, commandeId = null } = operation;
   await tx.mouvementAccessoire.create({
     data: {
       organisationId: acteur.organisationId,
@@ -988,6 +900,7 @@ async function ecrireMouvementAccessoire(
       quantite,
       quantiteApres,
       utilisateurId: acteur.id,
+      commandeId,
       motif,
     },
   });
@@ -1001,7 +914,7 @@ async function ecrireMouvementAccessoire(
 }
 
 /** Incrément atomique : la ligne du centre est créée au premier mouvement. */
-async function crediter(
+export async function crediter(
   tx: ClientTransaction,
   { centreId, accessoireId, quantite }: OperationAccessoire,
 ): Promise<number> {
@@ -1015,7 +928,7 @@ async function crediter(
 }
 
 /** Décrément atomique, conditionné à une quantité suffisante : deux sorties simultanées sont sérialisées. */
-async function debiter(
+export async function debiter(
   tx: ClientTransaction,
   { centreId, accessoireId, quantite }: OperationAccessoire,
 ): Promise<number> {
@@ -1037,7 +950,7 @@ export async function entreeAccessoire(
   const operation = valider(mouvementAccessoireSaisieSchema, saisie);
   verifierAccesCentre(acteur, operation.centreId);
   await verifierCentreActif(base(acteur), acteur, operation.centreId, 'centreId');
-  await verifierAccessoire(acteur, operation.accessoireId);
+  await verifierAccessoire(base(acteur), acteur, operation.accessoireId);
   await withAudit(
     acteur,
     async (tx) => {
@@ -1054,7 +967,7 @@ export async function sortieAccessoire(
 ): Promise<void> {
   const operation = valider(mouvementAccessoireSaisieSchema, saisie);
   verifierAccesCentre(acteur, operation.centreId);
-  await verifierAccessoire(acteur, operation.accessoireId);
+  await verifierAccessoire(base(acteur), acteur, operation.accessoireId);
   await withAudit(
     acteur,
     async (tx) => {
@@ -1072,7 +985,7 @@ export async function transfererAccessoire(
   const { centreDestinationId, ...operation } = valider(transfertAccessoireSaisieSchema, saisie);
   verifierAccesCentre(acteur, operation.centreId);
   await verifierCentreActif(base(acteur), acteur, centreDestinationId, 'centreDestinationId');
-  await verifierAccessoire(acteur, operation.accessoireId);
+  await verifierAccessoire(base(acteur), acteur, operation.accessoireId);
   const arrivee = { ...operation, centreId: centreDestinationId };
   await withAudit(
     acteur,

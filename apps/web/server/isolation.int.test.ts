@@ -70,6 +70,8 @@ const TABLES_ISOLEES = [
   'exception_agenda',
   'fabricant',
   'facture_preparee',
+  'inventaire',
+  'inventaire_ligne',
   'journal_audit',
   'lecture_vitale',
   'mesure_audiologique',

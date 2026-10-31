@@ -14,7 +14,7 @@ const motifSchema = texteObligatoire('Le motif est obligatoire.', 500);
 const referenceSchema = (message: string) => texteObligatoire(message, 100);
 const identifiantSchema = (message: string) => z.uuid({ error: message });
 
-const prixAchatSchema = texteOptionnelSchema.transform((saisie, ctx) => {
+export const prixAchatSchema = texteOptionnelSchema.transform((saisie, ctx) => {
   if (saisie === null) {
     return null;
   }
@@ -30,21 +30,20 @@ const referenceFactureSchema = texteOptionnelSchema.pipe(
   z.string().max(100, '100 caractères au maximum.').nullable(),
 );
 
+const numerosSerieSchema = z
+  .array(numeroSerieSchema, { error: 'Saisir au moins un numéro de série.' })
+  .min(1, 'Saisir au moins un numéro de série.')
+  .max(NUMEROS_MAX_PAR_RECEPTION, `${NUMEROS_MAX_PAR_RECEPTION} numéros au maximum par réception.`)
+  .superRefine((numeros, ctx) => {
+    for (const numero of doublonsDansLaSaisie(numeros)) {
+      ctx.addIssue({ code: 'custom', message: `Numéro saisi deux fois : ${numero}.` });
+    }
+  });
+
 export const receptionSaisieSchema = z.object({
   centreId: identifiantSchema('Choisir un centre.'),
   modeleId: identifiantSchema('Choisir un modèle.'),
-  numerosSerie: z
-    .array(numeroSerieSchema, { error: 'Saisir au moins un numéro de série.' })
-    .min(1, 'Saisir au moins un numéro de série.')
-    .max(
-      NUMEROS_MAX_PAR_RECEPTION,
-      `${NUMEROS_MAX_PAR_RECEPTION} numéros au maximum par réception.`,
-    )
-    .superRefine((numeros, ctx) => {
-      for (const numero of doublonsDansLaSaisie(numeros)) {
-        ctx.addIssue({ code: 'custom', message: `Numéro saisi deux fois : ${numero}.` });
-      }
-    }),
+  numerosSerie: numerosSerieSchema,
   referenceBonLivraison: referenceSchema('La référence du bon de livraison est obligatoire.'),
   referenceFactureFabricant: referenceFactureSchema,
   dateReception: dateCalendaireSchema,
@@ -97,6 +96,38 @@ export const mouvementAccessoireSaisieSchema = z.object({
   motif: motifSchema,
 });
 export type MouvementAccessoireSaisie = z.infer<typeof mouvementAccessoireSaisieSchema>;
+
+/**
+ * Entrée de `receptionnerDansTransaction` : données déjà interprétées (centimes), plusieurs modèles et
+ * accessoires dans une même livraison. Appelée par le formulaire de réception et par les commandes (étape 17).
+ */
+export const receptionEntreeSchema = z
+  .object({
+    centreId: identifiantSchema('Choisir un centre.'),
+    dateReception: dateCalendaireSchema,
+    referenceBonLivraison: referenceSchema('La référence du bon de livraison est obligatoire.'),
+    referenceFactureFabricant: referenceFactureSchema,
+    commandeId: identifiantSchema('Commande inconnue.').nullable(),
+    appareils: z.array(
+      z.object({
+        modeleId: identifiantSchema('Choisir un modèle.'),
+        numerosSerie: numerosSerieSchema,
+        prixAchatCentimes: z.number().int().min(0).nullable(),
+        enConsignation: z.boolean(),
+      }),
+    ),
+    accessoires: z.array(
+      z.object({
+        accessoireId: identifiantSchema('Choisir un accessoire.'),
+        quantite: quantiteSchema,
+        motif: motifSchema,
+      }),
+    ),
+  })
+  .refine((e) => e.appareils.length + e.accessoires.length > 0, {
+    message: 'Une réception porte sur au moins un article.',
+  });
+export type ReceptionEntree = z.input<typeof receptionEntreeSchema>;
 
 export const transfertAccessoireSaisieSchema = mouvementAccessoireSaisieSchema
   .extend({ centreDestinationId: identifiantSchema('Choisir le centre de destination.') })
