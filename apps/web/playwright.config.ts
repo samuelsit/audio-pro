@@ -16,8 +16,6 @@ export default defineConfig({
     baseURL,
     locale: 'fr-FR',
     timezoneId: 'Europe/Paris',
-    // Connexions limitées par adresse IP : chaque worker est un poste distinct.
-    extraHTTPHeaders: { 'x-forwarded-for': `10.0.0.${process.env.TEST_WORKER_INDEX ?? '0'}` },
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: {

@@ -584,13 +584,14 @@ La revue de la branche a montré trois limites de l'ADR-016 et de l'ADR-018. Le 
 ### Décision
 
 - **`verifier_meme_organisation`** : un trigger par référence entre tables d'organisation, généré depuis le catalogue PostgreSQL, en `BEFORE INSERT OR UPDATE OF` la colonne. Il s'applique aussi au rôle propriétaire. Un test compare les triggers aux clés étrangères : une référence nouvelle sans contrôle le fait échouer. Les clés composites ne sont plus nécessaires.
-- **Une migration postérieure doit recréer cette boucle** pour toute table nouvelle, ou appeler `verifier_meme_organisation` sur ses références.
-- **Pool** : 20 connexions par rôle, attente de 10 s et transaction de 15 s, pour qu'une requête attende une connexion au lieu d'échouer.
+- **`organisation_id` est immuable** pour tous les rôles : une ligne ne change jamais de client.
+- **Une migration postérieure doit recréer ces boucles** pour toute table nouvelle, ou appeler `verifier_meme_organisation` sur ses références.
+- **Connexions** : taille de pool par défaut, attente de 10 s et transaction de 15 s, pour qu'une requête attende une connexion au lieu d'échouer. La taille se réglera au déploiement, selon `max_connections`.
 - **Pas de lecture hors transaction dans `withAudit`** : `obtenirFicheAppareil` lit puis journalise, sans tenir une connexion.
 - **Clé d'idempotence** : préfixée par l'organisation.
 - **Travaux** : même chiffrement que l'application ; `CHAMPS_CHIFFRES` passe dans `@ha/adapters`.
-- **Réactivation** : le SUPERADMIN choisit `ACTIF` ou `ESSAI`, le statut d'avant la suspension n'étant pas conservé.
-- **Rôles sur une base de test** : les mots de passe ne sont posés que sur un rôle encore sans `LOGIN`. Ils valent pour tout le cluster.
+- **Réactivation** : le SUPERADMIN choisit `ACTIF` ou `ESSAI`, le statut d'avant la suspension n'étant pas conservé. Elle est sans effet sur un client qui n'est plus suspendu.
+- **Rôles sur une base de test** : un mot de passe n'est posé que sur un rôle encore sans `LOGIN`, car il vaut pour tout le cluster.
 - **Limitation de débit** : une seule instruction `INSERT … ON CONFLICT`. La lecture suivie d'une écriture faisait échouer une connexion simultanée à une réinitialisation, et perdait des tentatives.
 
 ### Conséquences
@@ -598,4 +599,6 @@ La revue de la branche a montré trois limites de l'ADR-016 et de l'ADR-018. Le 
 - Chaque écriture relit ses parents : à mesurer avec les trois allers-retours de l'ADR-016, à l'étape 23.
 - Les lignes de journal sans organisation (compte inconnu, connexions de la console) ne sont lisibles que par le rôle propriétaire. Une tentative d'intrusion sur la console est donc tracée, mais sans écran. La console reste minimale : à traiter à l'étape 22.
 - Un travail n'écrit pas encore dans le journal d'audit : `withAudit` vit dans `apps/web`. À déplacer avec le premier travail qui touche un dossier patient.
-- L'adresse IP des tentatives de connexion vient de `x-forwarded-for`, que seul un proxy de confiance peut garantir. À imposer au déploiement, à l'étape 23.
+- L'adresse retenue pour la limitation est la dernière de `x-forwarded-for`, ajoutée par le proxy. Sans proxy devant l'application, le client la choisit : à imposer au déploiement, à l'étape 23.
+- Un travail n'a pas encore de transaction interactive avec contexte : à ajouter avec le premier qui écrit plusieurs lignes.
+- `limitation_debit` grossit sans purge : premier candidat pour `packages/jobs`.

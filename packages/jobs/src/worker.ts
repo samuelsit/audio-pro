@@ -1,5 +1,6 @@
 import path from 'node:path';
 
+import { chargerTrousseau } from '@ha/adapters';
 import { config } from 'dotenv';
 
 import { FileTravaux } from './file';
@@ -12,6 +13,9 @@ const url = process.env.DATABASE_URL_JOBS;
 if (!url) {
   throw new Error('DATABASE_URL_JOBS n’est pas défini (voir .env.example).');
 }
+
+// Sans clés de chiffrement, mieux vaut refuser de démarrer qu'échouer sur chaque travail.
+chargerTrousseau(process.env);
 
 const file = new FileTravaux(url);
 await file.demarrer();

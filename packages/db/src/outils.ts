@@ -17,13 +17,13 @@ export function urlDuRole(urlAdmin: string, role: RoleConnexion): string {
   return url.toString();
 }
 
-/** Rôles encore sans droit de connexion : ceux que `configurerRoles` doit initialiser. */
-async function rolesSansConnexion(urlAdmin: string): Promise<boolean> {
+/** Rôles encore sans droit de connexion : ceux qu'une base de test doit initialiser. */
+async function rolesSansConnexion(urlAdmin: string): Promise<RoleConnexion[]> {
   const admin = creerPrismaClient(urlAdmin);
   try {
-    const roles = await admin.$queryRaw<{ rolname: string }[]>`
+    const roles = await admin.$queryRaw<{ rolname: RoleConnexion }[]>`
       SELECT rolname FROM pg_roles WHERE rolname = ANY(${[...ROLES_CONNEXION]}) AND NOT rolcanlogin`;
-    return roles.length > 0;
+    return roles.map((r) => r.rolname);
   } finally {
     await admin.$disconnect();
   }
@@ -32,13 +32,13 @@ async function rolesSansConnexion(urlAdmin: string): Promise<boolean> {
 /** Autorise la connexion des rôles, avec le mot de passe de chacun. Rejouable. */
 export async function configurerRoles(
   urlAdmin: string,
-  motsDePasse: Readonly<Record<RoleConnexion, string>>,
+  motsDePasse: Readonly<Partial<Record<RoleConnexion, string>>>,
 ): Promise<void> {
   const admin = creerPrismaClient(urlAdmin);
   try {
-    for (const role of ROLES_CONNEXION) {
+    for (const [role, motDePasse] of Object.entries(motsDePasse)) {
       const [requete] = await admin.$queryRaw<{ sql: string }[]>`
-        SELECT format('ALTER ROLE %I LOGIN PASSWORD %L', ${role}::text, ${motsDePasse[role]}::text) AS sql`;
+        SELECT format('ALTER ROLE %I LOGIN PASSWORD %L', ${role}::text, ${motDePasse}::text) AS sql`;
       await admin.$executeRawUnsafe(requete?.sql ?? '');
     }
   } finally {
@@ -80,13 +80,8 @@ export async function preparerBaseJetable(url: string): Promise<void> {
     stdio: 'pipe',
   });
   // Les rôles valent pour tout le cluster : on ne touche jamais à des mots de passe déjà posés.
-  if (await rolesSansConnexion(url)) {
-    await configurerRoles(url, {
-      ha_app: 'ha_app',
-      ha_plateforme: 'ha_plateforme',
-      ha_jobs: 'ha_jobs',
-    });
-  }
+  const aInitialiser = await rolesSansConnexion(url);
+  await configurerRoles(url, Object.fromEntries(aInitialiser.map((role) => [role, role])));
 }
 
 /** Vide toutes les tables métier et d'authentification. */

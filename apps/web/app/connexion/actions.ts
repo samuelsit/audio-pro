@@ -9,6 +9,7 @@ import { texte, type EtatFormulaire } from '@/lib/formulaire';
 import { chargerCompteConnecte } from '@/server/auth/acces';
 import { auth } from '@/server/auth/auth';
 import {
+  adresseClient,
   enregistrerTentative,
   LIMITE_CONNEXION_EMAIL,
   LIMITE_CONNEXION_IP,
@@ -34,7 +35,7 @@ export async function seConnecter(_: EtatFormulaire, formData: FormData): Promis
   }
 
   const entetes = await headers();
-  const ip = entetes.get('x-forwarded-for')?.split(',')[0]?.trim() || 'inconnue';
+  const ip = adresseClient(entetes.get('x-forwarded-for'));
   const cleEmail = `connexion:email:${email.data}`;
   const sousLimiteEmail = await enregistrerTentative(cleEmail, LIMITE_CONNEXION_EMAIL);
   const sousLimiteIp = await enregistrerTentative(`connexion:ip:${ip}`, LIMITE_CONNEXION_IP);

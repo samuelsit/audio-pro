@@ -6,6 +6,14 @@ export interface RegleLimitation {
   readonly fenetreSecondes: number;
 }
 
+/**
+ * Adresse du client derrière le proxy : la dernière de `x-forwarded-for`, celle que le proxy a ajoutée. Les
+ * précédentes viennent du client, qui pourrait en changer à chaque essai pour échapper à la limite.
+ */
+export function adresseClient(entete: string | null): string {
+  return entete?.split(',').at(-1)?.trim() || 'inconnue';
+}
+
 /** Tentatives de connexion : par adresse e-mail et par adresse IP. */
 export const LIMITE_CONNEXION_EMAIL: RegleLimitation = { max: 10, fenetreSecondes: 15 * 60 };
 export const LIMITE_CONNEXION_IP: RegleLimitation = { max: 30, fenetreSecondes: 15 * 60 };

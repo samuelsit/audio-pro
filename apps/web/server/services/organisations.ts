@@ -114,6 +114,7 @@ async function changerStatut(
   acteur: SuperadminConnecte,
   organisationId: string,
   statut: StatutOrganisation,
+  applicable: (avant: StatutOrganisation) => boolean,
   apresChangement: (tx: Prisma.TransactionClient) => Promise<unknown>,
 ): Promise<void> {
   verifierSuperadmin(acteur);
@@ -127,22 +128,23 @@ async function changerStatut(
       if (!avant) {
         throw new AccesRefuseError();
       }
-      if (avant.statut !== statut) {
+      const change = applicable(avant.statut);
+      if (change) {
         await tx.organisation.update({ where: { id: organisationId }, data: { statut } });
         await apresChangement(tx);
       }
-      return avant;
+      return { ...avant, change };
     },
     () => organisationId,
-    (avant) =>
-      avant.statut === statut
-        ? null
-        : {
+    ({ change, statut: statutAvant }) =>
+      change
+        ? {
             action: 'UPDATE',
             entiteType: 'ORGANISATION',
             entiteId: organisationId,
-            champs: differencesAuditees('ORGANISATION', avant, { statut }),
-          },
+            champs: differencesAuditees('ORGANISATION', { statut: statutAvant }, { statut }),
+          }
+        : null,
   );
 }
 
@@ -151,21 +153,30 @@ export async function suspendreOrganisation(
   acteur: SuperadminConnecte,
   organisationId: string,
 ): Promise<void> {
-  await changerStatut(acteur, organisationId, 'SUSPENDU', (tx) =>
-    tx.session.deleteMany({ where: { utilisateur: { organisationId } } }),
+  await changerStatut(
+    acteur,
+    organisationId,
+    'SUSPENDU',
+    (avant) => avant !== 'SUSPENDU',
+    (tx) => tx.session.deleteMany({ where: { utilisateur: { organisationId } } }),
   );
 }
 
-/** Réactive un client, en essai ou actif : son statut d'avant la suspension n'est pas conservé. */
+/**
+ * Réactive un client suspendu, en essai ou actif : le statut d'avant la suspension n'est pas conservé.
+ * Sans effet sur un client qui ne l'est plus : une page restée ouverte ne le rétrograde pas.
+ */
 export async function reactiverOrganisation(
   acteur: SuperadminConnecte,
   organisationId: string,
   statut: unknown,
 ): Promise<void> {
+  verifierSuperadmin(acteur);
   await changerStatut(
     acteur,
     organisationId,
     valider(statutClientSchema, statut),
+    (avant) => avant === 'SUSPENDU',
     async () => undefined,
   );
 }

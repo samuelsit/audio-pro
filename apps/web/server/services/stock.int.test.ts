@@ -777,10 +777,6 @@ describe('recherche et fiche', () => {
   it('un appareil d’une autre organisation reste invisible', async () => {
     const id = await recevoirUn('AB123');
     const autre = await prisma().organisation.create({ data: { raisonSociale: 'Autre réseau' } });
-    await prisma().utilisateur.update({
-      where: { id: admin.id },
-      data: { organisationId: autre.id },
-    });
     const etranger = { ...admin, organisationId: autre.id };
     expect(await rechercherParNumeroSerie(etranger, 'AB123')).toEqual([]);
     await expect(obtenirFicheAppareil(etranger, id)).rejects.toBeInstanceOf(AccesRefuseError);

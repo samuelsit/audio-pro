@@ -20,12 +20,23 @@ export type Enveloppe = z.infer<typeof enveloppeSchema>;
 
 let chiffreur: ChiffreurAesGcm | undefined;
 
-/** Client soumis à la RLS, avec le même chiffrement que l'application. */
-function clientChiffre(organisationId: string) {
+function creerClient(organisationId: string) {
   chiffreur ??= new ChiffreurAesGcm(chargerTrousseau(process.env));
   return clientOrganisation(organisationId).$extends(
     extensionChampsChiffres(chiffreur, CHAMPS_CHIFFRES),
   );
+}
+
+const clients = new Map<string, ReturnType<typeof creerClient>>();
+
+/** Client soumis à la RLS, avec le même chiffrement que l'application. */
+function clientChiffre(organisationId: string): ReturnType<typeof creerClient> {
+  let client = clients.get(organisationId);
+  if (!client) {
+    client = creerClient(organisationId);
+    clients.set(organisationId, client);
+  }
+  return client;
 }
 
 export interface ContexteTravail {

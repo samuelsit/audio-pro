@@ -2,15 +2,14 @@ import { PrismaPg } from '@prisma/adapter-pg';
 
 import { PrismaClient } from './generated/prisma/client';
 
-// Chaque requête hors transaction ouvre sa propre transaction (voir contexte.ts), et un service en lance
-// jusqu'à 10 en parallèle : sous charge, elle doit attendre une connexion plutôt qu'échouer (ADR-019).
-const CONNEXIONS_PAR_POOL = 20;
+// Chaque requête hors transaction ouvre sa propre transaction (voir contexte.ts) : sous charge, elle doit
+// attendre une connexion plutôt qu'échouer (ADR-019).
 const ATTENTE_CONNEXION_MS = 10_000;
 const DUREE_TRANSACTION_MS = 15_000;
 
 export function creerPrismaClient(connectionString: string): PrismaClient {
   return new PrismaClient({
-    adapter: new PrismaPg({ connectionString, max: CONNEXIONS_PAR_POOL }),
+    adapter: new PrismaPg({ connectionString }),
     transactionOptions: { maxWait: ATTENTE_CONNEXION_MS, timeout: DUREE_TRANSACTION_MS },
   });
 }

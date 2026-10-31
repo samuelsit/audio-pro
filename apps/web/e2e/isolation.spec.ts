@@ -5,8 +5,8 @@ import { codeTotp, COMPTES, motDePasseDemo, ouvrirSelecteurCentre, seConnecter }
 // Identifiants du seed (données fictives) : ceux du réseau, vus depuis le centre indépendant.
 const PATIENT_RESEAU = '019a3000-0000-7000-8000-000000000501';
 const DOSSIER_RESEAU = '019a7000-0000-7000-8000-000000000007';
+const DOSSIER_ESSAI = '019a7000-0000-7000-8000-000000000004';
 const DEVIS_RESEAU = '019a7000-0000-7000-8000-000000000009';
-const PRESCRIPTION_RESEAU = '019a7000-0000-7000-8000-000000000008';
 const PRESCRIPTEUR_RESEAU = '019a7000-0000-7000-8000-000000000101';
 const CENTRE_RESEAU = '019a3000-0000-7000-8000-0000000000a1';
 const UTILISATEUR_RESEAU = '019a3000-0000-7000-8000-000000000201';
@@ -27,14 +27,11 @@ const CHEMINS_METIER = [
   `/prescripteurs/${PRESCRIPTEUR_RESEAU}`,
 ];
 
-const DOCUMENTS = [
-  `/dossiers/${DOSSIER_RESEAU}/devis/${DEVIS_RESEAU}/pdf`,
-  `/dossiers/${DOSSIER_RESEAU}/devis/${DEVIS_RESEAU}/scan`,
-  `/dossiers/${DOSSIER_RESEAU}/essai/compte-rendu`,
-  `/dossiers/${DOSSIER_RESEAU}/essai/justificatif`,
-  `/dossiers/${DOSSIER_RESEAU}/facture/justificatif`,
-  `/dossiers/${DOSSIER_RESEAU}/prescriptions/${PRESCRIPTION_RESEAU}/scan`,
-];
+/**
+ * Seul document que le seed sait produire : les autres clés du seed ne pointent sur aucun fichier, et un 404
+ * n'y prouverait rien. Les vrais fichiers sont testés dans server/isolation.int.test.ts.
+ */
+const DOCUMENT = `/dossiers/${DOSSIER_ESSAI}/essai/compte-rendu`;
 
 /** Pages d'Administration : seul un ADMIN_CLIENT les atteint, donc lui seul prouve l'isolation. */
 const CHEMINS_ADMIN = [
@@ -56,16 +53,25 @@ test('un utilisateur du centre indépendant ne voit rien du réseau', async ({ p
       expect(reponse?.status()).toBe(404);
     });
   }
-  for (const chemin of DOCUMENTS) {
-    await test.step(`document ${chemin}`, async () => {
-      const reponse = await page.request.get(chemin);
-      expect(reponse.status()).toBe(404);
-    });
-  }
+  const document = await page.request.get(DOCUMENT);
+  expect(document.status()).toBe(404);
 
   await page.goto('/patients');
   await expect(page.getByRole('link', { name: 'DELORME' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'LEMAIRE' })).toHaveCount(0);
+});
+
+test('témoin : les mêmes adresses répondent pour un utilisateur du réseau', async ({ page }) => {
+  await seConnecter(page, COMPTES.audioNordCentre);
+  await expect(page.getByRole('heading', { name: /^Bonjour/ })).toBeVisible();
+  for (const chemin of CHEMINS_METIER) {
+    await test.step(`page ${chemin}`, async () => {
+      const reponse = await page.goto(chemin);
+      expect(reponse?.status()).toBe(200);
+    });
+  }
+  const document = await page.request.get(DOCUMENT);
+  expect(document.status()).toBe(200);
 });
 
 test('un admin du centre indépendant ne voit rien du réseau, même en Administration', async ({

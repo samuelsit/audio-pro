@@ -1,3 +1,5 @@
+import { randomInt } from 'node:crypto';
+
 import { base32 } from '@better-auth/utils/base32';
 import { createOTP } from '@better-auth/utils/otp';
 import { prisma } from '@ha/db/admin';
@@ -26,6 +28,8 @@ export function motDePasseDemo(): string {
 }
 
 export async function seConnecter(page: Page, email: string): Promise<void> {
+  // Connexions limitées par adresse IP : chaque connexion vient d'un poste distinct.
+  await page.setExtraHTTPHeaders({ 'x-forwarded-for': `10.0.${randomInt(256)}.${randomInt(256)}` });
   await page.goto('/connexion');
   await page.getByLabel('Adresse e-mail').fill(email);
   await page.getByLabel('Mot de passe').fill(motDePasseDemo());

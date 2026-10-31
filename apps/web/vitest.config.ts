@@ -10,5 +10,7 @@ export default defineProject({
     setupFiles: ['test/setup.ts'],
     // Une seule base partagée : les fichiers s'exécutent l'un après l'autre.
     fileParallelism: false,
+    // Vider la base et recréer le jeu de données dépasse parfois les 10 s par défaut sur une machine chargée.
+    hookTimeout: 30_000,
   },
 });

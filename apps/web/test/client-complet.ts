@@ -1,5 +1,7 @@
 import { prisma } from '@ha/db/admin';
 
+import { base } from '@/server/chiffrement';
+
 import { creerCatalogueDevis, dossierJusquAchat, identifierCentreA, SCAN } from './devis';
 import { creerJeuDeDonnees } from './donnees';
 
@@ -53,7 +55,7 @@ export async function creerClientComplet(suffixe: string) {
   await prisma().stockAccessoire.create({
     data: { centreId: d.centres.a.id, accessoireId: catalogue.piles, quantite: 3 },
   });
-  await prisma().mouvementAccessoire.create({
+  await base({ organisationId }).mouvementAccessoire.create({
     data: {
       organisationId,
       centreId: d.centres.a.id,
@@ -62,7 +64,7 @@ export async function creerClientComplet(suffixe: string) {
       quantite: 3,
       quantiteApres: 3,
       utilisateurId,
-      motif: 'v1.fictif',
+      motif: 'Réception fictive',
     },
   });
   await prisma().delivrance.create({
@@ -75,12 +77,12 @@ export async function creerClientComplet(suffixe: string) {
       origine: 'REPRISE',
     },
   });
-  await prisma().prolongationEssai.create({
+  await base({ organisationId }).prolongationEssai.create({
     data: {
       essaiId,
       dateDemande: new Date('2026-01-05T00:00:00.000Z'),
       jours: 15,
-      motif: 'v1.fictif',
+      motif: 'Prolongation fictive',
       justificatifCle: `prolongations/${organisationId}`,
       justificatifType: 'application/pdf',
       justificatifTaille: SCAN.length,

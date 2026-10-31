@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { viderBase } from '@/test/donnees';
 
-import { enregistrerTentative, reinitialiserTentatives } from './limitation';
+import { adresseClient, enregistrerTentative, reinitialiserTentatives } from './limitation';
 
 const regle = { max: 3, fenetreSecondes: 60 };
 const t0 = 1_800_000_000_000;
@@ -27,6 +27,18 @@ describe('enregistrerTentative', () => {
     expect(await enregistrerTentative('connexion:b', regle, t0)).toBe(true);
     await reinitialiserTentatives('connexion:a');
     expect(await enregistrerTentative('connexion:a', regle, t0)).toBe(true);
+  });
+});
+
+describe('adresseClient', () => {
+  it.each([
+    { entete: '198.51.100.7', attendu: '198.51.100.7' },
+    { entete: '1.2.3.4, 198.51.100.7', attendu: '198.51.100.7' },
+    { entete: ' 1.2.3.4 ,198.51.100.7 ', attendu: '198.51.100.7' },
+    { entete: '', attendu: 'inconnue' },
+    { entete: null, attendu: 'inconnue' },
+  ])('« $entete » → $attendu', ({ entete, attendu }) => {
+    expect(adresseClient(entete)).toBe(attendu);
   });
 });
 

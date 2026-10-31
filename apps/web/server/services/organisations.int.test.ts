@@ -65,16 +65,20 @@ describe('SUPERADMIN', () => {
   });
 
   it('la base refuse un SUPERADMIN rattaché, et un utilisateur client sans organisation', async () => {
+    const compte = { prenom: 'Test', nom: 'Test', name: 'Test Test' };
     await expect(
-      prisma().utilisateur.update({
-        where: { id: superadmin.id },
-        data: { organisationId: d.organisation.id },
+      prisma().utilisateur.create({
+        data: {
+          ...compte,
+          email: 'a@exemple.test',
+          role: ROLE_SUPERADMIN,
+          organisationId: d.organisation.id,
+        },
       }),
     ).rejects.toThrow(/utilisateur_superadmin_sans_organisation/);
     await expect(
-      prisma().utilisateur.update({
-        where: { id: d.utilisateurs.assistantA.id },
-        data: { organisationId: null },
+      prisma().utilisateur.create({
+        data: { ...compte, email: 'b@exemple.test', role: 'AUDIO', organisationId: null },
       }),
     ).rejects.toThrow(/utilisateur_superadmin_sans_organisation/);
   });
@@ -188,6 +192,19 @@ describe('suspension', () => {
       where: { id: d.organisation.id },
     });
     expect(statut).toBe('ESSAI');
+  });
+
+  it('une réactivation tardive ne rétrograde pas un client déjà actif', async () => {
+    await suspendreOrganisation(superadmin, d.organisation.id);
+    await reactiverOrganisation(superadmin, d.organisation.id, 'ACTIF');
+    const lignes = () => prisma().journalAudit.count({ where: { entiteType: 'ORGANISATION' } });
+    const avant = await lignes();
+    await reactiverOrganisation(superadmin, d.organisation.id, 'ESSAI');
+    const { statut } = await prisma().organisation.findUniqueOrThrow({
+      where: { id: d.organisation.id },
+    });
+    expect(statut).toBe('ACTIF');
+    expect(await lignes()).toBe(avant);
   });
 
   it('refuse de réactiver vers un statut inconnu', async () => {

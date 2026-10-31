@@ -430,10 +430,40 @@ describe('identifiant d’un autre client forcé dans l’URL', () => {
     await expect(appel(a.d.acteurs.admin, b)).rejects.toBeInstanceOf(AccesRefuseError);
   });
 
-  it('les mêmes appels réussissent chez soi (le test ne refuse pas tout)', async () => {
-    const admin = a.d.acteurs.admin;
-    await expect(obtenirPatient(admin, a.patientId)).resolves.toMatchObject({ type: 'fiche' });
-    await expect(obtenirFicheAppareil(admin, a.appareilId)).resolves.toBeDefined();
-    await expect(obtenirCentre(admin, a.d.centres.a.id)).resolves.toBeDefined();
+  /** Lectures dont le document ou la ligne existe chez soi : sans ce témoin, un refus ne prouverait rien. */
+  const TEMOINS = CAS.filter(
+    ({ entite }) =>
+      !entite.startsWith('modification') &&
+      !['désactivation de prescripteur', 'changement de statut d’appareil'].includes(entite) &&
+      !['justificatif d’essai', 'justificatif de PEC'].includes(entite),
+  );
+
+  it.each(TEMOINS)('témoin : $entite réussit chez soi', async ({ appel }) => {
+    await expect(appel(a.d.acteurs.admin, a)).resolves.not.toThrow();
+  });
+
+  it('une ligne ne change pas de client, même pour le rôle propriétaire', async () => {
+    await expect(
+      prisma().couvertureAmc.updateMany({
+        where: { patientId: a.patientId },
+        data: { organisationId: idB },
+      }),
+    ).rejects.toThrow();
+    await expect(
+      prisma().utilisateur.update({
+        where: { id: a.d.utilisateurs.assistantA.id },
+        data: { organisationId: idB },
+      }),
+    ).rejects.toThrow();
+  });
+
+  it('chaque table d’organisation interdit de changer de client', async () => {
+    const tables = await prisma().$queryRaw<{ table: string }[]>`
+      SELECT tgrelid::regclass::text AS "table" FROM pg_trigger
+      WHERE tgname = 'zz_organisation_immuable'`;
+    const attendues = TABLES_ISOLEES.filter(
+      (t) => t !== 'organisation' && !TABLES_IDENTITE.includes(t),
+    );
+    expect(tables.map((t) => t.table).sort()).toEqual([...attendues].sort());
   });
 });
