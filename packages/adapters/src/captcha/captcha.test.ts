@@ -38,10 +38,10 @@ describe('AltchaCaptcha', () => {
 });
 
 describe('FakeCaptcha', () => {
-  it('n’accepte que la réponse simulée', async () => {
+  it('n’accepte que les réponses simulées', async () => {
     const captcha = new FakeCaptcha();
     expect(await captcha.creerDefi()).toContain('simulation');
-    await expect(captcha.verifier(REPONSE_CAPTCHA_SIMULEE)).resolves.toBe(true);
+    await expect(captcha.verifier(`${REPONSE_CAPTCHA_SIMULEE}-1`)).resolves.toBe(true);
     await expect(captcha.verifier('autre')).resolves.toBe(false);
   });
 });

@@ -6,6 +6,7 @@ import {
   occupeLeCreneau,
   type ExceptionAgenda,
   type HorairesOuverture,
+  type Occupation,
 } from '@ha/domain';
 
 import { AccesRefuseError } from '../auth/acces';
@@ -60,4 +61,61 @@ export async function exceptionsDeLaPeriode(
     select: selectionException,
   });
   return lignes.map(versException);
+}
+
+export interface PeriodeOccupee {
+  readonly debut: number;
+  readonly fin: number;
+  readonly praticienIds: readonly string[];
+  readonly cabineIds: readonly string[];
+  readonly instant: Date;
+  /** Rendez-vous qu'on déplace : il ne se gêne pas lui-même. */
+  readonly exclure?: string;
+  /** Réservation qu'on finalise : même chose pour son propre verrou. */
+  readonly exclureVerrou?: string;
+}
+
+/**
+ * Rendez-vous et verrous en ligne encore valides sur cette période. Le marqueur `verrou` les distingue : un
+ * verrou n'est pas un rendez-vous, et un interne peut passer outre (ADR-021).
+ */
+export async function occupationsDeLaPeriode(
+  client: Pick<ClientTransaction, 'rendezVous' | 'reservationEnLigne'>,
+  periode: PeriodeOccupee,
+): Promise<Occupation[]> {
+  const { debut, fin, praticienIds, cabineIds, instant, exclure, exclureVerrou } = periode;
+  const chevauchement = { debut: { lt: new Date(fin) }, fin: { gt: new Date(debut) } };
+  const ressources = [
+    { praticienId: { in: [...praticienIds] } },
+    { cabineId: { in: [...cabineIds] } },
+  ];
+  const selection = { praticienId: true, cabineId: true, debut: true, fin: true } as const;
+  const rendezVous = await client.rendezVous.findMany({
+    where: {
+      ...(exclure ? { id: { not: exclure } } : {}),
+      ...chevauchement,
+      statut: { in: STATUTS_OCCUPANTS },
+      OR: ressources,
+    },
+    select: selection,
+  });
+  const verrous = await client.reservationEnLigne.findMany({
+    where: {
+      ...(exclureVerrou ? { id: { not: exclureVerrou } } : {}),
+      ...chevauchement,
+      statut: 'VERROU',
+      expireLe: { gt: instant },
+      OR: ressources,
+    },
+    select: selection,
+  });
+  const versOccupation = (o: (typeof rendezVous)[number]) => ({
+    ...o,
+    debut: o.debut.getTime(),
+    fin: o.fin.getTime(),
+  });
+  return [
+    ...rendezVous.map(versOccupation),
+    ...verrous.map((v) => ({ ...versOccupation(v), verrou: true })),
+  ];
 }

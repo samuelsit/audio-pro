@@ -102,7 +102,8 @@ function causePostgres(erreur: object): CausePostgres | undefined {
 
 /**
  * Ressource perdue d'une réservation simultanée, sinon `null` : la contrainte d'exclusion (23P01) a tranché,
- * ou deux insertions se sont interbloquées (40P01), ce qui revient au même pour le perdant.
+ * ou deux insertions se sont interbloquées (40P01), ce qui revient au même pour le perdant. Vaut pour les
+ * contraintes de `rendez_vous` comme pour celles des verrous de `reservation_en_ligne`.
  */
 export function ressourcePerdue(erreur: unknown): CodeConflit | null {
   if (typeof erreur !== 'object' || erreur === null) {
@@ -112,7 +113,8 @@ export function ressourcePerdue(erreur: unknown): CodeConflit | null {
   if (originalCode !== '23P01' && originalCode !== '40P01') {
     return null;
   }
-  return typeof originalMessage === 'string' && originalMessage.includes('rendez_vous_cabine')
+  return typeof originalMessage === 'string' &&
+    originalMessage.includes('_cabine_sans_chevauchement')
     ? 'CABINE_PRISE'
     : 'PRATICIEN_PRIS';
 }

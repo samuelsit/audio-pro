@@ -42,7 +42,14 @@ import { withAudit, type EvenementAudit } from '../audit/journal';
 import { base, type ClientTransaction } from '../chiffrement';
 import { ErreurConflitAgenda, ErreurSaisie, ressourcePerdue, valider } from '../erreurs';
 import { publierEvenement } from '../evenements';
-import { centreActif, exceptionsDeLaPeriode, horaires, STATUTS_OCCUPANTS } from './agenda-socle';
+import {
+  centreActif,
+  exceptionsDeLaPeriode,
+  horaires,
+  occupationsDeLaPeriode,
+  STATUTS_OCCUPANTS,
+} from './agenda-socle';
+import { notifierPatientEnLigne } from './notifications-reservation';
 import {
   ecrirePatient,
   evenementCreation,
@@ -74,7 +81,7 @@ export class ErreurRdvModifie extends ErreurSaisie {
 }
 
 /** Traduit le verdict de la contrainte d'exclusion, dernier rempart après `detecterConflits`. */
-async function sousExclusion<T>(operation: () => Promise<T>): Promise<T> {
+export async function sousExclusion<T>(operation: () => Promise<T>): Promise<T> {
   try {
     return await operation();
   } catch (erreur) {
@@ -197,6 +204,8 @@ export interface AgendaPeriode {
   ouverture: Record<string, Intervalle[]>;
   /** Praticiens de ce centre occupés ailleurs : sans identité, ces patients sont hors du périmètre. */
   occupationsAilleurs: { praticienId: string; debut: number; fin: number }[];
+  /** Créneaux tenus par un patient en train de réserver en ligne, sans identité. */
+  verrous: { praticienId: string | null; cabineId: string | null; debut: number; fin: number }[];
 }
 
 function datesDe(du: string, au: string): string[] {
@@ -207,8 +216,11 @@ function datesDe(du: string, au: string): string[] {
   return dates;
 }
 
-async function praticiensDuCentre(acteur: UtilisateurConnecte, centreId: string) {
-  const lignes = await base(acteur).praticienCentre.findMany({
+export async function praticiensDuCentre(
+  client: Pick<ClientTransaction, 'praticienCentre'>,
+  centreId: string,
+) {
+  const lignes = await client.praticienCentre.findMany({
     where: { centreId, praticien: { utilisateur: { actif: true } } },
     select: {
       praticienId: true,
@@ -237,8 +249,8 @@ export async function lireAgenda(
   const { horairesOuverture } = await centreActif(client, centreId);
   const debut = new Date(bornesJourMs(du).debut);
   const fin = new Date(bornesJourMs(au).fin);
-  const praticiens = await praticiensDuCentre(acteur, centreId);
-  const [lignes, cabines, exceptions, ailleurs] = await Promise.all([
+  const praticiens = await praticiensDuCentre(client, centreId);
+  const [lignes, cabines, exceptions, ailleurs, verrous] = await Promise.all([
     client.rendezVous.findMany({
       where: { centreId, debut: { lt: fin }, fin: { gt: debut }, statut: { not: 'ANNULE' } },
       select: selectionGrille,
@@ -259,6 +271,16 @@ export async function lireAgenda(
         statut: { in: STATUTS_OCCUPANTS },
       },
       select: { praticienId: true, debut: true, fin: true },
+    }),
+    client.reservationEnLigne.findMany({
+      where: {
+        centreId,
+        statut: 'VERROU',
+        expireLe: { gt: maintenant() },
+        debut: { lt: fin },
+        fin: { gt: debut },
+      },
+      select: { praticienId: true, cabineId: true, debut: true, fin: true },
     }),
   ]);
   const dates = datesDe(du, au);
@@ -294,6 +316,7 @@ export async function lireAgenda(
     occupationsAilleurs: ailleurs.flatMap(({ praticienId, debut: d, fin: f }) =>
       praticienId === null ? [] : [{ praticienId, debut: d.getTime(), fin: f.getTime() }],
     ),
+    verrous: verrous.map((v) => ({ ...v, debut: v.debut.getTime(), fin: v.fin.getTime() })),
   };
 }
 
@@ -305,10 +328,35 @@ export interface RdvDetail extends RdvGrille {
   prospectNom: string | null;
   prospectTelephone: string | null;
   arriveLe: number | null;
+  /** Identité saisie en ligne par un prospect : préremplit sa fiche à l'arrivée. */
+  identiteEnLigne: IdentiteEnLigne | null;
+}
+
+export interface IdentiteEnLigne {
+  nom: string | null;
+  prenom: string | null;
+  dateNaissance: string | null;
+  email: string | null;
+  consentementSms: boolean;
 }
 
 function selectionDetail() {
-  return { ...selectionGrille, typeRdvId: true, notes: true, dossierId: true, arriveLe: true };
+  return {
+    ...selectionGrille,
+    typeRdvId: true,
+    notes: true,
+    dossierId: true,
+    arriveLe: true,
+    reservationEnLigne: {
+      select: {
+        nom: true,
+        prenom: true,
+        dateNaissance: true,
+        email: true,
+        consentementSmsLe: true,
+      },
+    },
+  };
 }
 
 /** Ouvre un rendez-vous : ses notes peuvent porter des données de santé, d'où une ligne READ. */
@@ -341,6 +389,28 @@ export async function lireRdv(acteur: UtilisateurConnecte, id: string): Promise<
     prospectNom: ligne.prospectNom,
     prospectTelephone: ligne.prospectTelephone,
     arriveLe: ligne.arriveLe?.getTime() ?? null,
+    identiteEnLigne: identiteEnLigne(ligne.reservationEnLigne),
+  };
+}
+
+function identiteEnLigne(
+  r: {
+    nom: string | null;
+    prenom: string | null;
+    dateNaissance: Date | null;
+    email: string | null;
+    consentementSmsLe: Date | null;
+  } | null,
+): IdentiteEnLigne | null {
+  if (r === null || r.nom === null) {
+    return null;
+  }
+  return {
+    nom: r.nom,
+    prenom: r.prenom,
+    dateNaissance: r.dateNaissance?.toISOString().slice(0, 10) ?? null,
+    email: r.email,
+    consentementSms: r.consentementSmsLe !== null,
   };
 }
 
@@ -477,7 +547,7 @@ export async function chercherCreneaux(
     throw ErreurSaisie.surChamp('typeRdvId', 'Type de rendez-vous inconnu.');
   }
   const { horairesOuverture } = await centreActif(client, centreId);
-  const tous = await praticiensDuCentre(acteur, centreId);
+  const tous = await praticiensDuCentre(client, centreId);
   const praticiens = praticienId === null ? tous : tous.filter((p) => p.id === praticienId);
   if (praticienId !== null && praticiens.length === 0) {
     throw ErreurSaisie.surChamp('praticienId', 'Ce praticien n’exerce pas dans ce centre.');
@@ -493,14 +563,12 @@ export async function chercherCreneaux(
   const fin = bornesJourMs(au).fin;
   const [exceptions, occupations] = await Promise.all([
     exceptionsDeLaPeriode(client, debut, fin),
-    client.rendezVous.findMany({
-      where: {
-        debut: { lt: new Date(fin) },
-        fin: { gt: new Date(debut) },
-        statut: { in: STATUTS_OCCUPANTS },
-        OR: [{ praticienId: { in: praticiens.map((p) => p.id) } }, { cabineId: { in: cabineIds } }],
-      },
-      select: { praticienId: true, cabineId: true, debut: true, fin: true },
+    occupationsDeLaPeriode(client, {
+      debut,
+      fin,
+      praticienIds: praticiens.map((p) => p.id),
+      cabineIds,
+      instant: maintenant(),
     }),
   ]);
   const creneaux = calculerCreneauxLibres({
@@ -514,11 +582,7 @@ export async function chercherCreneaux(
     cabines: cabineIds,
     horairesCentre: horairesOuverture,
     exceptions,
-    occupations: occupations.map((o) => ({
-      ...o,
-      debut: o.debut.getTime(),
-      fin: o.fin.getTime(),
-    })),
+    occupations,
     pasAvant: maintenant().getTime(),
     limite: CRENEAUX_PROPOSES,
   });
@@ -533,12 +597,12 @@ export async function chercherCreneaux(
 // Conflits
 // ---------------------------------------------------------------------------
 
-interface ContexteCreneau extends ContexteConflits {
+export interface ContexteCreneau extends ContexteConflits {
   readonly cabines: readonly string[];
 }
 
 /** Tout ce que juge `detecterConflits` pour ce créneau, lu dans la transaction de l'écriture. */
-async function contexteDuCreneau(
+export async function contexteDuCreneau(
   tx: ClientTransaction,
   creneau: {
     readonly centreId: string;
@@ -546,9 +610,12 @@ async function contexteDuCreneau(
     readonly debut: number;
     readonly fin: number;
     readonly exclure?: string;
+    readonly exclureVerrou?: string;
+    /** Instant de référence des verrous : celui du service appelant. */
+    readonly instant?: Date;
   },
 ): Promise<ContexteCreneau> {
-  const { centreId, praticienId, debut, fin, exclure } = creneau;
+  const { centreId, praticienId, debut, fin, exclure, exclureVerrou, instant } = creneau;
   const { horairesOuverture } = await centreActif(tx, centreId);
   const exercice = praticienId
     ? await tx.praticienCentre.findUnique({
@@ -567,26 +634,21 @@ async function contexteDuCreneau(
   const cabineIds = cabines.map((c) => c.id);
   const jour = bornesJourMs(localDepuisInstant(debut).date);
   const exceptions = await exceptionsDeLaPeriode(tx, jour.debut, jour.fin);
-  const occupations = await tx.rendezVous.findMany({
-    where: {
-      ...(exclure ? { id: { not: exclure } } : {}),
-      debut: { lt: new Date(fin) },
-      fin: { gt: new Date(debut) },
-      statut: { in: STATUTS_OCCUPANTS },
-      OR: [...(praticienId ? [{ praticienId }] : []), { cabineId: { in: cabineIds } }],
-    },
-    select: { praticienId: true, cabineId: true, debut: true, fin: true },
+  const occupations = await occupationsDeLaPeriode(tx, {
+    debut,
+    fin,
+    praticienIds: praticienId ? [praticienId] : [],
+    cabineIds,
+    instant: instant ?? maintenant(),
+    ...(exclure ? { exclure } : {}),
+    ...(exclureVerrou ? { exclureVerrou } : {}),
   });
   return {
     cabines: cabineIds,
     horairesCentre: horairesOuverture,
     horairesPraticien: exercice ? horaires(exercice.horaires) : null,
     exceptions,
-    occupations: occupations.map((o) => ({
-      ...o,
-      debut: o.debut.getTime(),
-      fin: o.fin.getTime(),
-    })),
+    occupations,
   };
 }
 
@@ -601,7 +663,7 @@ function cabineDisponible(
 }
 
 /** La cabine demandée, ou la première libre, de préférence dans ses disponibilités. */
-function choisirCabine(
+export function choisirCabine(
   candidat: Omit<Candidat, 'cabineId'>,
   souhaitee: string | null,
   requise: boolean,
@@ -627,7 +689,7 @@ function choisirCabine(
 }
 
 /** Refuse ce qui ne se force pas, et ce qui n'a pas été confirmé. Renvoie ce qui a été confirmé. */
-function verifierConflits(
+export function verifierConflits(
   candidat: Candidat,
   contexte: ContexteCreneau,
   confirmer: boolean,
@@ -643,7 +705,7 @@ function verifierConflits(
 // Écriture
 // ---------------------------------------------------------------------------
 
-const selectionEcriture = {
+export const selectionEcriture = {
   id: true,
   version: true,
   centreId: true,
@@ -662,7 +724,7 @@ const selectionEcriture = {
   typeRdv: { select: { requiereCabine: true, requierePraticien: true } },
 } as const;
 
-type RdvLu = Prisma.RendezVousGetPayload<{ select: typeof selectionEcriture }>;
+export type RdvLu = Prisma.RendezVousGetPayload<{ select: typeof selectionEcriture }>;
 
 function instantane(r: Omit<RdvLu, 'typeRdv' | 'version'>) {
   return {
@@ -677,7 +739,7 @@ function instantane(r: Omit<RdvLu, 'typeRdv' | 'version'>) {
   };
 }
 
-function charge(r: Omit<RdvLu, 'typeRdv' | 'version'>) {
+export function charge(r: Omit<RdvLu, 'typeRdv' | 'version'>) {
   return {
     rendezVousId: r.id,
     centreId: r.centreId,
@@ -705,7 +767,7 @@ async function lireRdvPourEcrire(
 }
 
 /** Toute écriture passe ici : la version lue doit être la dernière (verrou optimiste). */
-async function ecrireRdv(
+export async function ecrireRdv(
   tx: ClientTransaction,
   id: string,
   version: number,
@@ -722,7 +784,7 @@ async function ecrireRdv(
 
 const RDV = 'RENDEZ_VOUS';
 
-function evenementRdv(
+export function evenementRdv(
   rdv: Omit<RdvLu, 'typeRdv' | 'version'>,
   avant: Parameters<typeof instantane>[0] | null,
   details?: Readonly<Record<string, unknown>>,
@@ -831,6 +893,62 @@ export async function creerRdv(acteur: UtilisateurConnecte, saisie: unknown): Pr
   return rdv.id;
 }
 
+export interface CibleDeplacement {
+  readonly version: number;
+  readonly praticienId: string | null;
+  readonly debut: number;
+  readonly fin: number;
+  readonly confirmer: boolean;
+  /** Le patient ne garde pas toujours son statut en changeant d'horaire (`statutApresDeplacementEnLigne`). */
+  readonly statut?: StatutRdv;
+  readonly instant: Date;
+}
+
+/** Déplacement dans une transaction, sans acteur : partagé avec le lien du patient. */
+export async function appliquerDeplacement(
+  tx: ClientTransaction,
+  rdv: RdvLu,
+  cible: CibleDeplacement,
+) {
+  const { version, praticienId, debut, fin, confirmer, statut, instant } = cible;
+  const candidat = { centreId: rdv.centreId, praticienId, debut, fin };
+  const contexte = await contexteDuCreneau(tx, { ...candidat, exclure: rdv.id, instant });
+  const garde =
+    rdv.cabineId !== null && !contexte.occupations.some((o) => o.cabineId === rdv.cabineId);
+  const cabineId = choisirCabine(
+    candidat,
+    garde ? rdv.cabineId : null,
+    rdv.cabineId !== null || rdv.typeRdv.requiereCabine,
+    contexte,
+  );
+  const conflits = verifierConflits({ ...candidat, cabineId }, contexte, confirmer);
+  const apres = {
+    ...rdv,
+    praticienId,
+    cabineId,
+    debut: new Date(debut),
+    fin: new Date(fin),
+    statut: statut ?? rdv.statut,
+  };
+  await ecrireRdv(tx, rdv.id, version, {
+    praticienId,
+    cabineId,
+    debut: apres.debut,
+    fin: apres.fin,
+    statut: apres.statut,
+  });
+  const evenement: EvenementAgenda = {
+    type: 'RDV_DEPLACE',
+    charge: {
+      ...charge(apres),
+      ancienDebut: rdv.debut.toISOString(),
+      ancienFin: rdv.fin.toISOString(),
+    },
+  };
+  await publierEvenement(tx, evenement, instant);
+  return { apres, conflits };
+}
+
 /** Déplace ou redimensionne, y compris d'un praticien à l'autre. La cabine suit si elle reste libre. */
 export async function deplacerRdv(
   acteur: UtilisateurConnecte,
@@ -853,48 +971,19 @@ export async function deplacerRdv(
             'Cette heure n’existe pas ce jour-là (changement d’heure).',
           );
         }
-        const fin = debut + d.dureeMinutes * MS_PAR_MINUTE;
         const praticienId = d.praticienId === undefined ? rdv.praticienId : d.praticienId;
         if (rdv.typeRdv.requierePraticien && praticienId === null) {
           throw ErreurSaisie.surChamp('praticienId', 'Choisir le praticien.');
         }
-        const candidat = { centreId: rdv.centreId, praticienId, debut, fin };
-        const contexte = await contexteDuCreneau(tx, { ...candidat, exclure: id });
-        const garde =
-          rdv.cabineId !== null && !contexte.occupations.some((o) => o.cabineId === rdv.cabineId);
-        const cabineId = choisirCabine(
-          candidat,
-          garde ? rdv.cabineId : null,
-          rdv.cabineId !== null || rdv.typeRdv.requiereCabine,
-          contexte,
-        );
-        const conflits = verifierConflits(
-          { ...candidat, cabineId },
-          contexte,
-          d.confirmerHorsDisponibilites,
-        );
-        const apres = {
-          ...rdv,
+        const { apres, conflits } = await appliquerDeplacement(tx, rdv, {
+          version: d.version,
           praticienId,
-          cabineId,
-          debut: new Date(debut),
-          fin: new Date(fin),
-        };
-        await ecrireRdv(tx, id, d.version, {
-          praticienId,
-          cabineId,
-          debut: apres.debut,
-          fin: apres.fin,
+          debut,
+          fin: debut + d.dureeMinutes * MS_PAR_MINUTE,
+          confirmer: d.confirmerHorsDisponibilites,
+          instant: maintenant(),
         });
-        const evenement: EvenementAgenda = {
-          type: 'RDV_DEPLACE',
-          charge: {
-            ...charge(apres),
-            ancienDebut: rdv.debut.toISOString(),
-            ancienFin: rdv.fin.toISOString(),
-          },
-        };
-        await publierEvenement(tx, evenement, maintenant());
+        await notifierPatientEnLigne(tx, apres, 'RDV_DEPLACE', d.version + 1);
         return { rdv, apres, conflits };
       },
       ({ rdv, apres, conflits }) => evenementRdv(apres, rdv, detailsConfirmation(conflits)),
@@ -956,6 +1045,9 @@ export async function changerStatutRdv(
           ? { termineLe: instant, priseEnChargeLe: rdv.priseEnChargeLe ?? instant }
           : {};
       await ecrireRdv(tx, id, version, { statut, ...termine });
+      if (statut === 'CONFIRME' && rdv.statut === 'PLANIFIE') {
+        await notifierPatientEnLigne(tx, rdv, 'RDV_ACCEPTE', version + 1);
+      }
       return { rdv, apres: { ...rdv, statut } };
     },
     ({ rdv, apres }) => evenementRdv(apres, rdv),
@@ -990,6 +1082,18 @@ export async function prendreEnCharge(
   );
 }
 
+/** Annulation dans une transaction, sans acteur : partagée avec le lien du patient. */
+export async function appliquerAnnulation(
+  tx: ClientTransaction,
+  rdv: RdvLu,
+  version: number,
+  instant: Date,
+) {
+  await ecrireRdv(tx, rdv.id, version, { statut: 'ANNULE' });
+  await publierEvenement(tx, { type: 'RDV_ANNULE', charge: charge(rdv) }, instant);
+  return { ...rdv, statut: 'ANNULE' as const };
+}
+
 /** Annule : le créneau se libère et l'événement part pour les rappels. */
 export async function annulerRdv(
   acteur: UtilisateurConnecte,
@@ -1004,9 +1108,11 @@ export async function annulerRdv(
       if (!peutPasserA(rdv.statut, 'ANNULE')) {
         throw new ErreurSaisie({}, 'Ce rendez-vous ne peut plus être annulé.');
       }
-      await ecrireRdv(tx, id, versionLue, { statut: 'ANNULE' });
-      await publierEvenement(tx, { type: 'RDV_ANNULE', charge: charge(rdv) }, maintenant());
-      return { rdv, apres: { ...rdv, statut: 'ANNULE' as const } };
+      const apres = await appliquerAnnulation(tx, rdv, versionLue, maintenant());
+      // Annuler une demande pas encore acceptée, c'est la refuser.
+      const gabarit = rdv.statut === 'PLANIFIE' ? 'RDV_REFUSE' : 'RDV_ANNULE';
+      await notifierPatientEnLigne(tx, rdv, gabarit, versionLue + 1);
+      return { rdv, apres };
     },
     ({ rdv, apres }) => evenementRdv(apres, rdv),
   );
@@ -1018,7 +1124,11 @@ const arriveeSchema = z.object({
 });
 
 function saisiePatient(
-  rdv: { centreId: string; prospectTelephone: string | null },
+  rdv: {
+    centreId: string;
+    prospectTelephone: string | null;
+    reservationEnLigne: { email: string | null; consentementSmsLe: Date | null } | null;
+  },
   prospect: Extract<z.output<typeof arriveeProspectSchema>, { mode: 'NOUVEAU' }>,
 ) {
   const { civilite, nomNaissance, prenoms, dateNaissance, sexe } = prospect;
@@ -1030,7 +1140,9 @@ function saisiePatient(
     dateNaissance,
     sexe,
     telephone: rdv.prospectTelephone,
-    consentementSms: false,
+    email: rdv.reservationEnLigne?.email ?? null,
+    // Le consentement donné en réservant suit le prospect sur sa fiche.
+    consentementSms: (rdv.reservationEnLigne?.consentementSmsLe ?? null) !== null,
     consentementEmail: false,
     consentementCourrier: false,
     amoC2s: false,
@@ -1048,7 +1160,12 @@ export async function marquerArrivee(
   // Contrôles de la fiche nouvelle hors transaction : ils lisent par `base(acteur)` (ADR-019).
   const lu = await base(acteur).rendezVous.findFirst({
     where: { id },
-    select: { centreId: true, patientId: true, prospectTelephone: true },
+    select: {
+      centreId: true,
+      patientId: true,
+      prospectTelephone: true,
+      reservationEnLigne: { select: { email: true, consentementSmsLe: true } },
+    },
   });
   if (!lu) {
     throw new AccesRefuseError();
@@ -1113,8 +1230,35 @@ export async function marquerArrivee(
         prospectNom: null,
         prospectTelephone: null,
       });
+      if (rdv.patientId === null) {
+        await tx.reservationEnLigne.updateMany({
+          where: { rendezVousId: id },
+          data: { nom: null, prenom: null, dateNaissance: null },
+        });
+      }
       return { rdv, apres: { ...rdv, statut: 'ARRIVE' as const, patientId }, creation };
     },
     ({ rdv, apres, creation }) => [...(creation ? [creation] : []), evenementRdv(apres, rdv)],
   );
+}
+
+/** Demandes en ligne à valider : à venir, ni acceptées ni refusées. */
+export async function listerDemandesEnLigne(
+  acteur: UtilisateurConnecte,
+  centreId: string,
+): Promise<RdvGrille[]> {
+  verifierAccesCentre(acteur, centreId);
+  await centreActif(base(acteur), centreId);
+  const lignes = await base(acteur).rendezVous.findMany({
+    where: {
+      centreId,
+      origine: 'EN_LIGNE',
+      statut: 'PLANIFIE',
+      debut: { gte: maintenant() },
+      reservationEnLigne: { isNot: null },
+    },
+    select: selectionGrille,
+    orderBy: { debut: 'asc' },
+  });
+  return versRdvsGrille(acteur, lignes);
 }
