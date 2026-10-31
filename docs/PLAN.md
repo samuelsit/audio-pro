@@ -89,12 +89,25 @@ Une étape est cochée quand ses tests sont verts, le typecheck OK et la CI vert
   - [x] Tests : domaine 100 % (100 couples de transitions, renouvellement par oreille), adaptateurs (S3 contre MinIO, hors CI), intégration (droits, cloisonnement, forçage, audit, atomicité du scan, conflits, ajout seul, fusion), E2E (dossier mixte, refus et acceptation par oreille, forçage, abandon)
   - À VÉRIFIER : date de comparaison des 4 ans, exigence du RPPS du prescripteur, effet de la mention de renouvellement (voir `docs/REGLES_AUDIO.md`)
   - reporté à l'étape 9 : passage à DEVIS_EMIS et DEVIS_SIGNE, type par oreille et date du précédent appareillage sur le devis ; retour arrière après un devis refusé, à arbitrer
-  - reporté à l'étape 10 : saisie de `dossierId` depuis le dossier (reportée de l'étape 7), passage à EN_ESSAI ; nouvel essai, à arbitrer
+  - reporté à l'étape 10 : saisie de `dossierId` depuis le dossier (reportée de l'étape 7) ; nouvel essai, à arbitrer ; passage à EN_ESSAI fait à l'étape 9
   - reporté à l'étape 11 : écriture de `Delivrance`, passage à A_FACTURER, blocage éventuel sans RPPS du prescripteur
   - reporté à l'étape 13 : reprise des délivrances Cosium ; d'ici là, un patient sans ligne ressort éligible
   - reporté à l'étape 14 : liste `/dossiers` du menu
   - à planifier : avertissement si deux dossiers ouverts portent sur la même oreille, service S3 en CI
-- [ ] **9** – Devis normalisé
+- [ ] **9** – Devis normalisé — terminée en local le 2026-10-31 (tests, typecheck, lint, E2E verts), à cocher quand la CI est verte
+  - [x] Domaine : `calculerDevis`, `prixHT`, `finGarantieMinimale`, `controleDevis` étendu (offre 1.1, 3 options, note 1, mentions du catalogue, date du précédent appareillage, identification de l'entreprise), états, droits, saisies, textes officiels et rendu HTML, dans `packages/domain/src/devis`
+  - [x] Ordre du dossier aligné sur le modèle : `DEVIS_EMIS`, `EN_ESSAI`, `DEVIS_SIGNE`, plus le retour `DEVIS_SIGNE` → `EN_ESSAI` à l'émission d'une nouvelle version (ADR-012)
+  - [x] Modèle : `Devis`, `DevisOffre`, `DevisLigne`, `SignatureDevis` (`SCAN`, `ELECTRONIQUE` prévue), `CompteurDevis`, mentions du catalogue et identification des centres ; gel par triggers ; migration `devis`
+  - [x] Port `PdfRenderer`, `ChromiumPdfRenderer`, `FakePdfRenderer`
+  - [x] Service : création, brouillon, nouvelle version, émission, impression, démarrage de l'essai, dépôt du scan, signature, tous journalisés
+  - [x] Écrans : bloc Devis du dossier, formulaire, totaux et constats, actions ; admin des modèles, fabricants, accessoires et centres ; imports CSV complétés
+  - [x] Seed : mentions du catalogue et identification des centres fictives ; `pnpm demo:devis <sortie.pdf>`
+  - [x] Tests : domaine 100 %, instantané du HTML, intégration (droits, cloisonnement, audit, blocage, gel, versions, signature, concurrence), adaptateur Chromium (hors CI), E2E (parcours complet)
+  - À VÉRIFIER : TVA, code de regroupement, identifiants d'entreprise, départ de la garantie, mentions anciennes du modèle (voir `docs/REGLES_AUDIO.md`)
+  - abandonné : contrôle du prix conseillé d'un modèle de classe I (reporté des étapes 5 et 6), `controleDevis` bloque le prix réel
+  - reporté à l'étape 10 : rendez-vous, échéance et stock de l'essai, nouvel essai après échec (le dépôt et la signature ne contrôlent pas encore la fin de l'essai)
+  - reporté à l'étape 15 : fichier du logo commercial (cadre vide au PDF), image Docker avec Chromium et `PDF_CHROMIUM_CHEMIN`
+  - à planifier : fiche technique stockée au catalogue (case déclarative pour le MVP), signature électronique
 - [ ] **10** – Essai
 - [ ] **11** – Facture préparée
 - [ ] **12** – Export Cosium

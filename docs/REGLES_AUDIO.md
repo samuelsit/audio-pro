@@ -256,7 +256,24 @@ Piles : `PIL`. Accessoires : `APA`.
 - dépassement du plafond de contrat responsable (R14) ;
 - dépassement C2S à faire figurer au devis (art. 29 § 2).
 
-**Écarts** : le devis ajoute des exigences absentes de la liste initiale : validité de 2 mois, bobine T, fiche technique, au moins 3 options parmi 8 pour l'offre 100 % santé (p. 1). Ce dernier point relève du catalogue, non modélisé.
+**Écarts** : le devis ajoute des exigences absentes de la liste initiale : validité de 2 mois, bobine T, fiche technique, au moins 3 options parmi 8 pour l'offre 100 % santé (p. 1).
+
+**Bloquants ajoutés à l'étape 9** (`controleDevis`, ADR-012) :
+
+| Contrôle                                                                                    | Source                                     |
+| ------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| Offre 1.1 de classe I pour chaque oreille (une classe I placée en 1.2 ne compte pas)        | Devis p. 1 § 1.1 ; convention art. 18 3°   |
+| Au moins 3 options parmi 8 sur l'aide de l'offre 1.1                                        | Devis p. 1 § 1.1                           |
+| Seuls des produits remboursables en 1.1 (code LPP requis)                                   | Devis p. 1, note 1                         |
+| Mentions du catalogue complètes (adresse, marque, référence, canaux, connectivité, oui/non) | Devis p. 1, tableaux 1.1 et 1.2            |
+| Date du précédent appareillage en renouvellement                                            | Devis p. 1, en-tête                        |
+| Raison sociale et SIRET du centre (contrôle de cohérence, À VÉRIFIER)                       | Devis p. 2, identification de l'entreprise |
+
+**Avertissement ajouté** : RCS, FINESS ou TVA intracommunautaire manquant. Une structure peut ne pas avoir de RCS : le caractère obligatoire de chaque identifiant est À VÉRIFIER.
+
+**Signature** : à l'issue de l'essai, jamais avant (devis p. 1 et p. 2 § 5). Le devis signé est conservé (convention art. 21). Le dépassement C2S à faire figurer (art. 29 § 2) apparaît au reste à charge : le modèle n'a pas de rubrique dédiée.
+
+**« Autre offre » facultative** : la convention dit « le cas échéant » (art. 18 3°). La rubrique 1.2 reste imprimée, vide.
 
 ## R13 – Ventilation (`ventilation`)
 
@@ -316,29 +333,53 @@ Le reste n'est pas dans les tests : il est calculé. Dans ces cas de tiers payan
 
 **Hors docs/ref** : la machine à états (ADR-010) est un choix d'organisation, pas une règle réglementaire. La consignation est un simple indicateur, aucun document n'en parle.
 
+## R18 – TVA et prix HT (`prixHT`)
+
+**Statut : À VÉRIFIER.** Aucun document de docs/ref ne donne de taux de TVA, alors que le devis impose les colonnes Prix HT et Prix TTC (p. 1).
+
+**Décision** (2026-10-31) : 5,5 % sur les aides auditives, 20 % sur les consommables, piles et accessoires. Valeurs choisies sans source, à faire confirmer. Constantes dans `audio-rules/constantes.ts`, taux conservé sur chaque ligne du devis.
+
+**Règle de calcul** : le TTC est la référence, le HT s'en déduit au centime le plus proche. Seul le TTC peut atteindre exactement le prix limite.
+
+## R19 – Garantie (`finGarantieMinimale`)
+
+**Statut : Confirmé avec écart.**
+
+**Règle** : garantie minimale de 4 ans assurée par le fabricant, pièces, main d'œuvre et transport.
+
+**Source** : devis p. 2 § 4.
+
+**Écart** : le modèle ne fixe pas le point de départ. La délivrance est retenue, À VÉRIFIER. La date de fin s'affiche à l'écran ; le PDF garde le texte officiel, sans rubrique ajoutée.
+
 ## Points À VÉRIFIER
 
-| Point                                                   | Règle | Document qui trancherait                      |
-| ------------------------------------------------------- | ----- | --------------------------------------------- |
-| Borne de 20 ans                                         | R1    | Nomenclature LPP                              |
-| Date de référence de l'âge                              | R2    | Nomenclature LPP                              |
-| Prix limite TTC                                         | R3    | Nomenclature LPP                              |
-| Base en cas de cécité                                   | R4    | Nomenclature LPP                              |
-| Taux ALD, AT, maternité, SNCF, Alsace-Moselle           | R5    | Cahier des charges SESAM-Vitale ou AreaFSE    |
-| Arrondi à ,5 centime                                    | R5    | Cahier des charges SESAM-Vitale               |
-| AMC C2S à 20 ans et plus                                | R6    | Texte C2S                                     |
-| Code LPP à facturer, sens de `RJT`                      | R7    | Dictionnaire LPP ou caisse                    |
-| Jour anniversaire, conditions de R.165-24               | R8    | Nomenclature LPP, code de la sécurité sociale |
-| Date de comparaison du délai avant la délivrance        | R8    | Nomenclature LPP                              |
-| Décompte des jours d'essai, durée sans prolongation     | R9    | Nomenclature LPP                              |
-| Qualité du prescripteur                                 | R10   | Nomenclature LPP                              |
-| RPPS du prescripteur exigé, sens du « N° prescripteur » | R10   | Cahier des charges SESAM-Vitale ou AreaFSE    |
-| Validité de l'ordonnance                                | R11   | Nomenclature LPP                              |
-| Effet de la mention de renouvellement                   | R11   | Nomenclature LPP                              |
-| Prix inférieur à la base                                | R13   | Nomenclature LPP ou cahier des charges        |
-| 1 700 €                                                 | R14   | Texte sur les contrats responsables           |
-| Quotas de piles et d'embouts, sens de `QTE_MAX`         | R15   | Nomenclature LPP, dictionnaire LPP            |
-| Durée de l'article L. 332-1 CSS                         | R17   | Code de la sécurité sociale                   |
-| Numéro de lot à conserver                               | R17   | Vigilance ANSM                                |
-| Format des numéros et codes lus à la douchette          | R17   | Étiquettes réelles des fabricants             |
-| Consignation                                            | R17   | Contrats fabricants                           |
+| Point                                                    | Règle | Document qui trancherait                      |
+| -------------------------------------------------------- | ----- | --------------------------------------------- |
+| Borne de 20 ans                                          | R1    | Nomenclature LPP                              |
+| Date de référence de l'âge                               | R2    | Nomenclature LPP                              |
+| Prix limite TTC                                          | R3    | Nomenclature LPP                              |
+| Base en cas de cécité                                    | R4    | Nomenclature LPP                              |
+| Taux ALD, AT, maternité, SNCF, Alsace-Moselle            | R5    | Cahier des charges SESAM-Vitale ou AreaFSE    |
+| Arrondi à ,5 centime                                     | R5    | Cahier des charges SESAM-Vitale               |
+| AMC C2S à 20 ans et plus                                 | R6    | Texte C2S                                     |
+| Code LPP à facturer, sens de `RJT`                       | R7    | Dictionnaire LPP ou caisse                    |
+| Jour anniversaire, conditions de R.165-24                | R8    | Nomenclature LPP, code de la sécurité sociale |
+| Date de comparaison du délai avant la délivrance         | R8    | Nomenclature LPP                              |
+| Décompte des jours d'essai, durée sans prolongation      | R9    | Nomenclature LPP                              |
+| Qualité du prescripteur                                  | R10   | Nomenclature LPP                              |
+| RPPS du prescripteur exigé, sens du « N° prescripteur »  | R10   | Cahier des charges SESAM-Vitale ou AreaFSE    |
+| Validité de l'ordonnance                                 | R11   | Nomenclature LPP                              |
+| Effet de la mention de renouvellement                    | R11   | Nomenclature LPP                              |
+| Prix inférieur à la base                                 | R13   | Nomenclature LPP ou cahier des charges        |
+| 1 700 €                                                  | R14   | Texte sur les contrats responsables           |
+| Taux de TVA des aides, piles et accessoires              | R18   | Code général des impôts ou comptable          |
+| Sens de « code de regroupement » (P1D… PIL, APA retenus) | R12   | Arrêté du devis normalisé                     |
+| Identifiants d'entreprise obligatoires                   | R12   | Arrêté du devis normalisé                     |
+| Point de départ de la garantie de 4 ans                  | R19   | Nomenclature LPP                              |
+| Mentions « CMU-c », « Dès 2020 », « votre opticien »     | R12   | Version à jour du devis normalisé             |
+| « Date de Naissance », cachée dans le modèle PDF         | R12   | Version à jour du devis normalisé             |
+| Quotas de piles et d'embouts, sens de `QTE_MAX`          | R15   | Nomenclature LPP, dictionnaire LPP            |
+| Durée de l'article L. 332-1 CSS                          | R17   | Code de la sécurité sociale                   |
+| Numéro de lot à conserver                                | R17   | Vigilance ANSM                                |
+| Format des numéros et codes lus à la douchette           | R17   | Étiquettes réelles des fabricants             |
+| Consignation                                             | R17   | Contrats fabricants                           |

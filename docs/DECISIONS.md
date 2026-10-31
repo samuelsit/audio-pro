@@ -364,3 +364,41 @@ L'étape 8 crée l'objet central du parcours et enregistre la prescription avec 
 - Le test S3 tourne contre MinIO en local seulement : le service `pgsty/minio` exige une commande que GitHub Actions ne permet pas de passer.
 - Une notification (`notifier`) ne s'affiche qu'à un changement de chemin : l'abandon revient donc sur la liste des dossiers du patient.
 - Complément à l'ADR-010 : `mouvement_appareil.dossier_id` porte sa clé étrangère. La saisie passe à l'étape 10, où l'essai est piloté depuis le dossier.
+
+## ADR-012 – Devis normalisé, versions et signature
+
+- **Date** : 2026-10-31
+- **Statut** : acceptée
+
+### Contexte
+
+L'étape 9 crée, contrôle et imprime le devis. Le modèle officiel (Annexe I) place la signature du patient à l'issue de l'essai, alors que la machine à états de l'ADR-011 mettait `DEVIS_SIGNE` avant `EN_ESSAI`. Il exige des mentions absentes du catalogue et des prix HT, sans qu'aucun document ne donne de taux de TVA. Le port `PdfRenderer` n'existait pas.
+
+### Décision
+
+- **Ordre du dossier** : `DEVIS_EMIS` → `EN_ESSAI` → `DEVIS_SIGNE` → `A_FACTURER`, comme le modèle (p. 1, p. 2 § 5). Complète l'ADR-011 : seul `STATUTS_DOSSIER` change, l'enum Prisma garde ses valeurs. Une exception au « pas de retour arrière » : `DEVIS_SIGNE` → `EN_ESSAI`, à l'émission d'une nouvelle version, la signature étant à recueillir de nouveau.
+- **Gel** : `BROUILLON` → `EMIS` → `SIGNE`, ou `REMPLACE` quand une version suivante est émise. L'émission fige déjà : le patient détient une copie, son numéro doit garder son contenu. Toute modification crée un brouillon v+1 du même numéro, et la version en vigueur le reste jusqu'à l'émission de la suivante. Des triggers refusent toute écriture hors de ce chemin ; deux index partiels garantissent un brouillon et une version en vigueur par dossier.
+- **Refus** : pas de statut dédié. On abandonne le dossier ou on émet une version. Plus de version à partir de `A_FACTURER`. Une signature après la date de validité est refusée, choix d'organisation.
+- **Offres** : l'offre 1.1 est obligatoire, classe I. L'autre offre est facultative (convention art. 18 3°, « le cas échéant ») ; sa rubrique reste imprimée.
+- **Lignes** : les prestations n'ont pas de ligne chiffrée, elles sont comprises dans le prix (modèle p. 1 et § 4). Piles, accessoires et produits d'entretien vont dans la ligne « Consommables, piles et accessoires », seule prévue. Instantané JSON du catalogue sur chaque ligne.
+- **Montants** : le TTC est la référence, le HT s'en déduit. TVA conservée sur la ligne, en pour dix mille (R18, À VÉRIFIER). AMC saisie par poste (droite, gauche, consommables). AMC inconnue : montants AMC et reste à charge vides au PDF (« si connu »), le reste après AMO s'affiche à l'écran. Montants et avertissements conservés en JSON à l'émission : un changement de tarif ne touche pas un devis émis.
+- **Date du devis** : celle de l'émission, et non de la rédaction. La fin de validité s'en déduit, un brouillon ne pouvant pas vieillir à tort. La délivrance prévue est la première possible (jour + 30 jours, R2).
+- **PDF** : HTML pur produit par le domaine, textes du modèle mot pour mot dans `devis/modele.ts`, y compris ses coquilles et mentions anciennes. Chromium via `playwright-core`, version exacte, JavaScript coupé, requêtes refusées. Un navigateur par rendu. Le PDF est stocké chiffré : le réimprimer rend le document remis, et chaque ouverture écrit une ligne PRINT.
+- **Rubriques manuscrites** : les § 3 et § 5 (offres choisies, signatures) sortent vierges : ils se remplissent sur le papier. L'application enregistre ensuite les choix, et le scan signé fait foi.
+- **En-tête** : le centre du dossier, qui est le centre courant dès qu'un centre est sélectionné. L'ADMIN en « Tous les centres » garde ainsi un en-tête valable.
+- **Signature** : dépôt du scan puis enregistrement, en deux gestes. L'assistante peut déposer ; seuls ADMIN et AUDIO enregistrent, avec la case « signé ». `SignatureDevis`, en ajout seul, porte `mode` (`SCAN`, `ELECTRONIQUE`) et `preuve`, nullable : la signature électronique n'exigera pas de migration de structure.
+- **Droits** : l'assistante rédige, imprime et dépose ; émettre et signer sont réservés à ADMIN et AUDIO. Choix d'organisation.
+- **Numéro** : `AAAA-NNNNNN` par organisation, compteur en table, incrément atomique, sans rapport avec un texte. Imprimé avec sa version.
+- **Chiffrement** : lignes et offres non chiffrées, comme `Appareil` et `Dossier.oreilles`. Le NIR n'est écrit ni en base sur le devis, ni au journal : il n'existe en clair que dans le PDF, chiffré au stockage.
+- **Catalogue** : mentions nullables, le manque bloque à l'émission. Colonnes CSV ajoutées, vides autorisées.
+- **Fiche technique** : case déclarative pour le MVP.
+- **Prix conseillé de classe I** : contrôle abandonné, `controleDevis` bloque le prix réel.
+
+### Conséquences
+
+- L'étape 10 reprend `demarrerEssai` et doit ajouter le contrôle de fin d'essai avant signature : à ce stade, rien n'empêche de signer le jour même.
+- Le format d'import CSV change : tout fichier existant doit ajouter les nouvelles colonnes, vides si besoin.
+- Un serveur de production doit disposer de Chromium (`PDF_CHROMIUM_CHEMIN`), à traiter avec le déploiement. Le test réel de l'adaptateur et l'E2E ne tournent pas en CI.
+- Sans base LPP importée, un brouillon s'enregistre mais ne se calcule pas et ne s'émet pas.
+- Un dépassement de page (nombreux consommables, mentions très longues) ferait passer le PDF à 3 pages : les deux pages du modèle ne tiennent qu'avec un contenu raisonnable, vérifié sur la démonstration.
+- Une notification ne s'affiche qu'à un changement de chemin (ADR-011) : l'émission et la signature se voient au statut du devis.
