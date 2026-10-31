@@ -15,6 +15,7 @@ import { doublonsDeLaFiche, obtenirPatient } from '@/server/services/patients';
 import { adresseSurUneLigne, dateEtAge, libelleMotifs } from '../affichage';
 import { AlerteDroits, BadgeC2s, EntetePatient } from '../entete-patient';
 import { LectureVitale } from '../lecture-vitale';
+import { OngletsPatient } from '../onglets-patient';
 
 export const metadata: Metadata = { title: 'Fiche patient – HA-Gestion' };
 
@@ -65,6 +66,8 @@ export default async function PageFichePatient({ params }: PageProps<'/patients/
           <Link href={`/patients/${fiche.id}/modifier`}>Modifier</Link>
         </Button>
       </EntetePatient>
+
+      <OngletsPatient patientId={fiche.id} courant="fiche" />
 
       {amo ? <AlerteDroits etat={amo.etatDroits} fin={amo.finDroits} /> : null}
 

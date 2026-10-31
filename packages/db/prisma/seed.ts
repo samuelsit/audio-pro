@@ -4,6 +4,7 @@ import { creerPrismaClient } from '../src/client';
 import type { PrismaClient } from '../src/generated/prisma/client';
 import type { Role } from '../src/generated/prisma/enums';
 import { NOMBRE_FABRICANTS_DEMO, NOMBRE_MODELES_DEMO, seedCatalogue } from './seed-catalogue';
+import { NOMBRE_DOSSIERS_DEMO, seedDossiers } from './seed-dossiers';
 import { NOMBRE_PATIENTS_DEMO, seedPatients } from './seed-patients';
 import { nombreAppareilsDemo, seedStock } from './seed-stock';
 
@@ -189,6 +190,7 @@ async function main(): Promise<void> {
     await seedPatients(db, ORGANISATION_ID, { nord: NORD, centre: CENTRE, sud: SUD });
     await seedCatalogue(db, ORGANISATION_ID);
     await seedStock(db, ORGANISATION_ID, [NORD, CENTRE, SUD], ADMIN_ID);
+    await seedDossiers(db, ORGANISATION_ID, NORD, ADMIN_ID);
 
     const seededAt = new Date().toISOString();
     for (const [key, value] of [
@@ -198,7 +200,7 @@ async function main(): Promise<void> {
       await db.appMeta.upsert({ where: { key }, create: { key, value }, update: { value } });
     }
     console.log(
-      `Seed terminé (schema_version=${SCHEMA_VERSION}) : ${CENTRES.length} centres, ${UTILISATEURS.length} utilisateurs, ${NOMBRE_PATIENTS_DEMO} patients, ${NOMBRE_FABRICANTS_DEMO} fabricants, ${NOMBRE_MODELES_DEMO} modèles, ${nombreAppareilsDemo(CENTRES.length)} appareils.`,
+      `Seed terminé (schema_version=${SCHEMA_VERSION}) : ${CENTRES.length} centres, ${UTILISATEURS.length} utilisateurs, ${NOMBRE_PATIENTS_DEMO} patients, ${NOMBRE_FABRICANTS_DEMO} fabricants, ${NOMBRE_MODELES_DEMO} modèles, ${nombreAppareilsDemo(CENTRES.length)} appareils, ${NOMBRE_DOSSIERS_DEMO} dossier.`,
     );
   } finally {
     await db.$disconnect();

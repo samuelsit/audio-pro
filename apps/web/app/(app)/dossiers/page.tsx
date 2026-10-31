@@ -13,8 +13,8 @@ export default async function PageDossiers() {
       <EntetePage titre="Dossiers">
         Dossiers d’appareillage : prescription, devis normalisé, essai.
       </EntetePage>
-      <EtatVide titre="Écran en préparation">
-        Disponible aux étapes 8 à 10 du plan de réalisation.
+      <EtatVide titre="Liste en préparation">
+        Les dossiers s’ouvrent et se créent depuis l’onglet « Dossiers » de la fiche patient.
       </EtatVide>
     </div>
   );

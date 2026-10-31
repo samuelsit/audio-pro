@@ -9,6 +9,16 @@ export function formaterDateHeure(instant: Date): string {
   return formatDateHeure.format(instant);
 }
 
+const formatJour = new Intl.DateTimeFormat('fr-FR', {
+  timeZone: 'Europe/Paris',
+  dateStyle: 'short',
+});
+
+/** Jour à Paris d'un instant ISO, ex. « 29/10/2026 ». */
+export function formaterJour(instant: string): string {
+  return formatJour.format(new Date(instant));
+}
+
 /** Date calendaire ISO (AAAA-MM-JJ) en « JJ/MM/AAAA », sans passer par un fuseau. */
 export function formaterDate(iso: string | null | undefined): string {
   if (!iso) {

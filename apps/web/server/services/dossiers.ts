@@ -662,16 +662,17 @@ export async function enregistrerPrescription(
 
 // --- Abandon -------------------------------------------------------------------------------------
 
+/** Renvoie le patient du dossier, vers lequel l'écran revient. */
 export async function abandonnerDossier(
   acteur: UtilisateurConnecte,
   dossierId: string,
   saisie: unknown,
-): Promise<void> {
+): Promise<string> {
   if (!peutAbandonnerDossier(acteur.role)) {
     throw new AccesRefuseError();
   }
   const { statutAttendu, motif } = valider(abandonDossierSaisieSchema, saisie);
-  await withAudit(
+  const { patientId } = await withAudit(
     acteur,
     async (tx) => {
       const dossier = await lireDossier(tx, acteur, dossierId);
@@ -683,4 +684,5 @@ export async function abandonnerDossier(
     },
     (dossier) => evenementTransition(dossier, 'ABANDONNE'),
   );
+  return patientId;
 }

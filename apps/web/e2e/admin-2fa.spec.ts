@@ -6,6 +6,16 @@ import { codeTotp, COMPTES, motDePasseDemo, ouvrirSelecteurCentre, seConnecter }
 
 test.describe.configure({ mode: 'serial' });
 
+// Dossier de démonstration : packages/db/prisma/seed-dossiers.ts (données fictives).
+const DOSSIER_RENOUVELLEMENT = '019a7000-0000-7000-8000-000000000001';
+const PDF_FICTIF = {
+  name: 'ordonnance.pdf',
+  mimeType: 'application/pdf',
+  buffer: Buffer.from('%PDF-1.7 ordonnance fictive'),
+};
+
+let secret = '';
+
 test('l’ADMIN doit activer la 2FA, puis la saisir à chaque connexion', async ({ page }) => {
   await seConnecter(page, COMPTES.admin);
 
@@ -16,7 +26,7 @@ test('l’ADMIN doit activer la 2FA, puis la saisir à chaque connexion', async 
 
   await page.getByLabel('Mot de passe').fill(motDePasseDemo());
   await page.getByRole('button', { name: 'Commencer l’activation' }).click();
-  const secret = (await page.getByTestId('secret-totp').textContent()) ?? '';
+  secret = (await page.getByTestId('secret-totp').textContent()) ?? '';
   expect(secret).toMatch(/^[A-Z2-7]+$/);
 
   await page.getByLabel('Code à 6 chiffres').fill(await codeTotp(secret));
@@ -145,4 +155,41 @@ test('l’ADMIN doit activer la 2FA, puis la saisir à chaque connexion', async 
   expect(csv.startsWith('\uFEFFDate et heure;Utilisateur;')).toBe(true);
   expect(csv).toContain('Création;Praticien');
   expect(csv).toContain('Export;Journal d’audit');
+});
+
+test('l’ADMIN force un renouvellement refusé, avec un motif et sans rechoisir le fichier', async ({
+  page,
+}) => {
+  await seConnecter(page, COMPTES.admin);
+  await page.getByLabel('Code de vérification').fill(await codeTotp(secret));
+  await page.getByRole('button', { name: 'Vérifier' }).click();
+  await expect(page.getByRole('heading', { name: 'Bonjour Alex' })).toBeVisible();
+
+  await page.goto(`/dossiers/${DOSSIER_RENOUVELLEMENT}`);
+  await page.waitForLoadState('networkidle');
+  await page.getByLabel('Rechercher un prescripteur').fill('Agathe');
+  await page.getByRole('button', { name: /Agathe Démo/ }).click();
+  await page.getByLabel('Date de la prescription').fill('2026-01-15');
+  await page.getByLabel('Scan de l’ordonnance').setInputFiles(PDF_FICTIF);
+  await page.getByRole('button', { name: 'Enregistrer la prescription' }).click();
+
+  const blocage = page.getByRole('alert').filter({ hasText: 'Erreurs bloquantes' });
+  await expect(blocage).toContainText('Moins de 4 ans depuis la dernière délivrance');
+  await expect(blocage).toContainText('Prise en charge à partir du');
+
+  // Sans motif, le navigateur refuse l'envoi ; le fichier choisi reste en place.
+  await expect(page.getByLabel('Scan de l’ordonnance')).toHaveValue(/ordonnance\.pdf$/);
+  await page.getByLabel('Motif du forçage').fill('Aide hors d’usage, accord de la caisse reçu');
+  await page.getByRole('button', { name: 'Enregistrer malgré tout' }).click();
+
+  await expect(page.getByRole('listitem').and(page.locator('[aria-current="step"]'))).toContainText(
+    'Prescription OK',
+  );
+  await expect(page.getByText('Enregistrée par forçage : Alex Admin')).toBeVisible();
+  await expect(page.getByText('Motif : Aide hors d’usage, accord de la caisse reçu')).toBeVisible();
+
+  // Le journal trace le forçage sans le texte du motif.
+  await page.goto('/admin/journal');
+  await expect(page.getByRole('row', { name: /RENOUVELLEMENT_AVANT_DELAI/ })).toBeVisible();
+  await expect(page.locator('main')).not.toContainText('accord de la caisse');
 });

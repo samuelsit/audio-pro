@@ -152,7 +152,7 @@ describe('ChiffreurAesGcm : documents binaires', () => {
     { cas: 'document', clair: SCAN },
     { cas: 'vide', clair: new Uint8Array(0) },
     { cas: 'gros', clair: randomBytes(1024 * 1024) },
-  ])('aller-retour : $cas', ({ cas: _, clair }) => {
+  ])('aller-retour : $cas', ({ clair }) => {
     const enveloppe = aSeul.chiffrerOctets(clair, CONTEXTE);
     expect(Buffer.from(aSeul.dechiffrerOctets(enveloppe, CONTEXTE))).toEqual(Buffer.from(clair));
   });

@@ -88,6 +88,7 @@ export function ListeDeroulante({
   defaut,
   vide,
   requis = true,
+  surChangement,
 }: {
   etat: EtatFormulaire;
   nom: string;
@@ -97,6 +98,8 @@ export function ListeDeroulante({
   /** Libellé de l'option vide (ex. « Tous », « Choisir… »). */
   vide?: string | undefined;
   requis?: boolean | undefined;
+  /** Pour un formulaire dont d'autres champs dépendent de ce choix. */
+  surChangement?: ((valeur: string) => void) | undefined;
 }) {
   const erreurs = etat.erreurs?.[nom];
   const valeur = valeurTexte(etat, nom, defaut);
@@ -110,6 +113,7 @@ export function ListeDeroulante({
         name={nom}
         required={requis}
         defaultValue={valeur}
+        onChange={surChangement ? (e) => surChangement(e.target.value) : undefined}
         aria-invalid={erreurs ? true : undefined}
         className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive"
       >

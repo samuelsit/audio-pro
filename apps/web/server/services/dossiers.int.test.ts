@@ -1,5 +1,5 @@
 import { prisma } from '@ha/db';
-import { FakeDocumentStore } from '@ha/adapters';
+import type { FakeDocumentStore } from '@ha/adapters';
 import { ajouterJours, decomposerDate, type StatutDossier } from '@ha/domain';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -633,7 +633,7 @@ describe('abandonnerDossier', () => {
 
   it('abandonne avec un motif chiffré, absent du journal', async () => {
     const id = await creerDossier(audio, patientA, saisieDossier());
-    await abandonnerDossier(audio, id, ABANDON);
+    expect(await abandonnerDossier(audio, id, ABANDON)).toBe(patientA);
 
     const detail = await obtenirDossier(audio, id);
     expect(detail).toMatchObject({
