@@ -10,6 +10,7 @@ export * from './commun/texte';
 export * from './devis';
 export * from './dossier';
 export * from './essai';
+export * from './facture';
 export * from './lpp';
 export * from './money';
 export * from './patient';

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { centimes } from '../money';
-import { partAMO, ventilation } from './ventilation';
+import { partAMCC2S, partAMO, ventilation } from './ventilation';
 
 describe('partAMO', () => {
   it.each([
@@ -109,5 +109,22 @@ describe('ventilation', () => {
         priseEnChargeAMC: centimes(amc),
       }),
     ).toThrow(RangeError);
+  });
+});
+
+describe('partAMCC2S', () => {
+  it.each([
+    { cas: '20 ans et plus', prix: 80_000, plafond: 80_000, amo: 24_000, attendu: 56_000 },
+    { cas: 'FR 201 n° 10, refus', prix: 150_000, plafond: 140_000, amo: 84_000, attendu: 56_000 },
+    { cas: 'prix sous le plafond', prix: 60_000, plafond: 80_000, amo: 24_000, attendu: 36_000 },
+    { cas: 'piles (100 % du tarif)', prix: 150, plafond: 150, amo: 90, attendu: 60 },
+    { cas: 'jamais négative', prix: 100, plafond: 0, amo: 50, attendu: 0 },
+  ])('$cas', ({ prix, plafond, amo, attendu }) => {
+    const entree = {
+      prixTTC: centimes(prix),
+      plafond: centimes(plafond),
+      amo: centimes(amo),
+    };
+    expect(partAMCC2S(entree)).toBe(attendu);
   });
 });

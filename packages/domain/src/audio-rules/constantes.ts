@@ -103,6 +103,14 @@ export const GARANTIE_MINIMALE_ANNEES: ConstanteReglementaire<number> = {
   source: 'modele-devis-audio.pdf p. 2 § 4 (modèle non daté)',
 };
 
+// À VÉRIFIER : aucun document de docs/ref ne fixe ce délai ; l'art. 27 apprécie les droits à la
+// délivrance. Choix validé le 2026-10-31 (R22).
+export const FRAICHEUR_LECTURE_VITALE_JOURS: ConstanteReglementaire<number> = {
+  valeur: 30,
+  dateEffet: null,
+  source: 'Choix applicatif, À VÉRIFIER : absent de docs/ref',
+};
+
 /** Taux en pour dix mille, 550 pour 5,5 %. */
 // À VÉRIFIER : aucun document de docs/ref ne donne de taux de TVA (R18).
 export const TAUX_TVA_AIDE_AUDITIVE: ConstanteReglementaire<number> = {

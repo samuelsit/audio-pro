@@ -25,6 +25,23 @@ export const CODES_CONTROLE = [
   'RPPS_PRESCRIPTEUR_MANQUANT',
   'PLAFOND_CONTRAT_RESPONSABLE_DEPASSE',
   'DEPASSEMENT_C2S_A_MENTIONNER',
+  'COUVERTURE_AMO_ABSENTE',
+  'COUVERTURE_AMO_A_CONFIRMER',
+  'DROITS_AMO_NON_OUVERTS',
+  'DROITS_AMO_FIN_INCONNUE',
+  'DEVIS_NON_SIGNE',
+  'NUMERO_SERIE_MANQUANT',
+  'VENTILATION_INCOHERENTE',
+  'TARIF_LPP_INDISPONIBLE',
+  'CODE_LPP_GENERIQUE',
+  'ARTICLE_SANS_CODE_LPP',
+  'ECART_AMO_DEVIS',
+  'RESTE_A_CHARGE_CLASSE_I',
+  'PEC_MANQUANTE',
+  'PEC_EN_ATTENTE',
+  'PEC_REFUSEE',
+  'PEC_SANS_JUSTIFICATIF',
+  'PEC_SUPERIEURE_AU_RESTE',
 ] as const;
 export type CodeControle = (typeof CODES_CONTROLE)[number];
 
@@ -64,6 +81,26 @@ export const LIBELLES_CONTROLES: Readonly<Record<CodeControle, string>> = {
     'Le remboursement total dépasse le plafond du contrat responsable (à vérifier).',
   DEPASSEMENT_C2S_A_MENTIONNER:
     'Le devis doit faire apparaître le dépassement restant à la charge du bénéficiaire de la C2S.',
+  COUVERTURE_AMO_ABSENTE: 'Renseigner la couverture AMO du patient.',
+  COUVERTURE_AMO_A_CONFIRMER:
+    'Couverture AMO à vérifier : relire la carte Vitale ou confirmer la saisie.',
+  DROITS_AMO_NON_OUVERTS: 'Les droits AMO ne couvrent pas la date de délivrance.',
+  DROITS_AMO_FIN_INCONNUE: 'La date de fin des droits AMO n’est pas renseignée.',
+  DEVIS_NON_SIGNE: 'Le dossier n’a pas de devis signé avec une offre retenue.',
+  NUMERO_SERIE_MANQUANT: 'Numéro de série manquant.',
+  VENTILATION_INCOHERENTE: 'AMO + AMC + reste à charge ne font pas le prix TTC.',
+  TARIF_LPP_INDISPONIBLE: 'La base LPP importée ne couvre pas la date de délivrance.',
+  CODE_LPP_GENERIQUE:
+    'Code LPP générique, de nature RJT : le code à facturer reste à confirmer (à vérifier).',
+  ARTICLE_SANS_CODE_LPP: 'Article sans tarif LPP à cette date : aucun remboursement.',
+  ECART_AMO_DEVIS: 'La part AMO diffère de celle du devis signé.',
+  RESTE_A_CHARGE_CLASSE_I:
+    'Reste à charge sur une aide de classe I malgré un contrat responsable : vérifier la prise en charge.',
+  PEC_MANQUANTE: 'Renseigner la prise en charge complémentaire.',
+  PEC_EN_ATTENTE: 'Prise en charge complémentaire demandée, réponse en attente.',
+  PEC_REFUSEE: 'Prise en charge complémentaire refusée : la part AMC revient au patient.',
+  PEC_SANS_JUSTIFICATIF: 'Joindre le justificatif de la prise en charge complémentaire.',
+  PEC_SUPERIEURE_AU_RESTE: 'Le montant accordé dépasse ce qui reste après l’AMO : il a été écrêté.',
 };
 
 /** Résultat d'un contrôle ; `oreille` est `null` s'il concerne tout le devis. */

@@ -52,3 +52,22 @@ export function ventilation({
   const amc = centimes(Math.min(priseEnChargeAMC, prixTTC - amo));
   return { amo, amc, resteACharge: centimes(prixTTC - amo - amc) };
 }
+
+export interface EntreePartAMCC2S {
+  readonly prixTTC: Centimes;
+  /** Prix maximal C2S d'une aide, base de remboursement d'un consommable. */
+  readonly plafond: Centimes;
+  readonly amo: Centimes;
+}
+
+/**
+ * Part complémentaire d'un bénéficiaire de la C2S : le prix maximal lui est pris en charge à 100 %, le
+ * dépassement reste à sa charge s'il a refusé l'offre.
+ * Source : fr201-codes-prestation.pdf, tests n° 5 et 10 ; convention-audioprothesistes.pdf, art. 29 § 2,
+ * p. 27 ; ameli-100-sante-audio.pdf p. 2.
+ * À VÉRIFIER : à 20 ans et plus, et sur les piles et accessoires, la part est déduite, aucun cas de test
+ * ne la montre (R6).
+ */
+export function partAMCC2S({ prixTTC, plafond, amo }: EntreePartAMCC2S): Centimes {
+  return centimes(Math.max(0, Math.min(prixTTC, plafond) - amo));
+}
