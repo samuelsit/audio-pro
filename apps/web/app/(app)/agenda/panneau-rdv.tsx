@@ -102,15 +102,22 @@ function ArriveeProspect({
             etat={etat}
             nom="nomNaissance"
             libelle="Nom de naissance"
-            defaut={rdv.prospectNom}
+            defaut={rdv.identiteEnLigne?.nom ?? rdv.prospectNom}
             requis
           />
-          <ChampTexte etat={etat} nom="prenoms" libelle="Prénoms" requis />
+          <ChampTexte
+            etat={etat}
+            nom="prenoms"
+            libelle="Prénoms"
+            defaut={rdv.identiteEnLigne?.prenom}
+            requis
+          />
           <ChampTexte
             etat={etat}
             nom="dateNaissance"
             libelle="Date de naissance"
             aide="JJ/MM/AAAA"
+            defaut={rdv.identiteEnLigne?.dateNaissance}
             requis
           />
           <ListeDeroulante

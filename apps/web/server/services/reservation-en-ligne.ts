@@ -44,7 +44,7 @@ import { journaliser, type AuteurAudit, type EvenementAudit } from '../audit/jou
 import { captcha as captchaConfigure } from '../captcha';
 import { base, enTransaction, type ClientTransaction, type ContexteClient } from '../chiffrement';
 import { ErreurConflitAgenda, ErreurSaisie, ressourcePerdue, valider } from '../erreurs';
-import { notifier as notifierConfigure } from '../notifier';
+import { notifier as notifierConfigure, notifierDisponible } from '../notifier';
 import { publierEvenement } from '../evenements';
 import {
   empreinteCaptcha,
@@ -167,6 +167,9 @@ export async function resoudreCentre(
   slugClient: string,
   slugCentre: string,
 ): Promise<CiblePublique> {
+  if (!notifierDisponible()) {
+    throw new AccesRefuseError();
+  }
   const organisation = await clientPlateforme().organisation.findUnique({
     where: { slug: slugClient },
     select: { id: true, statut: true },
@@ -612,7 +615,11 @@ export async function demanderCode(
   if (count !== 1) {
     throw new ErreurSaisie({}, 'Trop de codes demandés pour cette réservation.');
   }
-  await deps.notifier.envoyerSms({ destinataire: d.telephone, texte: messageCodeSms(code) });
+  try {
+    await deps.notifier.envoyerSms({ destinataire: d.telephone, texte: messageCodeSms(code) });
+  } catch {
+    throw new ErreurSaisie({}, 'Le SMS n’a pas pu partir. Réessayez dans un instant.');
+  }
   return { telephone: telephoneMasque(d.telephone), expireLe: expireLe.getTime() };
 }
 

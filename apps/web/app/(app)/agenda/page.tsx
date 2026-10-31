@@ -46,6 +46,14 @@ function occupationsDe(agenda: AgendaPeriode, praticienId: string | undefined, j
   );
 }
 
+function verrousDe(agenda: AgendaPeriode, praticienId: string | undefined | null, jour: string) {
+  return agenda.verrous.filter(
+    (v) =>
+      (praticienId === undefined || v.praticienId === praticienId) &&
+      localDepuisInstant(v.debut).date === jour,
+  );
+}
+
 function colonnesDe(
   vue: Vue,
   date: string,
@@ -65,6 +73,7 @@ function colonnesDe(
         praticienId,
         plages: plagesDe(praticienId, jourDate),
         ailleurs: occupationsDe(agenda, praticienId, jourDate),
+        verrous: verrousDe(agenda, praticienId, jourDate),
       };
     });
   }
@@ -77,6 +86,7 @@ function colonnesDe(
         praticienId,
         plages: plagesDe(praticienId, date),
         ailleurs: occupationsDe(agenda, praticienId, date),
+        verrous: verrousDe(agenda, praticienId, date),
       },
     ];
   }
@@ -87,6 +97,7 @@ function colonnesDe(
     praticienId: p.id,
     plages: plagesDe(p.id, date),
     ailleurs: occupationsDe(agenda, p.id, date),
+    verrous: verrousDe(agenda, p.id, date),
   }));
   return agenda.rdv.some((r) => r.praticienId === null)
     ? [
@@ -98,6 +109,7 @@ function colonnesDe(
           praticienId: null,
           plages: agenda.ouverture[date] ?? [],
           ailleurs: [],
+          verrous: verrousDe(agenda, null, date),
         },
       ]
     : colonnes;

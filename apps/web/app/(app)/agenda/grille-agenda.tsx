@@ -30,6 +30,8 @@ export interface Colonne {
   plages: readonly Intervalle[];
   /** Rendez-vous du praticien sur un autre centre : affichés sans identité. */
   ailleurs: readonly Intervalle[];
+  /** Créneaux tenus par un patient en train de réserver en ligne. */
+  verrous: readonly Intervalle[];
 }
 
 interface Geste {
@@ -279,6 +281,19 @@ export function GrilleAgenda({
                     style={style(debutMinutes, dureeMinutes, bornes.debut)}
                   >
                     Autre centre
+                  </div>
+                );
+              })}
+              {colonne.verrous.map((verrou) => {
+                const { debutMinutes, dureeMinutes } = positionDansLaGrille(verrou);
+                return (
+                  <div
+                    key={verrou.debut}
+                    data-testid="verrou-en-ligne"
+                    className="pointer-events-none absolute inset-x-1 rounded border border-dashed px-1 text-xs text-muted-foreground"
+                    style={style(debutMinutes, dureeMinutes, bornes.debut)}
+                  >
+                    Réservation en ligne en cours
                   </div>
                 );
               })}

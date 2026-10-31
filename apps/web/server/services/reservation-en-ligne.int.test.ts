@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { FakeCaptcha, FakeClock, FakeNotifier, REPONSE_CAPTCHA_SIMULEE } from '@ha/adapters';
 import { prisma } from '@ha/db/admin';
 import { HORAIRES_VIDES, type HorairesOuverture } from '@ha/domain';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { creerJeuDeDonnees, viderBase, type JeuDeDonnees } from '@/test/donnees';
 
@@ -229,6 +229,12 @@ describe('page publique', () => {
     { cas: 'centre inconnu', client: 'reseau-test', centre: 'inconnu' },
   ])('$cas : refus', async ({ client, centre }) => {
     expect(await refus(resoudreCentre(client, centre))).toBeInstanceOf(AccesRefuseError);
+  });
+
+  it('sans fournisseur de SMS, la page répond comme un centre inconnu', async () => {
+    vi.stubEnv('NOTIFIER', '');
+    expect(await refus(resoudreCentre('reseau-test', 'centre-a'))).toBeInstanceOf(AccesRefuseError);
+    vi.unstubAllEnvs();
   });
 
   it('un client suspendu ne reçoit plus de réservations', async () => {
@@ -607,7 +613,11 @@ describe('code SMS', () => {
   it('une panne du SMS se dit au patient', async () => {
     const { jeton } = await poser();
     notifier.enPanne = true;
-    await expect(demanderCode(cible, jeton, COORDONNEES, IP, deps)).rejects.toThrow();
+    expect(await refus(demanderCode(cible, jeton, COORDONNEES, IP, deps))).toBeInstanceOf(
+      ErreurSaisie,
+    );
+    notifier.enPanne = false;
+    await expect(demanderCode(cible, jeton, COORDONNEES, IP, deps)).resolves.toBeDefined();
   });
 });
 

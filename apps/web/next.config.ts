@@ -9,9 +9,32 @@ if (existsSync(envRacine)) {
   process.loadEnvFile(envRacine);
 }
 
+const INTERDIT_EN_CADRE = [
+  { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
+  { key: 'X-Frame-Options', value: 'DENY' },
+];
+
 const nextConfig: NextConfig = {
   // Les règles pour les agents sont dans CLAUDE.md à la racine.
   agentRules: false,
+  // Seul le parcours public s'intègre à un site tiers ; le logiciel et le lien du patient, jamais (ADR-021).
+  async headers() {
+    return [
+      { source: '/((?!rdv/).*)', headers: INTERDIT_EN_CADRE },
+      {
+        source: '/rdv/:client/:centre',
+        headers: [{ key: 'Content-Security-Policy', value: 'frame-ancestors *' }],
+      },
+      {
+        source: '/rdv/lien/:jeton',
+        headers: [
+          ...INTERDIT_EN_CADRE,
+          { key: 'Referrer-Policy', value: 'no-referrer' },
+          { key: 'X-Robots-Tag', value: 'noindex, nofollow' },
+        ],
+      },
+    ];
+  },
   transpilePackages: ['@ha/domain', '@ha/adapters', '@ha/db'],
   serverExternalPackages: [
     '@prisma/client',

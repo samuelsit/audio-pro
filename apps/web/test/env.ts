@@ -1,7 +1,11 @@
 import { existsSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { urlDuRole, verifierBaseJetable } from '@ha/db/admin';
+
+/** Messages du FakeNotifier pendant les E2E : le serveur et Playwright sont deux processus. */
+export const FICHIER_NOTIFICATIONS_E2E = path.join(tmpdir(), 'ha-notifications-e2e.jsonl');
 
 /** Charge le .env racine s'il existe (absent en CI, où les variables sont fournies). */
 export function chargerEnvRacine(): void {

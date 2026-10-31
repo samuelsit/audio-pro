@@ -15,5 +15,8 @@ export function proxy(request: NextRequest): NextResponse {
 }
 
 export const config = {
-  matcher: ['/((?!connexion|_next/static|_next/image|favicon.ico|robots.txt).*)'],
+  // `rdv/` et `rdv-widget.js` : parcours public de réservation, sans compte (ADR-021).
+  matcher: [
+    '/((?!connexion|rdv/|rdv-widget\\.js|_next/static|_next/image|favicon.ico|robots.txt).*)',
+  ],
 };

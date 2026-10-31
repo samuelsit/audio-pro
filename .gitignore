@@ -35,3 +35,4 @@ docs/ref/lpp/**/*.dbf
 fixtures/import-cosium/*
 !fixtures/import-cosium/README.md
 !fixtures/import-cosium/demo/
+.notifications-dev.jsonl

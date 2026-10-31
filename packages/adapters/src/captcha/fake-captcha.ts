@@ -6,7 +6,7 @@ export const REPONSE_CAPTCHA_SIMULEE = 'captcha-simule';
 /** Captcha simulé, pour le développement et les tests : aucun calcul côté navigateur. */
 export class FakeCaptcha implements Captcha {
   async creerDefi(): Promise<string> {
-    return JSON.stringify({ simulation: true });
+    return JSON.stringify({ simulation: REPONSE_CAPTCHA_SIMULEE });
   }
 
   async verifier(reponse: string): Promise<boolean> {

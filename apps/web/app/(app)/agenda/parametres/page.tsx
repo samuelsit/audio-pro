@@ -13,6 +13,8 @@ import {
   listerTypesRdv,
 } from '@/server/services/agenda-parametres';
 import { aujourdhui } from '@/server/services/patients';
+import { lireParametresReservation } from '@/server/services/reservation-parametres';
+import { urlPublique } from '@/server/url-publique';
 
 import { centreDeLAgenda } from '../centre';
 import {
@@ -20,6 +22,7 @@ import {
   changerActivationTypeRdvAction,
   creerCabineAction,
   creerExceptionAction,
+  enregistrerReservationAction,
   enregistrerTypeRdvAction,
   modifierHorairesAction,
   supprimerExceptionAction,
@@ -28,6 +31,7 @@ import {
   FormulaireCabine,
   FormulaireException,
   FormulaireHoraires,
+  FormulaireReservation,
   FormulaireType,
 } from './formulaires';
 
@@ -42,12 +46,15 @@ export default async function PageParametresAgenda({
   if (centreId === null) {
     return <EtatVide titre="Aucun centre">Aucun centre n’est accessible.</EtatVide>;
   }
-  const [cabines, praticiens, exceptions, types] = await Promise.all([
+  const [cabines, praticiens, exceptions, types, reservation] = await Promise.all([
     ouIntrouvable(listerCabines(acteur, centreId)),
     ouIntrouvable(listerHorairesPraticiens(acteur, centreId)),
     ouIntrouvable(listerExceptions(acteur, centreId, aujourdhui())),
     listerTypesRdv(acteur),
+    ouIntrouvable(lireParametresReservation(acteur, centreId)),
   ]);
+  const adresseWeb = urlPublique();
+  const pagePublique = `${adresseWeb}/rdv/${reservation.slugClient}/${reservation.slug}`;
   const listePraticiens = praticiens.map((p) => ({ id: p.praticienId, nom: p.nom }));
 
   return (
@@ -114,6 +121,27 @@ export default async function PageParametresAgenda({
           praticiens={listePraticiens}
           cabines={cabines.filter((c) => c.actif)}
         />
+      </section>
+
+      <section className="grid gap-3">
+        <h2 className="font-medium">Réservation en ligne</h2>
+        <FormulaireReservation
+          action={enregistrerReservationAction.bind(null, centreId)}
+          parametres={reservation}
+        />
+        <div className="grid max-w-2xl gap-2 text-sm">
+          <p>
+            Lien à placer sur votre site et votre fiche Google :{' '}
+            <code className="break-all">{pagePublique}</code>
+          </p>
+          <p>Widget à coller dans une page de votre site (au choix) :</p>
+          <pre className="overflow-x-auto rounded-md bg-muted p-2 text-xs">
+            {`<script src="${adresseWeb}/rdv-widget.js" data-client="${reservation.slugClient}" data-centre="${reservation.slug}" async></script>`}
+          </pre>
+          <pre className="overflow-x-auto rounded-md bg-muted p-2 text-xs">
+            {`<iframe src="${pagePublique}?widget=1" title="Prendre rendez-vous" style="width:100%;height:800px;border:0"></iframe>`}
+          </pre>
+        </div>
       </section>
 
       {peutGererTypesRdv(acteur.role) ? (

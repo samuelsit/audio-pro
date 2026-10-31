@@ -1,6 +1,11 @@
 import { defineConfig, devices } from '@playwright/test';
 
-import { CHIFFREMENT_TEST, urlBaseJetable, urlsDesRoles } from './test/env';
+import {
+  CHIFFREMENT_TEST,
+  FICHIER_NOTIFICATIONS_E2E,
+  urlBaseJetable,
+  urlsDesRoles,
+} from './test/env';
 
 const port = 3100;
 const baseURL = `http://localhost:${port}`;
@@ -27,6 +32,11 @@ export default defineConfig({
       ...urlsDesRoles(databaseUrl),
       BETTER_AUTH_URL: baseURL,
       VITALE_LECTEUR: 'simulation',
+      NOTIFIER: 'simulation',
+      NOTIFIER_SIMULATION_FICHIER: FICHIER_NOTIFICATIONS_E2E,
+      CAPTCHA: 'simulation',
+      URL_PUBLIQUE: baseURL,
+      LIEN_RDV_CLE: Buffer.alloc(32, 9).toString('base64'),
       ...CHIFFREMENT_TEST,
     },
   },

@@ -363,7 +363,6 @@ async function main(): Promise<void> {
     );
     await seedCatalogueIndependant(db, ORGANISATION_INDEPENDANTE_ID);
     await seedTypesRdv(db, ORGANISATION_INDEPENDANTE_ID);
-    await seedReservationEnLigne(db, ORGANISATION_ID, NORD);
     await seedAgenda(db, ORGANISATION_ID, {
       centres: [NORD, CENTRE, SUD],
       centrePrincipal: NORD,
@@ -384,6 +383,7 @@ async function main(): Promise<void> {
       horaires: HORAIRES_DEMO,
       creePar: ADMIN_ID,
     });
+    await seedReservationEnLigne(db, ORGANISATION_ID, NORD);
 
     const seededAt = new Date().toISOString();
     for (const [key, value] of [

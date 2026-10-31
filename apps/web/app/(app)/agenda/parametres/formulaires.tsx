@@ -3,8 +3,10 @@
 import {
   LIBELLES_TYPES_EXCEPTION,
   LIBELLES_TYPES_RDV_ESSAI,
+  LIBELLES_VALIDATIONS_RESERVATION,
   TYPES_EXCEPTION,
   TYPES_RDV_ESSAI,
+  VALIDATIONS_RESERVATION,
   type HorairesOuverture,
 } from '@ha/domain';
 import { useActionState, useState } from 'react';
@@ -19,6 +21,7 @@ import {
 } from '@/components/formulaire';
 import { ETAT_INITIAL, type EtatFormulaire } from '@/lib/formulaire';
 import type { TypeRdvResume } from '@/server/services/agenda-parametres';
+import type { ParametresReservationCentre } from '@/server/services/reservation-parametres';
 
 type Action = (etat: EtatFormulaire, formData: FormData) => Promise<EtatFormulaire>;
 
@@ -189,6 +192,90 @@ export function FormulaireException({
       </div>
       <div>
         <BoutonEnvoi>Ajouter l’exception</BoutonEnvoi>
+      </div>
+    </form>
+  );
+}
+
+export function FormulaireReservation({
+  action,
+  parametres,
+}: {
+  action: Action;
+  parametres: ParametresReservationCentre;
+}) {
+  const [etat, envoyer] = useActionState(action, ETAT_INITIAL);
+  return (
+    <form action={envoyer} className="grid max-w-2xl gap-3">
+      <MessageFormulaire etat={etat} />
+      <CaseACocher
+        etat={etat}
+        nom="actif"
+        libelle="Ouvrir la réservation en ligne pour ce centre"
+        defaut={parametres.actif}
+      />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <ChampTexte
+          etat={etat}
+          nom="delaiMinimalMinutes"
+          libelle="Délai minimal (minutes)"
+          inputMode="numeric"
+          defaut={String(parametres.delaiMinimalMinutes)}
+          aide="Le délai propre à chaque type s’applique s’il est plus long."
+          requis
+        />
+        <ChampTexte
+          etat={etat}
+          nom="horizonJours"
+          libelle="Horizon de réservation (jours)"
+          inputMode="numeric"
+          defaut={String(parametres.horizonJours)}
+          requis
+        />
+        <ChampTexte
+          etat={etat}
+          nom="delaiModificationHeures"
+          libelle="Annulation ou déplacement jusqu’à (heures avant)"
+          inputMode="numeric"
+          defaut={String(parametres.delaiModificationHeures)}
+          requis
+        />
+        <ListeDeroulante
+          etat={etat}
+          nom="validation"
+          libelle="Validation des rendez-vous"
+          defaut={parametres.validation}
+          options={VALIDATIONS_RESERVATION.map((v) => ({
+            valeur: v,
+            libelle: LIBELLES_VALIDATIONS_RESERVATION[v],
+          }))}
+        />
+      </div>
+      <fieldset className="grid gap-1">
+        <legend className="text-sm font-medium">Types réservables</legend>
+        {parametres.types.map((t) => (
+          <label key={t.id} className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              name="typeRdvIds"
+              value={t.id}
+              defaultChecked={t.retenu}
+              className="size-4 accent-primary"
+            />
+            {t.nom}
+          </label>
+        ))}
+      </fieldset>
+      <ChampTexte
+        etat={etat}
+        nom="slug"
+        libelle="Adresse du centre"
+        defaut={parametres.slug}
+        aide="Changer l’adresse invalide le lien et le widget déjà publiés."
+        requis
+      />
+      <div>
+        <BoutonEnvoi>Enregistrer</BoutonEnvoi>
       </div>
     </form>
   );

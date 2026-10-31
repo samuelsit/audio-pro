@@ -14,6 +14,7 @@ const LIENS_AGENDA: readonly LienSousNavigation[] = [
   { href: '/agenda', libelle: 'Agenda' },
   { href: '/agenda/salle-attente', libelle: 'Salle d’attente' },
   { href: '/agenda/creneaux', libelle: 'Prochain créneau' },
+  { href: '/agenda/demandes', libelle: 'Demandes en ligne' },
 ];
 
 const LIEN_PARAMETRES_AGENDA: LienSousNavigation = {

@@ -14,6 +14,7 @@
     "@ha/adapters": "workspace:*",
     "@ha/db": "workspace:*",
     "@ha/domain": "workspace:*",
+    "altcha-lib": "2.8.0",
     "better-auth": "1.7.14",
     "class-variance-authority": "^0.7.1",
     "cn": "^0.5.0",

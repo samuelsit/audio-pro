@@ -27,3 +27,16 @@ export function formaterDate(iso: string | null | undefined): string {
   const [annee, mois, jour] = iso.split('-');
   return `${jour}/${mois}/${annee}`;
 }
+
+const formatDateLongue = new Intl.DateTimeFormat('fr-FR', {
+  timeZone: 'UTC',
+  weekday: 'long',
+  day: 'numeric',
+  month: 'long',
+});
+
+/** « lundi 11 janvier », pour une date calendaire AAAA-MM-JJ. */
+export function formaterDateLongue(date: string): string {
+  const texte = formatDateLongue.format(new Date(`${date}T12:00:00Z`));
+  return texte.charAt(0).toUpperCase() + texte.slice(1);
+}

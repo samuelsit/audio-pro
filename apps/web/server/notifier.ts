@@ -1,8 +1,13 @@
 import { FakeNotifier } from '@ha/adapters';
 import type { Notifier } from '@ha/domain';
 
+/** Sans fournisseur, aucun code ne peut partir : la réservation en ligne reste fermée. */
+export function notifierDisponible(): boolean {
+  return process.env.NOTIFIER === 'simulation' && process.env.NODE_ENV !== 'production';
+}
+
 function creerNotifier(): Notifier {
-  if (process.env.NOTIFIER === 'simulation' && process.env.NODE_ENV !== 'production') {
+  if (notifierDisponible()) {
     return new FakeNotifier(process.env.NOTIFIER_SIMULATION_FICHIER);
   }
   // À VÉRIFIER : fournisseur SMS et e-mail à choisir, docs/vendor n'en documente aucun (ADR-021).

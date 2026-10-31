@@ -1,12 +1,19 @@
 import { execFileSync } from 'node:child_process';
+import { rmSync } from 'node:fs';
 import path from 'node:path';
 
 import { preparerBaseJetable, viderBaseJetable } from '@ha/db/admin';
 
-import { CHIFFREMENT_TEST, urlBaseJetable, urlsDesRoles } from '../test/env';
+import {
+  CHIFFREMENT_TEST,
+  FICHIER_NOTIFICATIONS_E2E,
+  urlBaseJetable,
+  urlsDesRoles,
+} from '../test/env';
 
 /** Base E2E repartie de zéro : migrations, tables vidées, seed de démonstration, extrait de la LPP. */
 export default async function globalSetup(): Promise<void> {
+  rmSync(FICHIER_NOTIFICATIONS_E2E, { force: true });
   const url = urlBaseJetable('DATABASE_URL_E2E');
   await preparerBaseJetable(url);
   await viderBaseJetable(url);

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 
-import { coche, texte, type EtatFormulaire } from '@/lib/formulaire';
+import { coche, liste, texte, type EtatFormulaire } from '@/lib/formulaire';
 import { heuresSaisies, horaires } from '@/lib/horaires';
 import { executer } from '@/server/actions';
 import { requireSession } from '@/server/auth/gardes';
@@ -16,6 +16,7 @@ import {
   modifierTypeRdv,
   supprimerException,
 } from '@/server/services/agenda-parametres';
+import { enregistrerParametresReservation } from '@/server/services/reservation-parametres';
 
 function terminer(erreur: EtatFormulaire | null, succes: string): EtatFormulaire {
   if (erreur) {
@@ -115,4 +116,25 @@ export async function creerExceptionAction(
 export async function supprimerExceptionAction(centreId: string, id: string): Promise<void> {
   await supprimerException(await requireSession(), centreId, id);
   revalidatePath('/agenda', 'layout');
+}
+
+export async function enregistrerReservationAction(
+  centreId: string,
+  _: EtatFormulaire,
+  formData: FormData,
+): Promise<EtatFormulaire> {
+  const acteur = await requireSession();
+  const donnees = {
+    actif: coche(formData, 'actif'),
+    delaiMinimalMinutes: texte(formData, 'delaiMinimalMinutes'),
+    horizonJours: texte(formData, 'horizonJours'),
+    validation: texte(formData, 'validation'),
+    delaiModificationHeures: texte(formData, 'delaiModificationHeures'),
+    typeRdvIds: liste(formData, 'typeRdvIds'),
+    slug: texte(formData, 'slug'),
+  };
+  return terminer(
+    await executer(() => enregistrerParametresReservation(acteur, centreId, donnees), donnees),
+    'Réservation en ligne enregistrée.',
+  );
 }
