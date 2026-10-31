@@ -21,15 +21,31 @@ model AppMeta {
 // ---------------------------------------------------------------------------
 
 enum Role {
-  ADMIN
+  ADMIN_CLIENT
+  RESPONSABLE_CENTRE
   AUDIO
   ASSISTANT
+  SUPERADMIN
 }
 
-/// Le réseau de centres (une seule ligne en pratique).
+enum StatutOrganisation {
+  ESSAI
+  ACTIF
+  SUSPENDU
+}
+
+/// Un client : réseau de centres ou centre indépendant. Chaque donnée métier lui est rattachée (ADR-016).
 model Organisation {
   id                   String                @id @default(uuid(7))
-  nom                  String
+  raisonSociale        String                @map("raison_sociale")
+  /// Vide pour une organisation antérieure au SaaS ; exigé à la création depuis la console.
+  siren                String?               @unique @db.Char(9)
+  adresseLigne1        String?               @map("adresse_ligne1")
+  adresseLigne2        String?               @map("adresse_ligne2")
+  codePostal           String?               @map("code_postal")
+  ville                String?
+  statut               StatutOrganisation    @default(ESSAI)
+  parametres           Json                  @default("{}")
   createdAt            DateTime              @default(now()) @map("created_at")
   updatedAt            DateTime              @updatedAt @map("updated_at")
   centres              Centre[]
@@ -49,6 +65,23 @@ model Organisation {
   compteursDevis       CompteurDevis[]
   essais               Essai[]
   facturesPreparees    FacturePreparee[]
+  journalAudit         JournalAudit[]
+  utilisateursCentres  UtilisateurCentre[]
+  praticiens           Praticien[]
+  praticiensCentres    PraticienCentre[]
+  couverturesAmo       CouvertureAmo[]
+  couverturesAmc       CouvertureAmc[]
+  modelesCodesLpp      ModeleCodeLpp[]
+  stocksAccessoires    StockAccessoire[]
+  transitionsDossier   TransitionDossier[]
+  prescriptions        Prescription[]
+  prisesEnCharge       PriseEnCharge[]
+  devisOffres          DevisOffre[]
+  devisLignes          DevisLigne[]
+  signaturesDevis      SignatureDevis[]
+  essaisAppareils      EssaiAppareil[]
+  essaisRdv            EssaiRdv[]
+  prolongationsEssai   ProlongationEssai[]
 
   @@map("organisation")
 }
@@ -62,9 +95,9 @@ model Centre {
   adresseLigne2         String?               @map("adresse_ligne2")
   codePostal            String                @map("code_postal")
   ville                 String
-  finess                String?               @unique
+  finess                String?
   /// Identifiant de facturation Assurance Maladie, attribué par établissement.
-  numeroFacturationAm   String?               @unique @map("numero_facturation_am")
+  numeroFacturationAm   String?               @map("numero_facturation_am")
   /// Identification de l'entreprise, au pied du devis normalisé (p. 2).
   raisonSociale         String?               @map("raison_sociale")
   siret                 String?
@@ -72,6 +105,8 @@ model Centre {
   tvaIntracommunautaire String?               @map("tva_intracommunautaire")
   email                 String
   telephone             String
+  /// Plages par jour, validées par `horairesOuvertureSchema`.
+  horairesOuverture     Json?                 @map("horaires_ouverture")
   actif                 Boolean               @default(true)
   createdAt             DateTime              @default(now()) @map("created_at")
   updatedAt             DateTime              @updatedAt @map("updated_at")
@@ -88,6 +123,8 @@ model Centre {
   dossiers              Dossier[]
 
   @@unique([organisationId, nom])
+  @@unique([organisationId, finess])
+  @@unique([organisationId, numeroFacturationAm])
   @@map("centre")
 }
 
@@ -95,7 +132,8 @@ model Centre {
 /// emailVerified, image, twoFactorEnabled), complétée par nos champs métier.
 model Utilisateur {
   id                    String                @id @default(uuid(7))
-  organisationId        String                @map("organisation_id")
+  /// Null pour le seul SUPERADMIN, hors de toute organisation (CHECK en base).
+  organisationId        String?               @map("organisation_id")
   prenom                String
   nom                   String
   /// Nom affiché exigé par Better Auth (« Prénom Nom »), maintenu par le service.
@@ -107,11 +145,11 @@ model Utilisateur {
   role                  Role
   actif                 Boolean               @default(true)
   doitChangerMotDePasse Boolean               @default(true) @map("doit_changer_mot_de_passe")
-  /// 2FA TOTP : obligatoire pour ADMIN, facultative pour les autres rôles.
+  /// 2FA TOTP : obligatoire pour ADMIN_CLIENT et SUPERADMIN, facultative pour les autres rôles.
   twoFactorEnabled      Boolean               @default(false) @map("deux_facteurs_actif")
   createdAt             DateTime              @default(now()) @map("created_at")
   updatedAt             DateTime              @updatedAt @map("updated_at")
-  organisation          Organisation          @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  organisation          Organisation?         @relation(fields: [organisationId], references: [id], onDelete: Restrict)
   centres               UtilisateurCentre[]
   praticien             Praticien?
   sessions              Session[]
@@ -139,44 +177,55 @@ model Utilisateur {
   @@map("utilisateur")
 }
 
-/// Rattachement d'un utilisateur à un centre. Un ADMIN accède à tous les centres sans rattachement.
+/// Rattachement d'un utilisateur à un centre. Un ADMIN_CLIENT accède à tous les centres sans rattachement.
 model UtilisateurCentre {
-  utilisateurId String      @map("utilisateur_id")
-  centreId      String      @map("centre_id")
-  createdAt     DateTime    @default(now()) @map("created_at")
-  utilisateur   Utilisateur @relation(fields: [utilisateurId], references: [id], onDelete: Cascade)
-  centre        Centre      @relation(fields: [centreId], references: [id], onDelete: Restrict)
+  organisationId String       @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  utilisateurId  String       @map("utilisateur_id")
+  centreId       String       @map("centre_id")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  utilisateur    Utilisateur  @relation(fields: [utilisateurId], references: [id], onDelete: Cascade)
+  centre         Centre       @relation(fields: [centreId], references: [id], onDelete: Restrict)
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
 
   @@id([utilisateurId, centreId])
   @@index([centreId])
+  @@index([organisationId])
   @@map("utilisateur_centre")
 }
 
 /// Audioprothésiste : fiche liée à un utilisateur de rôle AUDIO (contrôlé par le service).
 model Praticien {
-  id            String            @id @default(uuid(7))
-  utilisateurId String            @unique @map("utilisateur_id")
-  rpps          String            @unique @db.Char(11)
-  adeli         String?           @unique @db.Char(9)
-  createdAt     DateTime          @default(now()) @map("created_at")
-  updatedAt     DateTime          @updatedAt @map("updated_at")
-  utilisateur   Utilisateur       @relation(fields: [utilisateurId], references: [id], onDelete: Restrict)
-  centres       PraticienCentre[]
-  dossiers      Dossier[]
+  id             String            @id @default(uuid(7))
+  organisationId String            @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  utilisateurId  String            @unique @map("utilisateur_id")
+  rpps           String            @db.Char(11)
+  adeli          String?           @db.Char(9)
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+  utilisateur    Utilisateur       @relation(fields: [utilisateurId], references: [id], onDelete: Restrict)
+  centres        PraticienCentre[]
+  dossiers       Dossier[]
+  organisation   Organisation      @relation(fields: [organisationId], references: [id], onDelete: Restrict)
 
+  @@unique([organisationId, rpps])
+  @@unique([organisationId, adeli])
+  @@index([organisationId])
   @@map("praticien")
 }
 
 /// Centre d'exercice d'un praticien (sous-ensemble des rattachements de son utilisateur).
 model PraticienCentre {
-  praticienId String    @map("praticien_id")
-  centreId    String    @map("centre_id")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  praticien   Praticien @relation(fields: [praticienId], references: [id], onDelete: Cascade)
-  centre      Centre    @relation(fields: [centreId], references: [id], onDelete: Restrict)
+  organisationId String       @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  praticienId    String       @map("praticien_id")
+  centreId       String       @map("centre_id")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  praticien      Praticien    @relation(fields: [praticienId], references: [id], onDelete: Cascade)
+  centre         Centre       @relation(fields: [centreId], references: [id], onDelete: Restrict)
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
 
   @@id([praticienId, centreId])
   @@index([centreId])
+  @@index([organisationId])
   @@map("praticien_centre")
 }
 
@@ -259,6 +308,7 @@ model Patient {
 /// Couverture assurance maladie obligatoire (une par patient).
 model CouvertureAmo {
   id                    String              @id @default(uuid(7))
+  organisationId        String              @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
   patientId             String              @unique @map("patient_id")
   /// NIR complet (15 caractères), chiffré (contexte « couverture_amo.nir »).
   nir                   String
@@ -278,25 +328,30 @@ model CouvertureAmo {
   createdAt             DateTime            @default(now()) @map("created_at")
   updatedAt             DateTime            @updatedAt @map("updated_at")
   patient               Patient             @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  organisation          Organisation        @relation(fields: [organisationId], references: [id], onDelete: Restrict)
 
   @@index([nirEmpreinte])
+  @@index([organisationId])
   @@map("couverture_amo")
 }
 
 /// Couverture complémentaire (une par patient pendant le MVP).
 model CouvertureAmc {
-  id                   String    @id @default(uuid(7))
-  patientId            String    @unique @map("patient_id")
-  organismeNom         String    @map("organisme_nom")
-  organismeIdentifiant String?   @map("organisme_identifiant")
-  numeroAdherent       String?   @map("numero_adherent")
-  typeContrat          String?   @map("type_contrat")
-  debutValidite        DateTime? @map("debut_validite") @db.Date
-  finValidite          DateTime? @map("fin_validite") @db.Date
-  createdAt            DateTime  @default(now()) @map("created_at")
-  updatedAt            DateTime  @updatedAt @map("updated_at")
-  patient              Patient   @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  id                   String       @id @default(uuid(7))
+  organisationId       String       @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  patientId            String       @unique @map("patient_id")
+  organismeNom         String       @map("organisme_nom")
+  organismeIdentifiant String?      @map("organisme_identifiant")
+  numeroAdherent       String?      @map("numero_adherent")
+  typeContrat          String?      @map("type_contrat")
+  debutValidite        DateTime?    @map("debut_validite") @db.Date
+  finValidite          DateTime?    @map("fin_validite") @db.Date
+  createdAt            DateTime     @default(now()) @map("created_at")
+  updatedAt            DateTime     @updatedAt @map("updated_at")
+  patient              Patient      @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  organisation         Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
 
+  @@index([organisationId])
   @@map("couverture_amc")
 }
 
@@ -545,13 +600,16 @@ model ModeleAideAuditive {
 
 /// Codes LPP d'un modèle : génériques ou spécifiques (voir ADR-008).
 model ModeleCodeLpp {
-  modeleId String             @map("modele_id")
-  code     String             @db.Char(7)
-  modele   ModeleAideAuditive @relation(fields: [modeleId], references: [id], onDelete: Cascade)
-  lppCode  LppCode            @relation(fields: [code], references: [code], onDelete: Restrict)
+  organisationId String             @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  modeleId       String             @map("modele_id")
+  code           String             @db.Char(7)
+  modele         ModeleAideAuditive @relation(fields: [modeleId], references: [id], onDelete: Cascade)
+  lppCode        LppCode            @relation(fields: [code], references: [code], onDelete: Restrict)
+  organisation   Organisation       @relation(fields: [organisationId], references: [id], onDelete: Restrict)
 
   @@id([modeleId, code])
   @@index([code])
+  @@index([organisationId])
   @@map("modele_code_lpp")
 }
 
@@ -625,7 +683,7 @@ model Appareil {
   dateReception             DateTime            @map("date_reception") @db.Date
   referenceBonLivraison     String              @map("reference_bon_livraison")
   referenceFactureFabricant String?             @map("reference_facture_fabricant")
-  /// Réservé à l'ADMIN (lecture et saisie).
+  /// Réservé à l'ADMIN_CLIENT (lecture et saisie).
   prixAchatCentimes         Int?                @map("prix_achat_centimes")
   enConsignation            Boolean             @default(false) @map("en_consignation")
   createdAt                 DateTime            @default(now()) @map("created_at")
@@ -682,15 +740,18 @@ model MouvementAppareil {
 
 /// Quantité d'un accessoire (ou de piles) dans un centre. Jamais négative (contrainte CHECK).
 model StockAccessoire {
-  centreId     String     @map("centre_id")
-  accessoireId String     @map("accessoire_id")
-  quantite     Int        @default(0)
-  updatedAt    DateTime   @updatedAt @map("updated_at")
-  centre       Centre     @relation(fields: [centreId], references: [id], onDelete: Restrict)
-  accessoire   Accessoire @relation(fields: [accessoireId], references: [id], onDelete: Restrict)
+  organisationId String       @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  centreId       String       @map("centre_id")
+  accessoireId   String       @map("accessoire_id")
+  quantite       Int          @default(0)
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+  centre         Centre       @relation(fields: [centreId], references: [id], onDelete: Restrict)
+  accessoire     Accessoire   @relation(fields: [accessoireId], references: [id], onDelete: Restrict)
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
 
   @@id([centreId, accessoireId])
   @@index([accessoireId])
+  @@index([organisationId])
   @@map("stock_accessoire")
 }
 
@@ -765,8 +826,7 @@ enum StatutDossier {
   DEVIS_SIGNE
   EN_ESSAI
   A_FACTURER
-  EXPORTE
-  FACTURE_EXTERNE
+  FACTURE
   CLOS
   ABANDONNE
 }
@@ -831,19 +891,22 @@ model Dossier {
 /// Historique des statuts, en ajout seul (trigger). Écrit dans la même transaction que le changement.
 /// Lu directement : motif chiffré.
 model TransitionDossier {
-  id            String         @id @default(uuid(7))
-  dossierId     String         @map("dossier_id")
+  id             String         @id @default(uuid(7))
+  organisationId String         @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  dossierId      String         @map("dossier_id")
   /// Null pour la création du dossier.
-  statutAvant   StatutDossier? @map("statut_avant")
-  statutApres   StatutDossier  @map("statut_apres")
-  horodatage    DateTime       @default(now())
-  utilisateurId String         @map("utilisateur_id")
+  statutAvant    StatutDossier? @map("statut_avant")
+  statutApres    StatutDossier  @map("statut_apres")
+  horodatage     DateTime       @default(now())
+  utilisateurId  String         @map("utilisateur_id")
   /// Chiffré (contexte « transition_dossier.motif ») : abandon uniquement.
-  motif         String?
-  dossier       Dossier        @relation(fields: [dossierId], references: [id], onDelete: Restrict)
-  utilisateur   Utilisateur    @relation(fields: [utilisateurId], references: [id], onDelete: Restrict)
+  motif          String?
+  dossier        Dossier        @relation(fields: [dossierId], references: [id], onDelete: Restrict)
+  utilisateur    Utilisateur    @relation(fields: [utilisateurId], references: [id], onDelete: Restrict)
+  organisation   Organisation   @relation(fields: [organisationId], references: [id], onDelete: Restrict)
 
   @@index([dossierId, horodatage])
+  @@index([organisationId])
   @@map("transition_dossier")
 }
 
@@ -851,6 +914,7 @@ model TransitionDossier {
 /// conservent (convention art. 21). La plus récente fait foi. Lue directement : motif chiffré.
 model Prescription {
   id                    String          @id @default(uuid(7))
+  organisationId        String          @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
   dossierId             String          @map("dossier_id")
   prescripteurId        String          @map("prescripteur_id")
   datePrescription      DateTime        @map("date_prescription") @db.Date
@@ -871,13 +935,15 @@ model Prescription {
   prescripteur          Prescripteur    @relation(fields: [prescripteurId], references: [id], onDelete: Restrict)
   forceePar             Utilisateur?    @relation("PrescriptionForcee", fields: [forceeParId], references: [id], onDelete: Restrict)
   createdBy             Utilisateur     @relation("PrescriptionSaisie", fields: [createdById], references: [id], onDelete: Restrict)
+  organisation          Organisation    @relation(fields: [organisationId], references: [id], onDelete: Restrict)
 
   @@index([dossierId, createdAt])
+  @@index([organisationId])
   @@map("prescription")
 }
 
 /// Délivrance d'une aide sur une oreille : l'historique du renouvellement (convention art. 22).
-/// Écrite à la confirmation de la facture Cosium (étape 12) et par la reprise Cosium (étape 13).
+/// Écrite à la validation de la facture (étape 14) et par la reprise Cosium (étape 29).
 model Delivrance {
   id             String            @id @default(uuid(7))
   organisationId String            @map("organisation_id")
@@ -990,6 +1056,7 @@ model Devis {
 /// Rubrique 1.1 ou 1.2 du devis.
 model DevisOffre {
   id                      String        @id @default(uuid(7))
+  organisationId          String        @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
   devisId                 String        @map("devis_id")
   rubrique                RubriqueOffre
   /// Parts AMC estimées, saisies à la main ; null si inconnues.
@@ -998,14 +1065,17 @@ model DevisOffre {
   amcConsommablesCentimes Int?          @map("amc_consommables_centimes")
   devis                   Devis         @relation(fields: [devisId], references: [id], onDelete: Cascade)
   lignes                  DevisLigne[]
+  organisation            Organisation  @relation(fields: [organisationId], references: [id], onDelete: Restrict)
 
   @@unique([devisId, rubrique])
+  @@index([organisationId])
   @@map("devis_offre")
 }
 
 /// Aide auditive (une par oreille et par offre) ou consommable. Prix TTC de référence, TVA conservée.
 model DevisLigne {
   id                              String              @id @default(uuid(7))
+  organisationId                  String              @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
   offreId                         String              @map("offre_id")
   ordre                           Int
   nature                          NatureLigneDevis
@@ -1025,30 +1095,35 @@ model DevisLigne {
   offre                           DevisOffre          @relation(fields: [offreId], references: [id], onDelete: Cascade)
   modele                          ModeleAideAuditive? @relation(fields: [modeleId], references: [id], onDelete: Restrict)
   accessoire                      Accessoire?         @relation(fields: [accessoireId], references: [id], onDelete: Restrict)
+  organisation                    Organisation        @relation(fields: [organisationId], references: [id], onDelete: Restrict)
 
   @@unique([offreId, ordre])
   @@index([modeleId])
   @@index([accessoireId])
+  @@index([organisationId])
   @@map("devis_ligne")
 }
 
 /// Signature d'un devis, en ajout seul (trigger). `SCAN` pour le MVP ; `ELECTRONIQUE` portera sa preuve.
 model SignatureDevis {
-  id            String        @id @default(uuid(7))
-  devisId       String        @unique @map("devis_id")
-  mode          ModeSignature
-  dateSignature DateTime      @map("date_signature") @db.Date
-  saisieParId   String        @map("saisie_par_id")
+  id             String        @id @default(uuid(7))
+  organisationId String        @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  devisId        String        @unique @map("devis_id")
+  mode           ModeSignature
+  dateSignature  DateTime      @map("date_signature") @db.Date
+  saisieParId    String        @map("saisie_par_id")
   /// Requis en mode SCAN (contrainte CHECK). Clé opaque dans le DocumentStore.
-  scanCle       String?       @unique @map("scan_cle")
-  scanType      String?       @map("scan_type")
-  scanTaille    Int?          @map("scan_taille")
+  scanCle        String?       @unique @map("scan_cle")
+  scanType       String?       @map("scan_type")
+  scanTaille     Int?          @map("scan_taille")
   /// Référence de la preuve d'une signature électronique, sans donnée patient.
-  preuve        Json?
-  createdAt     DateTime      @default(now()) @map("created_at")
-  devis         Devis         @relation(fields: [devisId], references: [id], onDelete: Restrict)
-  saisiePar     Utilisateur   @relation(fields: [saisieParId], references: [id], onDelete: Restrict)
+  preuve         Json?
+  createdAt      DateTime      @default(now()) @map("created_at")
+  devis          Devis         @relation(fields: [devisId], references: [id], onDelete: Restrict)
+  saisiePar      Utilisateur   @relation(fields: [saisieParId], references: [id], onDelete: Restrict)
+  organisation   Organisation  @relation(fields: [organisationId], references: [id], onDelete: Restrict)
 
+  @@index([organisationId])
   @@map("signature_devis")
 }
 
@@ -1090,61 +1165,70 @@ model Essai {
 /// Appareil confié pendant l'essai. Un échange ferme la ligne et en ouvre une autre : l'historique reste.
 /// Index uniques partiels : un appareil actif par oreille, un seul essai actif par appareil.
 model EssaiAppareil {
-  id           String       @id @default(uuid(7))
-  essaiId      String       @map("essai_id")
-  appareilId   String       @map("appareil_id")
-  oreille      Oreille
-  poseLe       DateTime     @map("pose_le") @db.Date
-  poseParId    String       @map("pose_par_id")
+  id             String       @id @default(uuid(7))
+  organisationId String       @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  essaiId        String       @map("essai_id")
+  appareilId     String       @map("appareil_id")
+  oreille        Oreille
+  poseLe         DateTime     @map("pose_le") @db.Date
+  poseParId      String       @map("pose_par_id")
   /// Nul tant que le lien est actif. Reste nul après l'achat, jusqu'à la vente (étape 12).
-  retireLe     DateTime?    @map("retire_le") @db.Date
-  retireParId  String?      @map("retire_par_id")
+  retireLe       DateTime?    @map("retire_le") @db.Date
+  retireParId    String?      @map("retire_par_id")
   /// Chiffré (contexte « essai_appareil.motif_retrait ») : changement d'appareil uniquement.
-  motifRetrait String?      @map("motif_retrait")
-  essai        Essai        @relation(fields: [essaiId], references: [id], onDelete: Restrict)
-  appareil     Appareil     @relation(fields: [appareilId], references: [id], onDelete: Restrict)
-  posePar      Utilisateur  @relation("EssaiAppareilPose", fields: [poseParId], references: [id], onDelete: Restrict)
-  retirePar    Utilisateur? @relation("EssaiAppareilRetire", fields: [retireParId], references: [id], onDelete: Restrict)
+  motifRetrait   String?      @map("motif_retrait")
+  essai          Essai        @relation(fields: [essaiId], references: [id], onDelete: Restrict)
+  appareil       Appareil     @relation(fields: [appareilId], references: [id], onDelete: Restrict)
+  posePar        Utilisateur  @relation("EssaiAppareilPose", fields: [poseParId], references: [id], onDelete: Restrict)
+  retirePar      Utilisateur? @relation("EssaiAppareilRetire", fields: [retireParId], references: [id], onDelete: Restrict)
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
 
   @@index([essaiId])
   @@index([appareilId])
+  @@index([organisationId])
   @@map("essai_appareil")
 }
 
 /// Rendez-vous tracé, en ajout seul (trigger). Doctolib reste l'agenda.
 model EssaiRdv {
-  id          String       @id @default(uuid(7))
-  essaiId     String       @map("essai_id")
-  date        DateTime     @db.Date
-  type        TypeRdvEssai
+  id             String       @id @default(uuid(7))
+  organisationId String       @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  essaiId        String       @map("essai_id")
+  date           DateTime     @db.Date
+  type           TypeRdvEssai
   /// Chiffré (contexte « essai_rdv.compte_rendu ») : données de santé possibles.
-  compteRendu String       @map("compte_rendu")
-  createdById String       @map("created_by_id")
-  createdAt   DateTime     @default(now()) @map("created_at")
-  essai       Essai        @relation(fields: [essaiId], references: [id], onDelete: Restrict)
-  createdBy   Utilisateur  @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  compteRendu    String       @map("compte_rendu")
+  createdById    String       @map("created_by_id")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  essai          Essai        @relation(fields: [essaiId], references: [id], onDelete: Restrict)
+  createdBy      Utilisateur  @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
 
   @@index([essaiId, date])
+  @@index([organisationId])
   @@map("essai_rdv")
 }
 
 /// Prolongation sur demande écrite du prescripteur, dont le justificatif est obligatoire.
 model ProlongationEssai {
-  id                 String      @id @default(uuid(7))
-  essaiId            String      @unique @map("essai_id")
-  dateDemande        DateTime    @map("date_demande") @db.Date
+  id                 String       @id @default(uuid(7))
+  organisationId     String       @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  essaiId            String       @unique @map("essai_id")
+  dateDemande        DateTime     @map("date_demande") @db.Date
   jours              Int
   /// Chiffré (contexte « prolongation_essai.motif »), jamais recopié dans le journal d'audit.
   motif              String
   /// Clé opaque dans le DocumentStore. Le nom du fichier d'origine n'est pas conservé.
-  justificatifCle    String      @unique @map("justificatif_cle")
-  justificatifType   String      @map("justificatif_type")
-  justificatifTaille Int         @map("justificatif_taille")
-  createdById        String      @map("created_by_id")
-  createdAt          DateTime    @default(now()) @map("created_at")
-  essai              Essai       @relation(fields: [essaiId], references: [id], onDelete: Restrict)
-  createdBy          Utilisateur @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  justificatifCle    String       @unique @map("justificatif_cle")
+  justificatifType   String       @map("justificatif_type")
+  justificatifTaille Int          @map("justificatif_taille")
+  createdById        String       @map("created_by_id")
+  createdAt          DateTime     @default(now()) @map("created_at")
+  essai              Essai        @relation(fields: [essaiId], references: [id], onDelete: Restrict)
+  createdBy          Utilisateur  @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  organisation       Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
 
+  @@index([organisationId])
   @@map("prolongation_essai")
 }
 
@@ -1160,8 +1244,8 @@ enum StatutPec {
 }
 
 /// Préparation de la facture d'un dossier à facturer. Seul ce qui ne se déduit pas est stocké : les lignes
-/// se calculent à la lecture et se figeront à l'export (ADR-014). Volontairement sans numéro de facture ni
-/// encaissement : ils restent dans Cosium.
+/// se calculent à la lecture et se figeront à la facture (ADR-015). Sans numéro de facture ni encaissement :
+/// ils arrivent aux étapes 14 et 15.
 model FacturePreparee {
   id                String       @id @default(uuid(7))
   organisationId    String       @map("organisation_id")
@@ -1184,25 +1268,28 @@ model FacturePreparee {
 
 /// Prise en charge complémentaire saisie à la main. Rattachée au dossier : elle pourra précéder l'achat.
 model PriseEnCharge {
-  id                     String      @id @default(uuid(7))
-  dossierId              String      @unique @map("dossier_id")
+  id                     String       @id @default(uuid(7))
+  organisationId         String       @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  dossierId              String       @unique @map("dossier_id")
   statut                 StatutPec
   /// Vides sans tiers payant ; organisme, numéro et montant requis si accordée (contraintes CHECK).
   organisme              String?
   plateforme             String?
-  numeroAccord           String?     @map("numero_accord")
-  montantAccordeCentimes Int?        @map("montant_accorde_centimes")
-  datePec                DateTime?   @map("date_pec") @db.Date
+  numeroAccord           String?      @map("numero_accord")
+  montantAccordeCentimes Int?         @map("montant_accorde_centimes")
+  datePec                DateTime?    @map("date_pec") @db.Date
   /// Clé opaque dans le DocumentStore. Le nom du fichier d'origine n'est pas conservé.
-  justificatifCle        String?     @unique @map("justificatif_cle")
-  justificatifType       String?     @map("justificatif_type")
-  justificatifTaille     Int?        @map("justificatif_taille")
-  saisieParId            String      @map("saisie_par_id")
-  createdAt              DateTime    @default(now()) @map("created_at")
-  updatedAt              DateTime    @updatedAt @map("updated_at")
-  dossier                Dossier     @relation(fields: [dossierId], references: [id], onDelete: Restrict)
-  saisiePar              Utilisateur @relation(fields: [saisieParId], references: [id], onDelete: Restrict)
+  justificatifCle        String?      @unique @map("justificatif_cle")
+  justificatifType       String?      @map("justificatif_type")
+  justificatifTaille     Int?         @map("justificatif_taille")
+  saisieParId            String       @map("saisie_par_id")
+  createdAt              DateTime     @default(now()) @map("created_at")
+  updatedAt              DateTime     @updatedAt @map("updated_at")
+  dossier                Dossier      @relation(fields: [dossierId], references: [id], onDelete: Restrict)
+  saisiePar              Utilisateur  @relation(fields: [saisieParId], references: [id], onDelete: Restrict)
+  organisation           Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
 
+  @@index([organisationId])
   @@map("prise_en_charge")
 }
 
@@ -1295,6 +1382,7 @@ enum ActionAudit {
   DELETE
   EXPORT
   PRINT
+  SEND
   CONNEXION
   ECHEC_CONNEXION
   DECONNEXION
@@ -1323,6 +1411,8 @@ model JournalAudit {
   champs             Json?
   /// Contexte : filtres d'un export, motif d'un échec de connexion…
   details            Json?
+
+  organisation Organisation? @relation(fields: [organisationId], references: [id], onDelete: Restrict)
 
   @@index([organisationId, horodatage])
   @@index([utilisateurId, horodatage])

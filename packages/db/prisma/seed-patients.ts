@@ -429,6 +429,61 @@ const PATIENTS: readonly PatientDemo[] = [
 
 export const NOMBRE_PATIENTS_DEMO = PATIENTS.length;
 
+/** Patients du centre indépendant : une seule clé de centre, tous au même endroit. */
+export const PATIENTS_INDEPENDANT: readonly PatientDemo[] = [
+  {
+    n: 101,
+    centre: 'nord',
+    civilite: 'MME',
+    nomNaissance: 'Delorme',
+    prenoms: 'Agnès',
+    dateNaissance: '1948-03-12',
+    ville: ['35000', 'Rennes'],
+    amo: { nir13: nir(2, '1948-03-12', '35', 501) },
+  },
+  {
+    n: 102,
+    centre: 'nord',
+    civilite: 'M',
+    nomNaissance: 'Perrin',
+    prenoms: 'Gérard',
+    dateNaissance: '1944-11-02',
+    ville: ['35000', 'Rennes'],
+    amo: { nir13: nir(1, '1944-11-02', '35', 502) },
+  },
+  {
+    n: 103,
+    centre: 'nord',
+    civilite: 'MME',
+    nomNaissance: 'Marchand',
+    prenoms: 'Odile',
+    dateNaissance: '1952-06-23',
+    ville: ['35000', 'Rennes'],
+    amo: { nir13: nir(2, '1952-06-23', '35', 503) },
+    amc: MUTUELLE_A,
+  },
+  {
+    n: 104,
+    centre: 'nord',
+    civilite: 'M',
+    nomNaissance: 'Lemoine',
+    prenoms: 'Yves',
+    dateNaissance: '1939-09-17',
+    ville: ['35000', 'Rennes'],
+    amo: { nir13: nir(1, '1939-09-17', '35', 504), c2s: true },
+  },
+  {
+    n: 105,
+    centre: 'nord',
+    civilite: 'MME',
+    nomNaissance: 'Colin',
+    prenoms: 'Josette',
+    dateNaissance: '1946-01-30',
+    ville: ['35000', 'Rennes'],
+    amo: { nir13: nir(2, '1946-01-30', '35', 505) },
+  },
+];
+
 function idPatient(n: number): string {
   return `019a3000-0000-7000-8000-${String(500 + n).padStart(12, '0')}`;
 }
@@ -440,11 +495,16 @@ function date(iso: string): Date {
 const LECTURE_VITALE = new Date('2026-10-15T09:30:00+02:00');
 
 /** Crée ou remet à l'état initial les 30 patients de démonstration (fusions annulées comprises). */
-export async function seedPatients(db: PrismaClient, organisationId: string, centres: CentresDemo) {
+export async function seedPatients(
+  db: PrismaClient,
+  organisationId: string,
+  centres: CentresDemo,
+  patients: readonly PatientDemo[] = PATIENTS,
+) {
   const chiffreur = new ChiffreurAesGcm(chargerTrousseau(process.env));
   const empreinte = new EmpreinteHmac(chargerCleEmpreinte(process.env));
 
-  for (const p of PATIENTS) {
+  for (const p of patients) {
     const id = idPatient(p.n);
     const sexe: Sexe = p.civilite === 'MME' ? 'FEMININ' : 'MASCULIN';
     const telephone = `0600${String(p.n).padStart(6, '0')}`;

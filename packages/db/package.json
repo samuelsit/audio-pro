@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./admin": "./src/admin.ts"
   },
   "scripts": {
     "postinstall": "prisma generate",
@@ -12,6 +13,7 @@
     "migrate": "prisma migrate dev",
     "deploy": "prisma migrate deploy",
     "seed": "prisma db seed",
+    "roles": "tsx scripts/roles.ts",
     "studio": "prisma studio",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },

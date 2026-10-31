@@ -30,7 +30,8 @@ jobs:
           --health-timeout 3s
           --health-retries 10
     env:
-      DATABASE_URL: postgresql://ha:ha@localhost:5432/ha_gestion
+      DATABASE_URL_ADMIN: postgresql://ha:ha@localhost:5432/ha_gestion
+      DATABASE_URL: postgresql://ha_app:ha_app@localhost:5432/ha_gestion
       # Tests d'intégration : base créée et migrée par le globalSetup de Vitest.
       DATABASE_URL_TEST: postgresql://ha:ha@localhost:5432/ha_gestion_test
     steps:

@@ -3,7 +3,36 @@ import path from 'node:path';
 
 import { creerPrismaClient } from './client';
 
-// Outillage des bases de test (intégration, E2E). Jamais utilisé par l'application.
+// Outillage des rôles de connexion et des bases de test. Jamais utilisé par l'application.
+
+/** Rôles de connexion créés par la migration `roles_connexion` (ADR-016). */
+export const ROLES_CONNEXION = ['ha_app', 'ha_plateforme', 'ha_jobs'] as const;
+export type RoleConnexion = (typeof ROLES_CONNEXION)[number];
+
+/** URL d'un rôle sur la même base : en dev et en test, son mot de passe est son nom. */
+export function urlDuRole(urlAdmin: string, role: RoleConnexion): string {
+  const url = new URL(urlAdmin);
+  url.username = role;
+  url.password = role;
+  return url.toString();
+}
+
+/** Autorise la connexion des rôles, avec le mot de passe de chacun. Rejouable. */
+export async function configurerRoles(
+  urlAdmin: string,
+  motsDePasse: Readonly<Record<RoleConnexion, string>>,
+): Promise<void> {
+  const admin = creerPrismaClient(urlAdmin);
+  try {
+    for (const role of ROLES_CONNEXION) {
+      const [requete] = await admin.$queryRaw<{ sql: string }[]>`
+        SELECT format('ALTER ROLE %I LOGIN PASSWORD %L', ${role}::text, ${motsDePasse[role]}::text) AS sql`;
+      await admin.$executeRawUnsafe(requete?.sql ?? '');
+    }
+  } finally {
+    await admin.$disconnect();
+  }
+}
 
 /** Refuse toute base dont le nom ne se termine pas par `_test` ou `_e2e` (elles sont vidées). */
 export function verifierBaseJetable(url: string): void {
@@ -35,8 +64,13 @@ export async function preparerBaseJetable(url: string): Promise<void> {
 
   execFileSync('pnpm', ['exec', 'prisma', 'migrate', 'deploy'], {
     cwd: path.join(import.meta.dirname, '..'),
-    env: { ...process.env, DATABASE_URL: url },
+    env: { ...process.env, DATABASE_URL_ADMIN: url },
     stdio: 'pipe',
+  });
+  await configurerRoles(url, {
+    ha_app: 'ha_app',
+    ha_plateforme: 'ha_plateforme',
+    ha_jobs: 'ha_jobs',
   });
 }
 

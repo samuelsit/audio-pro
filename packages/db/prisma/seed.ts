@@ -3,16 +3,44 @@ import { hashPassword } from 'better-auth/crypto';
 import { creerPrismaClient } from '../src/client';
 import type { PrismaClient } from '../src/generated/prisma/client';
 import type { Role } from '../src/generated/prisma/enums';
-import { NOMBRE_FABRICANTS_DEMO, NOMBRE_MODELES_DEMO, seedCatalogue } from './seed-catalogue';
+import {
+  NOMBRE_FABRICANTS_DEMO,
+  NOMBRE_MODELES_DEMO,
+  seedCatalogue,
+  seedCatalogueIndependant,
+} from './seed-catalogue';
 import { NOMBRE_DOSSIERS_DEMO, seedDossiers } from './seed-dossiers';
-import { NOMBRE_PATIENTS_DEMO, seedPatients } from './seed-patients';
+import { NOMBRE_PATIENTS_DEMO, PATIENTS_INDEPENDANT, seedPatients } from './seed-patients';
 import { nombreAppareilsDemo, seedStock } from './seed-stock';
 
 // Seed idempotent de démonstration. Toutes les données sont fictives (domaine exemple.test,
 // RPPS et NIR inventés). Les patients de démonstration sont dans seed-patients.ts.
-const SCHEMA_VERSION = '4';
+const SCHEMA_VERSION = '5';
 
+// Deux clients fictifs : un réseau de 3 centres et un centre indépendant (ADR-016).
 const ORGANISATION_ID = '019a3000-0000-7000-8000-000000000001';
+const ORGANISATION_INDEPENDANTE_ID = '019a3000-0000-7000-8000-000000000002';
+
+const ORGANISATIONS = [
+  {
+    id: ORGANISATION_ID,
+    raisonSociale: 'Réseau Démo Audition',
+    siren: '000000001',
+    adresseLigne1: '1 rue de l’Exemple',
+    codePostal: '59000',
+    ville: 'Lille',
+    statut: 'ACTIF',
+  },
+  {
+    id: ORGANISATION_INDEPENDANTE_ID,
+    raisonSociale: 'Audition Indépendante Démo',
+    siren: '000000002',
+    adresseLigne1: '4 place Fictive',
+    codePostal: '35000',
+    ville: 'Rennes',
+    statut: 'ACTIF',
+  },
+] as const;
 
 const ENTREPRISE_DEMO = {
   raisonSociale: 'Audition Démo SAS',
@@ -61,6 +89,43 @@ const CENTRES = [
 
 const [NORD, CENTRE, SUD] = CENTRES.map((centre) => centre.id) as [string, string, string];
 
+const CENTRE_INDEPENDANT = {
+  id: '019a3000-0000-7000-8000-0000000000d1',
+  nom: 'Centre Démo Rennes',
+  adresseLigne1: '4 place Fictive',
+  codePostal: '35000',
+  ville: 'Rennes',
+  email: 'rennes@exemple.test',
+  telephone: '0200000004',
+  finess: '000000004',
+  raisonSociale: 'Audition Indépendante Démo',
+  rcs: 'RCS Démo 000 000 000',
+  tvaIntracommunautaire: 'FR00000000000',
+  siret: '00000000200011',
+} as const;
+
+const HORAIRES_DEMO = {
+  lundi: [
+    { debut: '09:00', fin: '12:30' },
+    { debut: '14:00', fin: '18:30' },
+  ],
+  mardi: [
+    { debut: '09:00', fin: '12:30' },
+    { debut: '14:00', fin: '18:30' },
+  ],
+  mercredi: [{ debut: '09:00', fin: '12:30' }],
+  jeudi: [
+    { debut: '09:00', fin: '12:30' },
+    { debut: '14:00', fin: '18:30' },
+  ],
+  vendredi: [
+    { debut: '09:00', fin: '12:30' },
+    { debut: '14:00', fin: '18:30' },
+  ],
+  samedi: [{ debut: '09:00', fin: '12:00' }],
+  dimanche: [],
+};
+
 interface UtilisateurDemo {
   id: string;
   prenom: string;
@@ -79,7 +144,7 @@ const UTILISATEURS: readonly UtilisateurDemo[] = [
     prenom: 'Alex',
     nom: 'Admin',
     email: 'admin@exemple.test',
-    role: 'ADMIN',
+    role: 'ADMIN_CLIENT',
     centreIds: [],
   },
   {
@@ -124,15 +189,66 @@ const UTILISATEURS: readonly UtilisateurDemo[] = [
     role: 'ASSISTANT',
     centreIds: [CENTRE],
   },
+  {
+    id: '019a3000-0000-7000-8000-000000000403',
+    prenom: 'Noa',
+    nom: 'Responsable',
+    email: 'noa.responsable@exemple.test',
+    role: 'RESPONSABLE_CENTRE',
+    centreIds: [NORD, CENTRE],
+  },
 ];
+
+const UTILISATEURS_INDEPENDANT: readonly UtilisateurDemo[] = [
+  {
+    id: '019a3000-0000-7000-8000-000000000103',
+    prenom: 'Robin',
+    nom: 'Admin',
+    email: 'robin.admin@independant.exemple.test',
+    role: 'ADMIN_CLIENT',
+    centreIds: [],
+  },
+  {
+    id: '019a3000-0000-7000-8000-000000000203',
+    prenom: 'Maxime',
+    nom: 'Audio',
+    email: 'maxime.audio@independant.exemple.test',
+    role: 'AUDIO',
+    centreIds: [CENTRE_INDEPENDANT.id],
+    praticien: {
+      id: '019a3000-0000-7000-8000-000000000303',
+      rpps: '19999999923',
+      centreIds: [CENTRE_INDEPENDANT.id],
+    },
+  },
+  {
+    id: '019a3000-0000-7000-8000-000000000404',
+    prenom: 'Sam',
+    nom: 'Assistant',
+    email: 'sam.assistant@independant.exemple.test',
+    role: 'ASSISTANT',
+    centreIds: [CENTRE_INDEPENDANT.id],
+  },
+];
+
+/** Console éditeur : hors de toute organisation. */
+const SUPERADMIN: UtilisateurDemo = {
+  id: '019a3000-0000-7000-8000-000000000901',
+  prenom: 'Claude',
+  nom: 'Éditeur',
+  email: 'console@exemple.test',
+  role: 'SUPERADMIN',
+  centreIds: [],
+};
 
 async function seedUtilisateur(
   db: PrismaClient,
   u: UtilisateurDemo,
   motDePasseHash: string,
+  organisationId: string | null,
 ): Promise<void> {
   const donnees = {
-    organisationId: ORGANISATION_ID,
+    organisationId,
     prenom: u.prenom,
     nom: u.nom,
     name: `${u.prenom} ${u.nom}`,
@@ -175,9 +291,9 @@ async function main(): Promise<void> {
   if (process.env.NODE_ENV === 'production') {
     throw new Error('Le seed de démonstration est interdit en production.');
   }
-  const url = process.env.DATABASE_URL;
+  const url = process.env.DATABASE_URL_ADMIN;
   if (!url) {
-    throw new Error('DATABASE_URL n’est pas défini (voir .env.example).');
+    throw new Error('DATABASE_URL_ADMIN n’est pas défini (voir .env.example).');
   }
   const motDePasse = process.env.SEED_MOT_DE_PASSE_DEMO;
   if (!motDePasse || motDePasse.length < 12) {
@@ -190,22 +306,38 @@ async function main(): Promise<void> {
   try {
     const motDePasseHash = await hashPassword(motDePasse);
 
-    await db.organisation.upsert({
-      where: { id: ORGANISATION_ID },
-      create: { id: ORGANISATION_ID, nom: 'Réseau Démo Audition' },
-      update: { nom: 'Réseau Démo Audition' },
-    });
-    for (const centre of CENTRES) {
-      const donnees = { ...centre, organisationId: ORGANISATION_ID, actif: true };
+    for (const organisation of ORGANISATIONS) {
+      await db.organisation.upsert({
+        where: { id: organisation.id },
+        create: organisation,
+        update: organisation,
+      });
+    }
+    for (const [centre, organisationId] of [
+      ...CENTRES.map((c) => [c, ORGANISATION_ID] as const),
+      [CENTRE_INDEPENDANT, ORGANISATION_INDEPENDANTE_ID] as const,
+    ]) {
+      const donnees = { ...centre, organisationId, horairesOuverture: HORAIRES_DEMO, actif: true };
       await db.centre.upsert({ where: { id: centre.id }, create: donnees, update: donnees });
     }
     for (const utilisateur of UTILISATEURS) {
-      await seedUtilisateur(db, utilisateur, motDePasseHash);
+      await seedUtilisateur(db, utilisateur, motDePasseHash, ORGANISATION_ID);
     }
+    for (const utilisateur of UTILISATEURS_INDEPENDANT) {
+      await seedUtilisateur(db, utilisateur, motDePasseHash, ORGANISATION_INDEPENDANTE_ID);
+    }
+    await seedUtilisateur(db, SUPERADMIN, motDePasseHash, null);
     await seedPatients(db, ORGANISATION_ID, { nord: NORD, centre: CENTRE, sud: SUD });
     await seedCatalogue(db, ORGANISATION_ID);
     await seedStock(db, ORGANISATION_ID, [NORD, CENTRE, SUD], ADMIN_ID);
     await seedDossiers(db, ORGANISATION_ID, NORD, ADMIN_ID);
+    await seedPatients(
+      db,
+      ORGANISATION_INDEPENDANTE_ID,
+      { nord: CENTRE_INDEPENDANT.id, centre: CENTRE_INDEPENDANT.id, sud: CENTRE_INDEPENDANT.id },
+      PATIENTS_INDEPENDANT,
+    );
+    await seedCatalogueIndependant(db, ORGANISATION_INDEPENDANTE_ID);
 
     const seededAt = new Date().toISOString();
     for (const [key, value] of [
@@ -215,7 +347,7 @@ async function main(): Promise<void> {
       await db.appMeta.upsert({ where: { key }, create: { key, value }, update: { value } });
     }
     console.log(
-      `Seed terminé (schema_version=${SCHEMA_VERSION}) : ${CENTRES.length} centres, ${UTILISATEURS.length} utilisateurs, ${NOMBRE_PATIENTS_DEMO} patients, ${NOMBRE_FABRICANTS_DEMO} fabricants, ${NOMBRE_MODELES_DEMO} modèles, ${nombreAppareilsDemo(CENTRES.length)} appareils, ${NOMBRE_DOSSIERS_DEMO} dossiers.`,
+      `Seed terminé (schema_version=${SCHEMA_VERSION}) : ${ORGANISATIONS.length} organisations, ${CENTRES.length + 1} centres, ${UTILISATEURS.length + UTILISATEURS_INDEPENDANT.length + 1} utilisateurs, ${NOMBRE_PATIENTS_DEMO + PATIENTS_INDEPENDANT.length} patients, ${NOMBRE_FABRICANTS_DEMO} fabricants, ${NOMBRE_MODELES_DEMO} modèles, ${nombreAppareilsDemo(CENTRES.length)} appareils, ${NOMBRE_DOSSIERS_DEMO} dossiers.`,
     );
   } finally {
     await db.$disconnect();

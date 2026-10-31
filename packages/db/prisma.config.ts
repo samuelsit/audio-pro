@@ -13,7 +13,7 @@ export default defineConfig({
     seed: 'tsx prisma/seed.ts',
   },
   datasource: {
-    // Vide en CI : `prisma generate` n'a pas besoin de connexion.
-    url: process.env.DATABASE_URL ?? '',
+    // Rôle propriétaire. Vide en CI : `prisma generate` n'a pas besoin de connexion.
+    url: process.env.DATABASE_URL_ADMIN ?? '',
   },
 });

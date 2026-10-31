@@ -170,16 +170,43 @@ export async function seedCatalogue(db: PrismaClient, organisationId: string): P
     await db.fabricant.upsert({ where: { id: fabricant.id }, create: donnees, update: donnees });
   }
   for (const modele of MODELES) {
-    const { fabricantId, gamme, nom } = modele;
-    const { id } = await db.modeleAideAuditive.upsert({
-      where: { fabricantId_gamme_nom: { fabricantId, gamme, nom } },
-      create: { ...modele, ...ficheDevis(modele), organisationId },
-      update: { ...modele, ...ficheDevis(modele) },
-      select: { id: true },
-    });
-    await db.modeleCodeLpp.deleteMany({ where: { modeleId: id } });
-    await db.modeleCodeLpp.createMany({
-      data: CODES_GENERIQUES[modele.classe].map((code) => ({ modeleId: id, code })),
-    });
+    await seedModele(db, modele, organisationId);
+  }
+}
+
+async function seedModele(
+  db: PrismaClient,
+  modele: ModeleDemo,
+  organisationId: string,
+): Promise<void> {
+  const { fabricantId, gamme, nom } = modele;
+  const { id } = await db.modeleAideAuditive.upsert({
+    where: { fabricantId_gamme_nom: { fabricantId, gamme, nom } },
+    create: { ...modele, ...ficheDevis(modele), organisationId },
+    update: { ...modele, ...ficheDevis(modele) },
+    select: { id: true },
+  });
+  await db.modeleCodeLpp.deleteMany({ where: { modeleId: id } });
+  await db.modeleCodeLpp.createMany({
+    data: CODES_GENERIQUES[modele.classe].map((code) => ({ modeleId: id, code })),
+  });
+}
+
+/** Catalogue propre au centre indépendant : le catalogue n'est pas partagé entre clients (ADR-008). */
+export async function seedCatalogueIndependant(
+  db: PrismaClient,
+  organisationId: string,
+): Promise<void> {
+  const fabricantId = '019a4000-0000-7000-8000-000000000011';
+  const fabricant = {
+    id: fabricantId,
+    organisationId,
+    nom: 'Acoustia Démo',
+    adresse: '10 rue de l’Exemple, 75000 Paris',
+    mandataire: null,
+  };
+  await db.fabricant.upsert({ where: { id: fabricantId }, create: fabricant, update: fabricant });
+  for (const modele of MODELES.filter((m) => m.fabricantId === ACOUSTIA)) {
+    await seedModele(db, { ...modele, fabricantId }, organisationId);
   }
 }

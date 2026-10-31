@@ -42,15 +42,31 @@ export default tseslint.config(
           paths: [{ name: '@ha/db', message: 'Passer par un service de apps/web/server.' }],
           patterns: [
             { group: ['@prisma/*'], message: 'Passer par un service de apps/web/server.' },
+            { group: ['@ha/db/admin'], message: 'Rôle propriétaire : scripts et tests seulement.' },
           ],
         },
       ],
     },
   },
   {
-    // Services serveur et outillage des tests (intégration, E2E, démonstration sur base jetable).
+    // Services serveur : @ha/db, jamais le rôle propriétaire (ADR-016).
+    files: ['apps/web/server/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            { group: ['@ha/db/admin'], message: 'Rôle propriétaire : scripts et tests seulement.' },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // Outillage des tests (intégration, E2E, démonstration sur base jetable) et import de la LPP.
     files: [
-      'apps/web/server/**/*.ts',
+      'apps/web/server/**/*.int.test.ts',
+      'apps/web/server/lpp/importer.ts',
       'apps/web/test/**/*.ts',
       'apps/web/e2e/**/*.ts',
       'apps/web/playwright.config.ts',
