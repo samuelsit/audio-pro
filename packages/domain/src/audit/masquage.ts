@@ -81,7 +81,7 @@ export const CHAMPS_VISIBLES_AUDIT: Readonly<Record<TypeEntite, readonly string[
   PRESCRIPTION: [],
   DEVIS: [],
   ESSAI: [],
-  FACTURE_PREPAREE: ['statut', 'dateDelivrance'],
+  FACTURE_PREPAREE: [],
   FABRICANT: ['nom', 'adresse', 'mandataire', 'actif'],
   MODELE_AIDE_AUDITIVE: [
     'fabricantId',

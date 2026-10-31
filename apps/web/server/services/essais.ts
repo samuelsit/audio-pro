@@ -52,6 +52,7 @@ import {
   retirerAppareilDeLOreille,
   type EssaiLu,
 } from './essais-socle';
+import { creerFacturePreparee } from './factures';
 import { aujourdhui, type Client } from './patients';
 
 export const LIGNES_PAR_PAGE_ESSAIS = 50;
@@ -278,8 +279,8 @@ export async function changerAppareilEssai(
 
 /**
  * Conclut l'essai par l'achat, une fois le devis signé (modele-devis-audio.pdf p. 2 § 5) : appareils
- * réservés au patient, dossier à facturer. Aucune délivrance n'est écrite : sa date sera celle de la
- * facturation (étape 11).
+ * réservés au patient, dossier à facturer et préparation ouverte. Aucune délivrance n'est écrite : sa date
+ * sera celle de la facture Cosium (étape 12, ADR-014).
  */
 export async function confirmerAchat(
   acteur: UtilisateurConnecte,
@@ -302,6 +303,7 @@ export async function confirmerAchat(
       const essai = await exigerEssaiOuvert(tx, dossierId);
       const evenements = await conclureParAchat(tx, acteur, dossier, essai.id, jour);
       await appliquerTransition(tx, acteur, dossier, 'A_FACTURER');
+      evenements.push(await creerFacturePreparee(tx, acteur, dossier, jour));
       return { dossier, essaiId: essai.id, evenements };
     },
     ({ dossier, essaiId, evenements }): EvenementAudit[] => [
