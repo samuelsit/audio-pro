@@ -10,7 +10,12 @@ import { notifier } from '@/server/notifications';
 import { creerFabricant, modifierFabricant } from '@/server/services/catalogue';
 
 function saisie(formData: FormData) {
-  return { nom: texte(formData, 'nom'), actif: coche(formData, 'actif') };
+  return {
+    nom: texte(formData, 'nom'),
+    adresse: texte(formData, 'adresse'),
+    mandataire: texte(formData, 'mandataire'),
+    actif: coche(formData, 'actif'),
+  };
 }
 
 async function terminer(): Promise<never> {

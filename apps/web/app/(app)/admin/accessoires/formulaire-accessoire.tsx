@@ -52,6 +52,15 @@ export function FormulaireAccessoire({
           requis
         />
       </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <ChampTexte etat={etat} nom="marque" libelle="Marque" defaut={accessoire?.marque} />
+        <ChampTexte
+          etat={etat}
+          nom="referenceCommerciale"
+          libelle="Référence commerciale"
+          defaut={accessoire?.referenceCommerciale}
+        />
+      </div>
       <CaseACocher etat={etat} nom="actif" libelle="Actif" defaut={accessoire?.actif ?? true} />
       <div>
         <BoutonEnvoi>{accessoire ? 'Enregistrer' : 'Créer l’accessoire'}</BoutonEnvoi>

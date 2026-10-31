@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
 import type { EtatImportCsv } from '@/components/import-csv';
-import { coche, texte, type EtatFormulaire } from '@/lib/formulaire';
+import { coche, liste, texte, type EtatFormulaire } from '@/lib/formulaire';
 import { executer } from '@/server/actions';
 import { requireRole } from '@/server/auth/gardes';
 import { executerImportCsv } from '@/server/import-csv';
@@ -20,6 +20,15 @@ function saisie(formData: FormData) {
     classe: texte(formData, 'classe'),
     codesLpp: texte(formData, 'codesLpp'),
     prixConseilleCentimes: texte(formData, 'prixConseilleCentimes'),
+    marque: texte(formData, 'marque'),
+    referenceCommerciale: texte(formData, 'referenceCommerciale'),
+    lieuFabrication: texte(formData, 'lieuFabrication'),
+    nombreCanaux: texte(formData, 'nombreCanaux'),
+    connectivite: texte(formData, 'connectivite'),
+    antiLarsen: texte(formData, 'antiLarsen'),
+    reducteurAcouphenes: texte(formData, 'reducteurAcouphenes'),
+    bobineT: texte(formData, 'bobineT'),
+    options: liste(formData, 'options').join(' '),
     actif: coche(formData, 'actif'),
   };
 }

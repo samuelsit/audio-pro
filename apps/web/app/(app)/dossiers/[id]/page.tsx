@@ -14,10 +14,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formaterDate, formaterJour } from '@/lib/format';
 import { ouIntrouvable, requireSession } from '@/server/auth/gardes';
+import { listerDevisDuDossier } from '@/server/services/devis';
 import { obtenirDossier, type PrescriptionAffichee } from '@/server/services/dossiers';
 
 import { AlerteDroits, EntetePatient } from '../../patients/entete-patient';
 import { AbandonDossier } from './abandon-dossier';
+import { BlocDevis } from './devis/bloc-devis';
 import { FormulairePrescription } from './formulaire-prescription';
 import { FriseStatuts } from './frise-statuts';
 import { ListeConstats } from './liste-constats';
@@ -122,6 +124,7 @@ export default async function PageDossier({ params }: PageProps<'/dossiers/[id]'
   const { id } = await params;
   const acteur = await requireSession();
   const dossier = await ouIntrouvable(obtenirDossier(acteur, id));
+  const devis = await listerDevisDuDossier(acteur, id);
   const { fiche } = dossier;
   const [courante, ...anciennes] = dossier.prescriptions;
   const abandon = dossier.passages.find((p) => p.statut === 'ABANDONNE');
@@ -186,6 +189,10 @@ export default async function PageDossier({ params }: PageProps<'/dossiers/[id]'
           )}
         </Bloc>
       </div>
+
+      <Bloc titre="Devis">
+        <BlocDevis dossierId={dossier.id} statut={dossier.statut} versions={devis} />
+      </Bloc>
 
       {dossier.prescriptionModifiable && !courante ? (
         <Bloc titre="Enregistrer la prescription">{formulaire}</Bloc>

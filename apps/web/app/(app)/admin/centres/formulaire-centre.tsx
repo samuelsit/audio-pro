@@ -69,6 +69,22 @@ export function FormulaireCentre({
           defaut={centre?.numeroFacturationAm}
         />
       </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <ChampTexte
+          etat={etat}
+          nom="raisonSociale"
+          libelle="Raison sociale"
+          defaut={centre?.raisonSociale}
+        />
+        <ChampTexte etat={etat} nom="siret" libelle="N° SIRET" defaut={centre?.siret} />
+        <ChampTexte etat={etat} nom="rcs" libelle="N° RCS" defaut={centre?.rcs} />
+        <ChampTexte
+          etat={etat}
+          nom="tvaIntracommunautaire"
+          libelle="N° TVA intracommunautaire"
+          defaut={centre?.tvaIntracommunautaire}
+        />
+      </div>
       <CaseACocher etat={etat} nom="actif" libelle="Centre actif" defaut={centre?.actif ?? true} />
       <div>
         <BoutonEnvoi>{centre ? 'Enregistrer' : 'Créer le centre'}</BoutonEnvoi>
