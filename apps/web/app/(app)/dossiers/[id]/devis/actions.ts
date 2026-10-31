@@ -135,7 +135,12 @@ export async function demarrerEssaiAction(
   formData: FormData,
 ): Promise<EtatFormulaire> {
   const acteur = await requireSession();
-  const donnees = { ...statutAttendu(formData), offreEssai: texte(formData, 'offreEssai') };
+  const donnees = {
+    ...statutAttendu(formData),
+    offreEssai: texte(formData, 'offreEssai'),
+    numeroSerieDroite: texte(formData, 'numeroSerieDroite'),
+    numeroSerieGauche: texte(formData, 'numeroSerieGauche'),
+  };
   const erreur = await executer(() => demarrerEssai(acteur, devisId, donnees), donnees);
   return erreur ?? terminer(dossierId, devisId, 'Essai démarré.');
 }

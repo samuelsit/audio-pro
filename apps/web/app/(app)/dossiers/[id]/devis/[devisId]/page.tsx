@@ -23,8 +23,10 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { formaterDate } from '@/lib/format';
+import type { UtilisateurConnecte } from '@/server/auth/acces';
 import { ouIntrouvable, requireSession } from '@/server/auth/gardes';
-import { obtenirDevis } from '@/server/services/devis';
+import { lignesCatalogueDevis, obtenirDevis } from '@/server/services/devis';
+import { appareilsProposables } from '@/server/services/essais';
 import { aujourdhui } from '@/server/services/patients';
 
 import { ListeConstats } from '../../liste-constats';
@@ -54,6 +56,16 @@ function montant(valeur: Centimes | null | undefined, vide = '—'): string {
   return valeur === null || valeur === undefined ? vide : formatEuros(valeur);
 }
 
+/** Aide à la saisie : les appareils disponibles des modèles prévus au devis. */
+async function appareilsDuDevis(acteur: UtilisateurConnecte, dossierId: string, devisId: string) {
+  const [{ modeles }, appareils] = await Promise.all([
+    lignesCatalogueDevis(acteur, devisId),
+    appareilsProposables(acteur, dossierId),
+  ]);
+  const prevus = modeles.flatMap((offre) => Object.values(offre.modeles));
+  return appareils.filter((a) => prevus.includes(a.modeleId));
+}
+
 /** Ouvrir le devis écrit une ligne READ dans le journal d'audit (service). */
 export default async function PageDevis({ params }: PageProps<'/dossiers/[id]/devis/[devisId]'>) {
   const { id, devisId } = await params;
@@ -65,6 +77,7 @@ export default async function PageDevis({ params }: PageProps<'/dossiers/[id]/de
   const { actions, calcul } = devis;
   const identifiants = { dossierId: id, devisId, statut: devis.statut };
   const rubriques = devis.offres.map((o) => o.rubrique);
+  const proposables = actions.demarrerEssai ? await appareilsDuDevis(acteur, id, devisId) : [];
 
   return (
     <div className="grid gap-6">
@@ -254,7 +267,12 @@ export default async function PageDevis({ params }: PageProps<'/dossiers/[id]/de
 
       {actions.demarrerEssai ? (
         <Bloc titre="Démarrer l’essai">
-          <FormulaireEssai {...identifiants} rubriques={rubriques} />
+          <FormulaireEssai
+            {...identifiants}
+            rubriques={rubriques}
+            oreilles={devis.oreilles}
+            proposables={proposables}
+          />
         </Bloc>
       ) : null}
       {actions.deposerScan ? (

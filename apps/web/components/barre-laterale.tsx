@@ -15,6 +15,7 @@ import {
   RefreshCw,
   ScrollText,
   Stethoscope,
+  Timer,
   UserCog,
   Users,
   type LucideIcon,
@@ -36,6 +37,7 @@ interface Lien {
 const LIENS_METIER: readonly Lien[] = [
   { href: '/patients', libelle: 'Patients', icone: Users },
   { href: '/dossiers', libelle: 'Dossiers', icone: FolderOpen },
+  { href: '/essais', libelle: 'Essais en cours', icone: Timer },
   { href: '/prescripteurs', libelle: 'Prescripteurs', icone: BookUser },
   { href: '/stock', libelle: 'Stock', icone: Package },
   { href: '/a-facturer', libelle: 'À facturer', icone: ReceiptText },

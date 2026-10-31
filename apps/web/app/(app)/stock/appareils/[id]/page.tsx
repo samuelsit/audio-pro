@@ -109,6 +109,15 @@ export default async function PageAppareil({ params }: PageProps<'/stock/apparei
       </dl>
 
       {/* Remonté après chaque mouvement : le panneau ouvert se referme. */}
+      {fiche.dossierEssaiId ? (
+        <p className="text-sm text-muted-foreground">
+          Cet appareil est suivi par un essai : ses changements de statut passent par le{' '}
+          <Link href={`/dossiers/${fiche.dossierEssaiId}`} className="underline underline-offset-4">
+            dossier du patient
+          </Link>
+          .
+        </p>
+      ) : null}
       <ActionsAppareil key={fiche.mouvements[0]?.id} fiche={fiche} destinations={destinations} />
 
       <section className="grid gap-2">

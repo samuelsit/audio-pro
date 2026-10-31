@@ -15,11 +15,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formaterDate, formaterJour } from '@/lib/format';
 import { ouIntrouvable, requireSession } from '@/server/auth/gardes';
 import { listerDevisDuDossier } from '@/server/services/devis';
+import { appareilsProposables, obtenirEssai } from '@/server/services/essais';
 import { obtenirDossier, type PrescriptionAffichee } from '@/server/services/dossiers';
 
 import { AlerteDroits, EntetePatient } from '../../patients/entete-patient';
 import { AbandonDossier } from './abandon-dossier';
 import { BlocDevis } from './devis/bloc-devis';
+import { BlocEssai } from './essai/bloc-essai';
 import { FormulairePrescription } from './formulaire-prescription';
 import { FriseStatuts } from './frise-statuts';
 import { ListeConstats } from './liste-constats';
@@ -125,6 +127,8 @@ export default async function PageDossier({ params }: PageProps<'/dossiers/[id]'
   const acteur = await requireSession();
   const dossier = await ouIntrouvable(obtenirDossier(acteur, id));
   const devis = await listerDevisDuDossier(acteur, id);
+  const essai = await obtenirEssai(acteur, id);
+  const proposables = essai?.actions.changerAppareil ? await appareilsProposables(acteur, id) : [];
   const { fiche } = dossier;
   const [courante, ...anciennes] = dossier.prescriptions;
   const abandon = dossier.passages.find((p) => p.statut === 'ABANDONNE');
@@ -193,6 +197,17 @@ export default async function PageDossier({ params }: PageProps<'/dossiers/[id]'
       <Bloc titre="Devis">
         <BlocDevis dossierId={dossier.id} statut={dossier.statut} versions={devis} />
       </Bloc>
+
+      {essai ? (
+        <Bloc titre="Essai">
+          <BlocEssai
+            dossierId={dossier.id}
+            statut={dossier.statut}
+            essai={essai}
+            proposables={proposables}
+          />
+        </Bloc>
+      ) : null}
 
       {dossier.prescriptionModifiable && !courante ? (
         <Bloc titre="Enregistrer la prescription">{formulaire}</Bloc>

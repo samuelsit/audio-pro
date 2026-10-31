@@ -1,8 +1,10 @@
 'use client';
 
 import {
+  LIBELLES_OREILLES,
   LIBELLES_RUBRIQUES_OFFRE,
   TYPES_DOCUMENT,
+  type Oreille,
   type RubriqueOffre,
   type StatutDevis,
 } from '@ha/domain';
@@ -105,12 +107,23 @@ function optionsOffres(rubriques: readonly RubriqueOffre[]) {
   return rubriques.map((r) => ({ valeur: r, libelle: LIBELLES_RUBRIQUES_OFFRE[r] }));
 }
 
+const CHAMPS_NUMERO_SERIE: Readonly<Record<Oreille, string>> = {
+  DROITE: 'numeroSerieDroite',
+  GAUCHE: 'numeroSerieGauche',
+};
+
 export function FormulaireEssai({
   dossierId,
   devisId,
   statut,
   rubriques,
-}: Identifiants & { rubriques: readonly RubriqueOffre[] }) {
+  oreilles,
+  proposables,
+}: Identifiants & {
+  rubriques: readonly RubriqueOffre[];
+  oreilles: readonly Oreille[];
+  proposables: readonly { numeroSerie: string; libelle: string }[];
+}) {
   const [etat, envoyer] = useActionState(
     demarrerEssaiAction.bind(null, dossierId, devisId),
     ETAT_INITIAL,
@@ -126,6 +139,24 @@ export function FormulaireEssai({
         vide="Choisir…"
         options={optionsOffres(rubriques)}
       />
+      <datalist id="appareils-essai">
+        {proposables.map((a) => (
+          <option key={a.numeroSerie} value={a.numeroSerie}>
+            {a.libelle}
+          </option>
+        ))}
+      </datalist>
+      {oreilles.map((oreille) => (
+        <ChampTexte
+          key={oreille}
+          etat={etat}
+          nom={CHAMPS_NUMERO_SERIE[oreille]}
+          libelle={`Numéro de série, ${LIBELLES_OREILLES[oreille].toLowerCase()}`}
+          autoComplete="off"
+          suggestions="appareils-essai"
+          requis
+        />
+      ))}
       <div>
         <BoutonEnvoi>Démarrer l’essai</BoutonEnvoi>
       </div>

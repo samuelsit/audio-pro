@@ -40,6 +40,7 @@ export function ChampTexte({
   autoComplete,
   aide,
   inputMode,
+  suggestions,
 }: {
   etat: EtatFormulaire;
   nom: string;
@@ -52,6 +53,8 @@ export function ChampTexte({
   autoComplete?: string | undefined;
   aide?: string | undefined;
   inputMode?: 'numeric' | 'text' | undefined;
+  /** Identifiant d'un `<datalist>` : aide à la saisie, sans restreindre ce qu'on peut taper. */
+  suggestions?: string | undefined;
 }) {
   const erreurs = etat.erreurs?.[nom];
   const idErreur = `${nom}-erreur`;
@@ -70,6 +73,7 @@ export function ChampTexte({
         required={requis}
         autoComplete={autoComplete}
         inputMode={inputMode}
+        list={suggestions}
         defaultValue={type === 'password' ? undefined : valeurTexte(etat, nom, defaut)}
         aria-invalid={erreurs ? true : undefined}
         aria-describedby={erreurs ? idErreur : undefined}
