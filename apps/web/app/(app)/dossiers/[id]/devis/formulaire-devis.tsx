@@ -111,16 +111,23 @@ function Prix({
   libelle,
   valeur,
   surChangement,
+  lectureSeule = false,
 }: {
   id: string;
   libelle: string;
   valeur: string;
   surChangement: (valeur: string) => void;
+  lectureSeule?: boolean;
 }) {
   return (
     <div className="grid gap-1.5">
       <Label htmlFor={id}>{libelle}</Label>
-      <Input id={id} value={valeur} onChange={(e) => surChangement(e.target.value)} />
+      <Input
+        id={id}
+        value={valeur}
+        readOnly={lectureSeule}
+        onChange={(e) => surChangement(e.target.value)}
+      />
     </div>
   );
 }
@@ -240,6 +247,7 @@ function BlocOffre({
                 id={`${prefixe}-amc`}
                 libelle={`Part AMC estimée (€), ${titre}, ${cote}`}
                 valeur={oreille === 'DROITE' ? offre.amcDroite : offre.amcGauche}
+                lectureSeule={donnees.pecAccordeeCentimes !== null}
                 surChangement={(valeur) =>
                   surChangement(
                     oreille === 'DROITE'
@@ -323,6 +331,7 @@ function BlocOffre({
                 id={`${rubrique}-amc-consommables`}
                 libelle={`Part AMC estimée (€), consommables, ${titre}`}
                 valeur={offre.amcConsommables}
+                lectureSeule={donnees.pecAccordeeCentimes !== null}
                 surChangement={(amcConsommables) => surChangement({ ...offre, amcConsommables })}
               />
             </div>
@@ -462,6 +471,12 @@ export function FormulaireDevis({
           </div>
         </CardContent>
       </Card>
+
+      {donnees.pecAccordeeCentimes !== null ? (
+        <p className="text-sm text-muted-foreground">
+          Prise en charge accordée : la part AMC vient de son montant et ne se saisit pas.
+        </p>
+      ) : null}
 
       <BlocOffre
         rubrique="OFFRE_100_SANTE"

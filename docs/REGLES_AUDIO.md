@@ -419,6 +419,8 @@ Le reste n'est pas dans les tests : il est calculé. Dans ces cas de tiers payan
 
 **Règle retenue** : un tiers payant AMC est attendu, hors C2S, si le patient a une couverture complémentaire ou si le devis annonce une part AMC.
 
+**Au devis** (`amcDepuisPec`, ADR-025) : une PEC `ACCORDEE`, hors C2S, remplace la part AMC saisie sur un brouillon, répartie entre les postes de chaque offre au prorata du reste après AMO, plafonnée au reste. Un devis émis reste figé ; une PEC arrivée après lui lève une alerte qui propose une nouvelle version.
+
 | Statut               | Bloque | Part AMC                                      |
 | -------------------- | ------ | --------------------------------------------- |
 | Aucune PEC, attendue | Oui    | 0                                             |

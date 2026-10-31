@@ -7,6 +7,8 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
   creerCatalogueDevis,
+  creerDossierPret,
+  creerPatientDevis,
   dossierJusquAchat,
   identifierCentreA,
   offre100,
@@ -24,6 +26,7 @@ import {
   confirmerCouvertureAmo,
   enregistrerPec,
   lireJustificatifPec,
+  lirePecDossier,
   listerAFacturer,
   modifierDateDelivrance,
   obtenirFacture,
@@ -339,9 +342,44 @@ describe('prise en charge complémentaire', () => {
     await prisma().dossier.update({ where: { id: dossierId }, data: { statut: 'FACTURE' } });
 
     await expect(enregistrerPec(audio, dossierId, accord(), VIDE)).rejects.toThrow(
-      'Ce dossier n’est plus à facturer.',
+      'La prise en charge se saisit de la prescription à la facturation.',
     );
     expect(await obtenirFacture(audio, dossierId)).toBeNull();
+  });
+});
+
+describe('prise en charge avant l’achat', () => {
+  it('se saisit dès la prescription, sans facture préparée', async () => {
+    const patientId = await creerPatientDevis(d);
+    const dossierId = await creerDossierPret(d, audio, patientId);
+    expect((await lirePecDossier(audio, dossierId)).saisissable).toBe(true);
+    await enregistrerPec(audio, dossierId, accord(), SCAN);
+    const { pec } = await lirePecDossier(audio, dossierId);
+    expect(pec).toMatchObject({ statut: 'ACCORDEE', justificatif: true });
+    expect((await lireJustificatifPec(audio, dossierId)).type).toBe('application/pdf');
+    const journal = await prisma().journalAudit.count({
+      where: {
+        entiteType: 'DOSSIER',
+        entiteId: dossierId,
+        action: 'UPDATE',
+        details: { path: ['pec'], equals: 'ACCORDEE' },
+      },
+    });
+    expect(journal).toBe(1);
+  });
+
+  it('n’est plus proposée sur le dossier une fois à facturer', async () => {
+    const { dossierId } = await dossierAFacturer();
+    expect((await lirePecDossier(audio, dossierId)).saisissable).toBe(false);
+  });
+
+  it('refuse un brouillon sans prescription', async () => {
+    const patientId = await creerPatientDevis(d);
+    const dossierId = await creerDossierPret(d, audio, patientId);
+    await prisma().dossier.update({ where: { id: dossierId }, data: { statut: 'BROUILLON' } });
+    await expect(enregistrerPec(audio, dossierId, accord(), VIDE)).rejects.toThrow(
+      'La prise en charge se saisit de la prescription à la facturation.',
+    );
   });
 });
 

@@ -15,6 +15,7 @@ import {
   emettreDevis,
   enregistrerSignature,
   modifierDevis,
+  signerDevisSurEcran,
   supprimerBrouillon,
 } from '@/server/services/devis';
 
@@ -159,6 +160,33 @@ export async function deposerScanAction(
     deposerScanDevis(acteur, devisId, statutAttendu(formData), scan),
   );
   return erreur ?? terminer(dossierId, devisId, 'Devis signé déposé.');
+}
+
+export async function signerSurEcranAction(
+  dossierId: string,
+  devisId: string,
+  _: EtatFormulaire,
+  formData: FormData,
+): Promise<EtatFormulaire> {
+  const acteur = await requireSession();
+  const donnees = {
+    ...statutAttendu(formData),
+    offreRetenue: texte(formData, 'offreRetenue'),
+    bonPourAccord: coche(formData, 'bonPourAccord'),
+  };
+  const fichier = formData.get('trace');
+  const trace =
+    fichier instanceof File ? new Uint8Array(await fichier.arrayBuffer()) : new Uint8Array(0);
+  const erreur = await executer(
+    () => signerDevisSurEcran(acteur, devisId, donnees, trace),
+    donnees,
+  );
+  if (erreur) {
+    return erreur;
+  }
+  revalidatePath(`/dossiers/${dossierId}`);
+  await notifier('Signature enregistrée.');
+  redirect(`/dossiers/${dossierId}/devis/${devisId}`);
 }
 
 export async function enregistrerSignatureAction(

@@ -129,3 +129,9 @@ export const signatureDevisSaisieSchema = actionDevisSaisieSchema.extend({
   signe: z.literal(true, { error: 'Cocher la case « signé ».' }),
 });
 export type SignatureDevisSaisie = z.output<typeof signatureDevisSaisieSchema>;
+
+/** Signature recueillie à l'écran : le jour même, sous la mention du modèle (p. 2 § 5). */
+export const signatureEcranSaisieSchema = actionDevisSaisieSchema.extend({
+  offreRetenue: z.enum(RUBRIQUES_OFFRE, { error: 'Choisir l’offre retenue.' }),
+  bonPourAccord: z.literal(true, { error: 'Le patient doit confirmer « bon pour accord ».' }),
+});

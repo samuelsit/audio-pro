@@ -1,9 +1,11 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 
+import { SystemClock } from '@ha/adapters';
 import type { Prisma } from '@ha/db';
 import {
   actionDevisSaisieSchema,
   ajouterMois,
+  amcDepuisPec,
   blocagesSignature,
   calculerDevis,
   centimes,
@@ -17,14 +19,18 @@ import {
   devisSaisieSchema,
   dossierAccepteDevis,
   extensionDocument,
+  LIBELLES_RUBRIQUES_OFFRE,
   MESSAGES_BLOCAGE_SIGNATURE,
   nouvelleVersionPossible,
   oreillesDuDossier,
+  pecDiffereDuDevis,
   peutEmettreDevis,
   peutEnregistrerSignature,
   premiereDelivrancePossible,
   rendreDevisHtml,
+  rendreFeuilleSignatureHtml,
   signatureDevisSaisieSchema,
+  signatureEcranSaisieSchema,
   statutDossierApresEmission,
   TAUX_TVA_AIDE_AUDITIVE,
   TAUX_TVA_CONSOMMABLES,
@@ -32,6 +38,7 @@ import {
   verifierDocument,
   type Centimes,
   type ClasseLpp,
+  type Clock,
   type Constat,
   type ContexteDevis,
   type DevisCalcule,
@@ -40,6 +47,7 @@ import {
   type LigneAide,
   type LigneConsommable,
   type NatureAccessoire,
+  type OffreCalculee,
   type OffreDonnees,
   type Oreille,
   type ResultatControleDevis,
@@ -47,6 +55,7 @@ import {
   type StatutDevis,
   type StatutDossier,
   type TarifsAudio,
+  type PreuveSignature,
   type TypeDocument,
   type VueDevis,
 } from '@ha/domain';
@@ -56,6 +65,7 @@ import { AccesRefuseError, type UtilisateurConnecte } from '../auth/acces';
 import { withAudit, type EvenementAudit } from '../audit/journal';
 import { base, type ClientTransaction } from '../chiffrement';
 import { documents } from '../documents';
+import { eSignature, signatureEcranDisponible } from '../e-signature';
 import { ErreurSaisie, valider } from '../erreurs';
 import { rendeurPdf } from '../pdf';
 import {
@@ -85,6 +95,8 @@ export class ErreurDevisBloque extends ErreurSaisie {
     this.name = 'ErreurDevisBloque';
   }
 }
+
+const horloge: Clock = new SystemClock();
 
 const MESSAGE_TARIFS_ABSENTS =
   'Tarifs LPP absents à la date de délivrance prévue : importer la base LPP avant d’établir un devis.';
@@ -579,6 +591,8 @@ interface FaitsDevis {
   readonly fiche: PatientDetail;
   readonly contexte: ContexteDevis;
   readonly centre: Prisma.CentreGetPayload<{ select: typeof selectionCentre }>;
+  /** Montant de la PEC accordée : il remplace la part AMC saisie. */
+  readonly pecAccordee: Centimes | null;
   readonly praticien: {
     readonly prenomNom: string;
     readonly identifiant: string;
@@ -600,10 +614,20 @@ const selectionCentre = {
   tvaIntracommunautaire: true,
 } as const;
 
+async function lirePecAccordee(client: Client, dossierId: string): Promise<Centimes | null> {
+  const pec = await client.priseEnCharge.findUnique({
+    where: { dossierId },
+    select: { statut: true, montantAccordeCentimes: true },
+  });
+  return pec?.statut === 'ACCORDEE' && pec.montantAccordeCentimes !== null
+    ? centimes(pec.montantAccordeCentimes)
+    : null;
+}
+
 /** Lit ce que le devis ne porte pas. Hors transaction : Prisma charge les relations en parallèle. */
 async function lireFaits(acteur: UtilisateurConnecte, dossier: DossierLu): Promise<FaitsDevis> {
   const client = base(acteur);
-  const [fiche, chiffre, centre, praticien, prescription, delivrances] = await Promise.all([
+  const [fiche, chiffre, centre, praticien, prescription, delivrances, pec] = await Promise.all([
     lireFiche(client, acteur, dossier.patientId, { accesVerifie: true }),
     client.dossier.findUniqueOrThrow({
       where: { id: dossier.id },
@@ -626,10 +650,13 @@ async function lireFaits(acteur: UtilisateurConnecte, dossier: DossierLu): Promi
       where: { patientId: dossier.patientId, organisationId: acteur.organisationId },
       select: { oreille: true, dateDelivrance: true },
     }),
+    lirePecAccordee(client, dossier.id),
   ]);
   return {
     fiche,
     centre,
+    // La C2S a sa propre part AMC : la facture ignore aussi la PEC (R13).
+    pecAccordee: fiche.c2s ? null : pec,
     praticien: {
       prenomNom: `${praticien.utilisateur.prenom} ${praticien.utilisateur.nom}`,
       identifiant: praticien.rpps,
@@ -686,22 +713,19 @@ async function evaluer(
   faits: FaitsDevis,
   jour: string,
 ): Promise<Evaluation | null> {
-  const offres = devis.offres.map(versOffre);
+  const offresSaisies = devis.offres.map(versOffre);
   const dateDelivrancePrevue = premiereDelivrancePossible(jour);
   const tarifs = await tarifsAudioEnVigueur(dateDelivrancePrevue);
   if (tarifs === null) {
     return null;
   }
-  const codes = offres.flatMap((o) =>
+  const codes = offresSaisies.flatMap((o) =>
     o.consommables.flatMap((c) => (c.codeLpp ? [c.codeLpp] : [])),
   );
   const tarifsConsommables = await tarifsConsommablesEnVigueur(codes, dateDelivrancePrevue);
-  const donnees = versDonnees(devis, offres, jour);
   const { dateNaissance, c2s, surdicecite } = faits.contexte;
-  return {
-    donnees,
-    tarifs,
-    calcul: calculerDevis(
+  const calculer = (offres: readonly OffreDonnees[]) =>
+    calculerDevis(
       offres,
       {
         dateNaissance,
@@ -713,7 +737,21 @@ async function evaluer(
       },
       tarifs,
       tarifsConsommables,
-    ),
+    );
+  const { pecAccordee } = faits;
+  const premierCalcul = calculer(offresSaisies);
+  const offres =
+    pecAccordee === null
+      ? offresSaisies
+      : offresSaisies.map((offre, rang) => ({
+          ...offre,
+          ...amcDepuisPec(pecAccordee, premierCalcul.offres[rang] as OffreCalculee),
+        }));
+  const donnees = versDonnees(devis, offres, jour);
+  return {
+    donnees,
+    tarifs,
+    calcul: pecAccordee === null ? premierCalcul : calculer(offres),
     controle: controlerDevis(donnees, faits.contexte, tarifs),
   };
 }
@@ -823,8 +861,26 @@ export async function emettreDevis(
           where: { dossierId: dossier.id, statut: { in: ['EMIS', 'SIGNE'] } },
           data: { statut: 'REMPLACE' },
         });
-        const { count } = await tx.devis.updateMany({
+        // Verrou de la ligne : le perdant d'une concurrence échoue ici, avant le trigger de gel des offres.
+        const verrou = await tx.devis.updateMany({
           where: { id: devisId, statut: 'BROUILLON', updatedAt: devis.updatedAt },
+          data: { updatedAt: new Date() },
+        });
+        if (verrou.count !== 1) {
+          throw new ErreurConflitDossier();
+        }
+        for (const offre of evaluation.donnees.offres) {
+          await tx.devisOffre.updateMany({
+            where: { devisId, rubrique: offre.rubrique },
+            data: {
+              amcDroiteCentimes: offre.amcDroite,
+              amcGaucheCentimes: offre.amcGauche,
+              amcConsommablesCentimes: offre.amcConsommables,
+            },
+          });
+        }
+        const { count } = await tx.devis.updateMany({
+          where: { id: devisId, statut: 'BROUILLON' },
           data: {
             statut: 'EMIS',
             dateEmission: versDate(jour),
@@ -1066,6 +1122,106 @@ export async function deposerScanDevis(
   }
 }
 
+interface SignatureDemandee {
+  readonly statutAttendu: StatutDevis;
+  readonly offreRetenue: RubriqueOffre;
+  readonly dateSignature: string;
+}
+
+/** Contrôles communs au scan et à l'écran. Rejoués dans la transaction : ils portent sur l'état du moment. */
+async function verifierSignable(
+  client: Client,
+  acteur: UtilisateurConnecte,
+  devisId: string,
+  { statutAttendu, offreRetenue, dateSignature }: SignatureDemandee,
+  jour: string,
+  scanExige: boolean,
+): Promise<{ devis: DevisLu; dossier: DossierLu }> {
+  const { devis, dossier } = await lireDevis(client, acteur, devisId);
+  exigerStatut(devis, statutAttendu);
+  exigerSignaturePossible(devis, dossier);
+  exigerOffre(devis, offreRetenue, 'offreRetenue');
+  const essai = await lireEssaiOuvert(client, dossier.id);
+  const { dateEmission, dateFinValidite } = devis;
+  if (scanExige && devis.scanSigneCle === null) {
+    throw ErreurSaisie.surChamp('scan', 'Déposer d’abord le devis signé scanné.');
+  }
+  if (dateFinValidite === null || devisEchu(depuisDate(dateFinValidite), jour)) {
+    throw new ErreurSaisie({}, 'Ce devis est échu : en émettre une nouvelle version.');
+  }
+  if (dateSignature > jour || (dateEmission !== null && dateSignature < depuisDate(dateEmission))) {
+    throw ErreurSaisie.surChamp(
+      'dateSignature',
+      'La date de signature doit se situer entre l’émission et aujourd’hui.',
+    );
+  }
+  const blocages = blocagesSignature({
+    etat: essai && (await etatDeLEssai(client, essai, dateSignature)),
+    appareils: essai ? await appareilsActifs(client, essai.id) : [],
+    modelesOffre: modelesDeLOffre(offreDe(devis, offreRetenue)),
+  });
+  if (blocages.length > 0) {
+    throw new ErreurSaisie({}, blocages.map((c) => MESSAGES_BLOCAGE_SIGNATURE[c]).join(' '));
+  }
+  return { devis, dossier };
+}
+
+interface DocumentSigne {
+  readonly mode: 'SCAN' | 'ELECTRONIQUE';
+  readonly scanCle: string | null;
+  readonly scanType: string | null;
+  readonly scanTaille: number | null;
+  readonly preuve?: Prisma.InputJsonValue;
+}
+
+async function figerSignature(
+  tx: ClientTransaction,
+  acteur: UtilisateurConnecte,
+  devisId: string,
+  dossier: DossierLu,
+  { offreRetenue, dateSignature }: SignatureDemandee,
+  { mode, scanCle, scanType, scanTaille, preuve }: DocumentSigne,
+): Promise<void> {
+  const { count } = await tx.devis.updateMany({
+    where: { id: devisId, statut: 'EMIS' },
+    data: {
+      statut: 'SIGNE',
+      offreRetenue,
+      scanSigneCle: scanCle,
+      scanSigneType: scanType,
+      scanSigneTaille: scanTaille,
+    },
+  });
+  if (count !== 1) {
+    throw new ErreurConflitDossier();
+  }
+  await tx.signatureDevis.create({
+    data: {
+      devisId,
+      mode,
+      dateSignature: versDate(dateSignature),
+      saisieParId: acteur.id,
+      scanCle,
+      scanType,
+      scanTaille,
+      ...(preuve === undefined ? {} : { preuve }),
+    },
+  });
+  await appliquerTransition(tx, acteur, dossier, 'DEVIS_SIGNE');
+}
+
+function evenementsSignature(
+  devisId: string,
+  dossier: DossierLu,
+  offreRetenue: RubriqueOffre,
+  mode: DocumentSigne['mode'],
+): EvenementAudit[] {
+  return [
+    evenementDevis('UPDATE', devisId, dossier, { statutApres: 'SIGNE', offreRetenue, mode }),
+    evenementTransition(dossier, 'DEVIS_SIGNE'),
+  ];
+}
+
 /** Fige le devis signé : case « signé », offre retenue (§ 5) et scan déjà déposé. */
 export async function enregistrerSignature(
   acteur: UtilisateurConnecte,
@@ -1080,64 +1236,146 @@ export async function enregistrerSignature(
   await withAudit(
     acteur,
     async (tx) => {
-      const { devis, dossier } = await lireDevis(tx, acteur, devisId);
-      exigerStatut(devis, donnees.statutAttendu);
-      exigerSignaturePossible(devis, dossier);
-      exigerOffre(devis, donnees.offreRetenue, 'offreRetenue');
-      const essai = await lireEssaiOuvert(tx, dossier.id);
-      const { dateEmission, dateFinValidite, scanSigneCle, scanSigneType, scanSigneTaille } = devis;
-      if (scanSigneCle === null) {
-        throw ErreurSaisie.surChamp('scan', 'Déposer d’abord le devis signé scanné.');
-      }
-      if (dateFinValidite === null || devisEchu(depuisDate(dateFinValidite), jour)) {
-        throw new ErreurSaisie({}, 'Ce devis est échu : en émettre une nouvelle version.');
-      }
-      if (
-        donnees.dateSignature > jour ||
-        (dateEmission !== null && donnees.dateSignature < depuisDate(dateEmission))
-      ) {
-        throw ErreurSaisie.surChamp(
-          'dateSignature',
-          'La date de signature doit se situer entre l’émission et aujourd’hui.',
-        );
-      }
-      const blocages = blocagesSignature({
-        etat: essai && (await etatDeLEssai(tx, essai, donnees.dateSignature)),
-        appareils: essai ? await appareilsActifs(tx, essai.id) : [],
-        modelesOffre: modelesDeLOffre(offreDe(devis, donnees.offreRetenue)),
+      const { devis, dossier } = await verifierSignable(tx, acteur, devisId, donnees, jour, true);
+      await figerSignature(tx, acteur, devisId, dossier, donnees, {
+        mode: 'SCAN',
+        scanCle: devis.scanSigneCle,
+        scanType: devis.scanSigneType,
+        scanTaille: devis.scanSigneTaille,
       });
-      if (blocages.length > 0) {
-        throw new ErreurSaisie({}, blocages.map((c) => MESSAGES_BLOCAGE_SIGNATURE[c]).join(' '));
-      }
-      const { count } = await tx.devis.updateMany({
-        where: { id: devisId, statut: 'EMIS' },
-        data: { statut: 'SIGNE', offreRetenue: donnees.offreRetenue },
-      });
-      if (count !== 1) {
-        throw new ErreurConflitDossier();
-      }
-      await tx.signatureDevis.create({
-        data: {
-          devisId,
-          mode: 'SCAN',
-          dateSignature: versDate(donnees.dateSignature),
-          saisieParId: acteur.id,
-          scanCle: scanSigneCle,
-          scanType: scanSigneType,
-          scanTaille: scanSigneTaille,
-        },
-      });
-      await appliquerTransition(tx, acteur, dossier, 'DEVIS_SIGNE');
       return dossier;
     },
-    (dossier): EvenementAudit[] => [
-      evenementDevis('UPDATE', devisId, dossier, {
-        statutApres: 'SIGNE',
-        offreRetenue: donnees.offreRetenue,
-      }),
-      evenementTransition(dossier, 'DEVIS_SIGNE'),
-    ],
+    (dossier) => evenementsSignature(devisId, dossier, donnees.offreRetenue, 'SCAN'),
   );
+}
+
+function empreinte(contenu: Uint8Array): string {
+  return createHash('sha256').update(contenu).digest('hex');
+}
+
+const preuveArchiveeSchema = z.object({ preuveCle: z.string() });
+
+/**
+ * Signature recueillie à l'écran, le jour même. Le PDF remis au patient reste intact : son empreinte entre dans
+ * la preuve, et la feuille de signature s'ajoute à sa suite. Les deux documents sont déposés hors transaction ;
+ * si elle échoue, ils sont retirés. Un scan déposé auparavant est remplacé.
+ */
+export async function signerDevisSurEcran(
+  acteur: UtilisateurConnecte,
+  devisId: string,
+  saisie: unknown,
+  trace: Uint8Array,
+): Promise<void> {
+  if (!peutEnregistrerSignature(acteur.role)) {
+    throw new AccesRefuseError();
+  }
+  if (!signatureEcranDisponible()) {
+    throw new ErreurSaisie({}, 'La signature à l’écran n’est pas disponible : déposer le scan.');
+  }
+  const donnees = valider(signatureEcranSaisieSchema, saisie);
+  const document = verifierDocument(trace, 'Le patient doit signer dans le cadre.');
+  if (!document.valide || document.type !== 'image/png') {
+    throw ErreurSaisie.surChamp('trace', document.valide ? 'Tracé illisible.' : document.message);
+  }
+  const jour = aujourdhui();
+  const demande = { ...donnees, dateSignature: jour };
+  const { devis, dossier: dossierLu } = await verifierSignable(
+    base(acteur),
+    acteur,
+    devisId,
+    demande,
+    jour,
+    false,
+  );
+  const pdfCle = devis.pdfCle as string;
+  const pdfEmis = await documents().get(pdfCle);
+  const preuve: PreuveSignature = await eSignature().signer({
+    empreinteDocument: empreinte(pdfEmis),
+    trace,
+    horodatage: horloge.now(),
+  });
+  const { fiche, praticien } = await lireFaits(acteur, dossierLu);
+  const feuille = await rendeurPdf().rendre(
+    rendreFeuilleSignatureHtml({
+      numero: numeroAffiche(devis),
+      audioprothesiste: praticien.prenomNom,
+      patient: `${fiche.prenoms} ${fiche.nomUsage ?? fiche.nomNaissance}`,
+      offreRetenue: LIBELLES_RUBRIQUES_OFFRE[donnees.offreRetenue],
+      dateSignature: jour,
+      traceBase64: Buffer.from(trace).toString('base64'),
+      empreinteDocument: preuve.empreinteDocument,
+      referencePreuve: preuve.reference,
+    }),
+  );
+  const signe = await rendeurPdf().assembler([pdfEmis, feuille]);
+  const scanCle = `devis-signes/${randomUUID()}`;
+  const preuveCle = `devis-preuves/${randomUUID()}`;
+  const preuveEnregistree = { ...preuve, empreinteDocumentSigne: empreinte(signe), preuveCle };
+  await documents().put(scanCle, signe, 'application/pdf');
+  await documents().put(
+    preuveCle,
+    new TextEncoder().encode(JSON.stringify(preuveEnregistree)),
+    'application/json',
+  );
+  try {
+    const { ancienneCle } = await withAudit(
+      acteur,
+      async (tx) => {
+        const lu = await verifierSignable(tx, acteur, devisId, demande, jour, false);
+        await figerSignature(tx, acteur, devisId, lu.dossier, demande, {
+          mode: 'ELECTRONIQUE',
+          scanCle,
+          scanType: 'application/pdf',
+          scanTaille: signe.length,
+          preuve: preuveEnregistree,
+        });
+        return { dossier: lu.dossier, ancienneCle: lu.devis.scanSigneCle };
+      },
+      ({ dossier }) => evenementsSignature(devisId, dossier, donnees.offreRetenue, 'ELECTRONIQUE'),
+    );
+    if (ancienneCle !== null) {
+      await documents()
+        .delete(ancienneCle)
+        .catch(() => undefined);
+    }
+  } catch (erreur) {
+    await Promise.all(
+      [scanCle, preuveCle].map((cle) =>
+        documents()
+          .delete(cle)
+          .catch(() => undefined),
+      ),
+    );
+    throw erreur;
+  }
+}
+
+/** Ouvre la preuve d'une signature à l'écran : une ligne READ. */
+export async function lirePreuveSignature(
+  acteur: UtilisateurConnecte,
+  devisId: string,
+): Promise<DocumentPreuve> {
+  const { preuveCle } = await withAudit(
+    acteur,
+    async (tx) => {
+      const { dossier } = await lireDevis(tx, acteur, devisId);
+      const signature = await tx.signatureDevis.findUnique({
+        where: { devisId },
+        select: { preuve: true },
+      });
+      if (!signature?.preuve) {
+        throw new AccesRefuseError();
+      }
+      return { ...preuveArchiveeSchema.parse(signature.preuve), dossier };
+    },
+    ({ dossier }) => evenementDevis('READ', devisId, dossier, { document: 'PREUVE_SIGNATURE' }),
+  );
+  return { contenu: await documents().get(preuveCle), nomFichier: 'preuve-signature.json' };
+}
+
+export interface DocumentPreuve {
+  contenu: Uint8Array;
+  nomFichier: string;
 }
 
 /** Ouvre le devis signé scanné : une ligne READ, le nom d'origine n'étant pas conservé. */
@@ -1222,7 +1460,11 @@ export interface DevisDetail extends DevisResume {
   offreEssai: RubriqueOffre | null;
   offreRetenue: RubriqueOffre | null;
   scanDepose: boolean;
-  signature: { dateSignature: string; saisiePar: string } | null;
+  signature: { dateSignature: string; saisiePar: string; electronique: boolean } | null;
+  /** Montant de la PEC accordée sur ce dossier. */
+  pecAccordeeCentimes: number | null;
+  /** Devis émis dont la part AMC ne reflète pas la PEC : une nouvelle version la reprendrait. */
+  pecDifferente: boolean;
   offres: readonly OffreDonnees[];
   /** `null` si le brouillon ne peut pas être calculé (base LPP absente à la date). */
   calcul: DevisCalcule | null;
@@ -1237,6 +1479,7 @@ export interface DevisDetail extends DevisResume {
     demarrerEssai: boolean;
     deposerScan: boolean;
     signer: boolean;
+    signerEcran: boolean;
     nouvelleVersion: boolean;
   };
 }
@@ -1252,6 +1495,7 @@ export async function obtenirDevis(
     where: { devisId },
     select: {
       dateSignature: true,
+      mode: true,
       saisiePar: { select: { prenom: true, nom: true } },
     },
   });
@@ -1259,6 +1503,8 @@ export async function obtenirDevis(
   const evaluation = brouillon
     ? await evaluer(devis, await lireFaits(acteur, dossier), aujourdhui())
     : null;
+  const pecAccordee = await lirePecAccordee(client, dossier.id);
+  const calcul = brouillon ? (evaluation?.calcul ?? null) : devisCalculeSchema.parse(devis.totaux);
   const enVigueur = devis.statut === 'EMIS' && dossierAccepteDevis(dossier.statut);
   const emissible = peutEmettreDevis(acteur.role);
   const scanPossible = enVigueur && dossier.statut === 'EN_ESSAI';
@@ -1290,9 +1536,16 @@ export async function obtenirDevis(
     signature: signature && {
       dateSignature: depuisDate(signature.dateSignature),
       saisiePar: `${signature.saisiePar.prenom} ${signature.saisiePar.nom}`,
+      electronique: signature.mode === 'ELECTRONIQUE',
     },
-    offres: devis.offres.map(versOffre),
-    calcul: brouillon ? (evaluation?.calcul ?? null) : devisCalculeSchema.parse(devis.totaux),
+    pecAccordeeCentimes: pecAccordee,
+    pecDifferente:
+      devis.statut === 'EMIS' &&
+      pecAccordee !== null &&
+      calcul !== null &&
+      pecDiffereDuDevis(pecAccordee, calcul.offres),
+    offres: evaluation?.donnees.offres ?? devis.offres.map(versOffre),
+    calcul,
     erreurs: evaluation?.controle.erreurs ?? [],
     avertissements: brouillon
       ? (evaluation?.controle.avertissements ?? [])
@@ -1305,6 +1558,8 @@ export async function obtenirDevis(
       demarrerEssai: enVigueur && dossier.statut === 'DEVIS_EMIS',
       deposerScan: scanPossible,
       signer: scanPossible && peutEnregistrerSignature(acteur.role) && devis.scanSigneCle !== null,
+      signerEcran:
+        scanPossible && peutEnregistrerSignature(acteur.role) && signatureEcranDisponible(),
       nouvelleVersion: nouvelleVersionPossible(devis.statut) && dossierAccepteDevis(dossier.statut),
     },
   };
@@ -1359,6 +1614,8 @@ export interface DonneesFormulaireDevis {
   lieuParDefaut: string;
   datePrecedentDroite: string | null;
   datePrecedentGauche: string | null;
+  /** PEC accordée : les parts AMC ne se saisissent plus. */
+  pecAccordeeCentimes: number | null;
   modeles: ModeleProposable[];
   articles: ArticleProposable[];
 }
@@ -1414,6 +1671,7 @@ export async function donneesFormulaireDevis(
     oreilles: oreillesDuDossier(dossier).map((o) => o.oreille),
     c2s: couverture?.c2s ?? false,
     lieuParDefaut: centre.ville,
+    pecAccordeeCentimes: await lirePecAccordee(client, dossierId),
     datePrecedentDroite: dernierAppareillage(delivrances, 'DROITE'),
     datePrecedentGauche: dernierAppareillage(delivrances, 'GAUCHE'),
     modeles: modeles.map((m) => ({

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import path from 'node:path';
 
 import type { FakeDocumentStore, FakePdfRenderer } from '@ha/adapters';
@@ -33,13 +34,16 @@ import {
   enregistrerSignature,
   ErreurDevisBloque,
   imprimerDevis,
+  lirePreuveSignature,
   lireScanDevis,
   listerDevisDuDossier,
   modifierDevis,
   obtenirDevis,
+  signerDevisSurEcran,
   supprimerBrouillon,
 } from './devis';
 import { creerDossier, ErreurConflitDossier, obtenirDossier } from './dossiers';
+import { enregistrerPec } from './factures';
 import { aujourdhui } from './patients';
 
 const V908 = path.join(import.meta.dirname, '../../../../fixtures/lpp/908');
@@ -774,5 +778,183 @@ describe('journal', () => {
     expect(transitions.map((t) => (t.details as { statutApres: string }).statutApres)).toEqual(
       expect.arrayContaining(['DEVIS_EMIS', 'EN_ESSAI', 'DEVIS_SIGNE']),
     );
+  });
+});
+
+describe('signature à l’écran', () => {
+  const TRACE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
+  const SAISIE = { statutAttendu: 'EMIS', offreRetenue: 'OFFRE_100_SANTE', bonPourAccord: true };
+
+  async function devisEnFinEssai(): Promise<string> {
+    const devisId = await devisEmis();
+    await essai(devisId);
+    await terminerPeriodeEssai(audio, dossierId);
+    return devisId;
+  }
+
+  it('signe, archive le devis signé et la preuve, sans toucher au PDF émis', async () => {
+    const devisId = await devisEnFinEssai();
+    const avant = (await imprimerDevis(audio, devisId)).contenu;
+
+    await signerDevisSurEcran(audio, devisId, SAISIE, TRACE);
+
+    expect(await statutDossier()).toBe('DEVIS_SIGNE');
+    const signature = await prisma().signatureDevis.findUniqueOrThrow({ where: { devisId } });
+    expect(signature).toMatchObject({ mode: 'ELECTRONIQUE', scanType: 'application/pdf' });
+    const preuve = signature.preuve as { empreinteDocument: string; fournisseur: string };
+    expect(preuve.fournisseur).toBe('simulation');
+    expect(preuve.empreinteDocument).toBe(createHash('sha256').update(avant).digest('hex'));
+
+    expect((await imprimerDevis(audio, devisId)).contenu).toEqual(avant);
+    const signe = await lireScanDevis(audio, devisId);
+    expect(signe.type).toBe('application/pdf');
+    expect(Buffer.from(signe.contenu).subarray(0, avant.length).equals(Buffer.from(avant))).toBe(
+      true,
+    );
+    expect(signe.contenu.length).toBeGreaterThan(avant.length);
+    expect(rendu().rendus.at(-1)).toContain('Bon pour accord');
+
+    const archive = await lirePreuveSignature(audio, devisId);
+    expect(JSON.parse(Buffer.from(archive.contenu).toString('utf8'))).toMatchObject({
+      reference: expect.any(String) as string,
+      empreinteDocumentSigne: createHash('sha256').update(signe.contenu).digest('hex'),
+    });
+    expect((await obtenirDevis(audio, devisId)).signature?.electronique).toBe(true);
+  });
+
+  it('remplace un scan déposé auparavant', async () => {
+    const devisId = await devisEnFinEssai();
+    await deposerScanDevis(audio, devisId, { statutAttendu: 'EMIS' }, SCAN);
+    const { scanSigneCle } = await prisma().devis.findUniqueOrThrow({ where: { id: devisId } });
+    await signerDevisSurEcran(audio, devisId, SAISIE, TRACE);
+    await expect(stockage().get(scanSigneCle ?? '')).rejects.toThrow();
+  });
+
+  it('applique les mêmes blocages que le scan : pas avant la fin de l’essai', async () => {
+    const devisId = await devisEmis();
+    await expect(signerDevisSurEcran(audio, devisId, SAISIE, TRACE)).rejects.toThrow(
+      /issue de l’essai/,
+    );
+    await essai(devisId);
+    await expect(signerDevisSurEcran(audio, devisId, SAISIE, TRACE)).rejects.toThrow(ErreurSaisie);
+    expect(await statutDossier()).toBe('EN_ESSAI');
+    expect(await prisma().signatureDevis.count()).toBe(0);
+  });
+
+  it('exige le bon pour accord et un tracé PNG', async () => {
+    const devisId = await devisEnFinEssai();
+    await expect(
+      signerDevisSurEcran(audio, devisId, { ...SAISIE, bonPourAccord: false }, TRACE),
+    ).rejects.toThrow(ErreurSaisie);
+    await expect(signerDevisSurEcran(audio, devisId, SAISIE, new Uint8Array(0))).rejects.toThrow(
+      ErreurSaisie,
+    );
+    await expect(signerDevisSurEcran(audio, devisId, SAISIE, SCAN)).rejects.toThrow(ErreurSaisie);
+  });
+
+  it('réserve la signature aux rôles qui l’enregistrent', async () => {
+    const devisId = await devisEnFinEssai();
+    await expect(signerDevisSurEcran(assistantA, devisId, SAISIE, TRACE)).rejects.toBeInstanceOf(
+      AccesRefuseError,
+    );
+  });
+
+  it('reste fermée sans fournisseur', async () => {
+    const devisId = await devisEnFinEssai();
+    vi.stubEnv('E_SIGNATURE', '');
+    await expect(signerDevisSurEcran(audio, devisId, SAISIE, TRACE)).rejects.toThrow(
+      /déposer le scan/,
+    );
+    expect((await obtenirDevis(audio, devisId)).actions.signerEcran).toBe(false);
+    vi.unstubAllEnvs();
+  });
+
+  it('retire les documents déposés si la transaction échoue', async () => {
+    const devisId = await devisEnFinEssai();
+    const depose = vi.spyOn(stockage(), 'delete');
+    await prisma().signatureDevis.create({
+      data: {
+        organisationId: d.organisation.id,
+        devisId,
+        mode: 'SCAN',
+        dateSignature: new Date('2026-01-01T00:00:00.000Z'),
+        saisieParId: audio.id,
+        scanCle: 'cle-fictive',
+        scanType: 'application/pdf',
+        scanTaille: 1,
+      },
+    });
+    await expect(signerDevisSurEcran(audio, devisId, SAISIE, TRACE)).rejects.toThrow();
+    expect(depose).toHaveBeenCalledTimes(2);
+    depose.mockRestore();
+  });
+
+  it('sans preuve, aucune lecture', async () => {
+    const devisId = await devisEmis();
+    await expect(lirePreuveSignature(audio, devisId)).rejects.toBeInstanceOf(AccesRefuseError);
+  });
+});
+
+describe('part AMC et prise en charge', () => {
+  const ACCORD = {
+    statut: 'ACCORDEE',
+    organisme: 'Mutuelle Fictive',
+    plateforme: '',
+    numeroAccord: 'ACC-1',
+    montantAccorde: '300,00',
+    datePec: aujourdhui(),
+  };
+  const VIDE = new Uint8Array(0);
+
+  it('la PEC accordée remplace la part AMC saisie, à l’écran comme à l’émission', async () => {
+    const devisId = await creerDevis(audio, dossierId, saisieDevis());
+    await enregistrerPec(audio, dossierId, ACCORD, VIDE);
+
+    const brouillon = await obtenirDevis(audio, devisId);
+    expect(brouillon.pecAccordeeCentimes).toBe(30000);
+    const total = brouillon.calcul?.offres[0]?.total;
+    expect(total?.amc).toBe(Math.min(30000, total?.resteApresAMO ?? 0));
+
+    await emettreDevis(audio, devisId, { statutAttendu: 'BROUILLON' });
+    const emis = await obtenirDevis(audio, devisId);
+    expect(emis.calcul?.offres[0]?.total.amc).toBe(total?.amc);
+    expect(emis.pecDifferente).toBe(false);
+    const offre = await prisma().devisOffre.findFirstOrThrow({
+      where: { devisId, rubrique: 'OFFRE_100_SANTE' },
+    });
+    expect(offre.amcDroiteCentimes).toBe(emis.offres[0]?.amcDroite);
+  });
+
+  it('une PEC demandée ou refusée ne remplace rien', async () => {
+    const devisId = await creerDevis(audio, dossierId, saisieDevis());
+    const avant = (await obtenirDevis(audio, devisId)).calcul;
+    await enregistrerPec(audio, dossierId, { ...ACCORD, statut: 'DEMANDEE' }, VIDE);
+    const apres = await obtenirDevis(audio, devisId);
+    expect(apres.pecAccordeeCentimes).toBeNull();
+    expect(apres.calcul).toEqual(avant);
+  });
+
+  it('un devis émis reste figé et signale la PEC arrivée après lui', async () => {
+    const devisId = await devisEmis();
+    const avant = (await obtenirDevis(audio, devisId)).calcul;
+    await enregistrerPec(audio, dossierId, ACCORD, VIDE);
+    const apres = await obtenirDevis(audio, devisId);
+    expect(apres.calcul).toEqual(avant);
+    expect(apres.pecDifferente).toBe(true);
+  });
+
+  it('la C2S ignore la PEC', async () => {
+    const patient = await creerPatient({ c2s: true });
+    const dossierC2s = await creerDossierEssaiPret(d, audio, patient);
+    await enregistrerPec(audio, dossierC2s, ACCORD, VIDE);
+    const formulaire = await donneesFormulaireDevis(audio, dossierC2s);
+    expect(formulaire.pecAccordeeCentimes).toBe(30000);
+    const devisId = await creerDevis(
+      audio,
+      dossierC2s,
+      saisieDevis({ refusOffreC2S: true, offres: [offre100()] }),
+    );
+    const detail = await obtenirDevis(audio, devisId);
+    expect(detail.calcul?.offres[0]?.total.amc).not.toBe(30000);
   });
 });

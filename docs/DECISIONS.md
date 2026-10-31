@@ -766,3 +766,31 @@ La mise à niveau de l'étape 11 demandait l'ordre `DEVIS_EMIS → DEVIS_SIGNE �
 
 - La frise garde l'ordre de `STATUTS_DOSSIER`, différent de celui de l'enum Prisma. Aucun tri SQL ne repose sur cet enum.
 - Un dossier n'exige pas de bilan de référence : aucun texte de `docs/ref` ne l'impose.
+
+## ADR-025 – Devis : signature à l'écran, preuve archivée et part AMC issue de la PEC
+
+- **Date** : 2026-11-01
+- **Statut** : acceptée. Complète l'ADR-012 et l'ADR-014.
+
+### Contexte
+
+La mise à niveau de l'étape 12 demande un port `ESignature` avec `FakeESignature` (signature à l'écran sur tablette), l'archivage du devis signé et de sa preuve, le scan en alternative, et une part AMC égale au montant de la PEC quand elle existe. Aucun fournisseur de signature n'est documenté dans `docs/vendor`. La PEC ne se saisissait qu'en `A_FACTURER`, jamais avant le devis.
+
+### Décision
+
+- **Port** : `ESignature.signer` prend l'empreinte du document, le tracé et l'horodatage, et rend une preuve sans donnée patient. `FakeESignature` n'a aucune valeur probante. Hors production, `E_SIGNATURE=simulation` ouvre l'écran ; en production, l'écran reste fermé et seul le scan fonctionne.
+- **Contrôles** : `verifierSignable` est commun aux deux modes, rejoué dans la transaction. Mêmes rôles, mêmes blocages de fin d'essai, même refus d'un devis échu. La date de signature à l'écran est le jour même.
+- **PDF signé** : le PDF émis reste intact et son SHA-256 entre dans la preuve. Une feuille de signature (§ 5 : offre retenue, « bon pour accord », date, tracé) est assemblée à sa suite par `pdf-lib`, dans l'adaptateur. La vue du PDF n'est pas conservée, car elle porte le NIR : un nouveau rendu pourrait différer du document remis. Le devis signé compte donc une page de plus que le modèle.
+- **Archivage** : le PDF signé va dans `scanCle`, avec `mode: 'ELECTRONIQUE'`. Le JSON de preuve va dans le `DocumentStore` (`devis-preuves/`), et `preuve` le référence. Aucune migration de structure, comme l'annonçait l'ADR-012. Un scan déposé auparavant est remplacé.
+- **PEC avant l'achat** : `enregistrerPec` s'ouvre dès `PRESCRIPTION_OK` (`dossierAcceptePec`), comme le permettait l'ADR-014. Le formulaire apparaît sur le dossier. Le journal note l'entité `DOSSIER` tant qu'il n'y a pas de facture préparée.
+- **Part AMC** : une PEC `ACCORDEE`, hors C2S comme à la facture, remplace la saisie du brouillon. `amcDepuisPec` la répartit entre les postes de chaque offre par `repartirAmc`, plafonnée au reste. Les champs passent en lecture seule. Chaque offre reçoit le montant entier : la PEC est unique par dossier, sans lien avec une offre.
+- **Émission** : les parts issues de la PEC sont écrites sur les offres, puis figées. Un verrou sur la ligne du devis précède cette écriture : le perdant d'une émission concurrente échoue sur un conflit, pas sur le trigger de gel.
+- **PEC après l'émission** : le devis reste figé. `pecDifferente` affiche une alerte qui propose une nouvelle version, sans l'imposer : après la signature, elle rouvrirait l'essai (ADR-012), et la facture lit la PEC de toute façon.
+
+### Conséquences
+
+- Tant qu'aucun fournisseur n'est retenu, la production ne connaît que le scan. Le port reste à confronter à sa documentation.
+- La feuille porte le nom de l'audioprothésiste, pas sa signature, alors que le modèle l'attend au § 5 (À VÉRIFIER).
+- La valeur probante d'une signature sur tablette n'est pas établie (À VÉRIFIER).
+- La règle de répartition reste celle de R23, À VÉRIFIER : aucun document ne décrit une PEC.
+- Une PEC accordée pour une seule des deux offres s'applique aussi à l'autre.

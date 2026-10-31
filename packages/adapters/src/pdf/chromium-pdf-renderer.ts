@@ -1,4 +1,5 @@
 import type { PdfRenderer } from '@ha/domain';
+import { PDFDocument } from 'pdf-lib';
 import { chromium } from 'playwright-core';
 
 const PIED_DE_PAGE = `<div style="width:100%;padding-right:12mm;font:8px Arial,Helvetica,sans-serif;text-align:right"><span class="pageNumber"></span>/<span class="totalPages"></span></div>`;
@@ -30,5 +31,15 @@ export class ChromiumPdfRenderer implements PdfRenderer {
     } finally {
       await navigateur.close();
     }
+  }
+
+  async assembler(documents: readonly Uint8Array[]): Promise<Uint8Array> {
+    const assemble = await PDFDocument.create();
+    for (const document of documents) {
+      const source = await PDFDocument.load(document);
+      const pages = await assemble.copyPages(source, source.getPageIndices());
+      pages.forEach((page) => assemble.addPage(page));
+    }
+    return assemble.save();
   }
 }

@@ -17,7 +17,7 @@ import { ouIntrouvable, requireSession } from '@/server/auth/gardes';
 import { listerDevisDuDossier } from '@/server/services/devis';
 import { appareilsProposables, obtenirEssai } from '@/server/services/essais';
 import { obtenirDossier, type PrescriptionAffichee } from '@/server/services/dossiers';
-import { obtenirFacture } from '@/server/services/factures';
+import { lirePecDossier, obtenirFacture } from '@/server/services/factures';
 
 import { AlerteDroits, EntetePatient } from '../../patients/entete-patient';
 import { choisirBilanReferenceAction } from '../actions';
@@ -25,6 +25,7 @@ import { AbandonDossier } from './abandon-dossier';
 import { BlocDevis } from './devis/bloc-devis';
 import { BlocEssai } from './essai/bloc-essai';
 import { BlocFacture } from './facture/bloc-facture';
+import { FormulairePec } from './facture/formulaires-facture';
 import { FormulaireBilanReference } from './formulaire-bilan-reference';
 import { FormulairePrescription } from './formulaire-prescription';
 import { FriseStatuts } from './frise-statuts';
@@ -148,6 +149,7 @@ export default async function PageDossier({ params }: PageProps<'/dossiers/[id]'
   );
 
   const bilanReference = dossier.bilans.find((b) => b.id === dossier.bilanReferenceId);
+  const pecDossier = await lirePecDossier(acteur, dossier.id);
 
   return (
     <div className="grid gap-6">
@@ -220,6 +222,12 @@ export default async function PageDossier({ params }: PageProps<'/dossiers/[id]'
           )}
         </Bloc>
       </div>
+
+      {pecDossier.saisissable ? (
+        <Bloc titre="Prise en charge complémentaire">
+          <FormulairePec dossierId={dossier.id} pec={pecDossier.pec} />
+        </Bloc>
+      ) : null}
 
       <Bloc titre="Devis">
         <BlocDevis dossierId={dossier.id} statut={dossier.statut} versions={devis} />

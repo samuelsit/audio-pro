@@ -244,6 +244,17 @@ export default async function PageDevis({ params }: PageProps<'/dossiers/[id]/de
               <dd>
                 Le {formaterDate(devis.signature.dateSignature)}, enregistrée par{' '}
                 {devis.signature.saisiePar}
+                {devis.signature.electronique ? (
+                  <>
+                    {', à l’écran. '}
+                    <a
+                      href={`/dossiers/${id}/devis/${devisId}/preuve`}
+                      className="underline underline-offset-4"
+                    >
+                      Télécharger la preuve
+                    </a>
+                  </>
+                ) : null}
               </dd>
             </>
           ) : null}
@@ -257,7 +268,7 @@ export default async function PageDevis({ params }: PageProps<'/dossiers/[id]/de
                   rel="noreferrer"
                   className="underline underline-offset-4"
                 >
-                  Ouvrir le scan
+                  {devis.signature?.electronique ? 'Ouvrir le devis signé' : 'Ouvrir le scan'}
                 </a>
               </dd>
             </>
@@ -265,6 +276,15 @@ export default async function PageDevis({ params }: PageProps<'/dossiers/[id]/de
         </dl>
       </Bloc>
 
+      {devis.pecDifferente ? (
+        <Alert>
+          <AlertTitle>Prise en charge différente du devis</AlertTitle>
+          <AlertDescription>
+            La part AMC de ce devis ne reprend pas la prise en charge accordée. Une nouvelle version
+            la reprendrait ; sans elle, la facture utilisera quand même la prise en charge.
+          </AlertDescription>
+        </Alert>
+      ) : null}
       {actions.demarrerEssai ? (
         <Bloc titre="Démarrer l’essai">
           <FormulaireEssai
@@ -277,6 +297,13 @@ export default async function PageDevis({ params }: PageProps<'/dossiers/[id]/de
       ) : null}
       {actions.deposerScan ? (
         <Bloc titre="Signature à l’issue de l’essai">
+          {actions.signerEcran ? (
+            <div>
+              <Button asChild>
+                <Link href={`/dossiers/${id}/devis/${devisId}/signature`}>Signer à l’écran</Link>
+              </Button>
+            </div>
+          ) : null}
           <FormulaireScan {...identifiants} />
           {actions.signer ? (
             <FormulaireSignature {...identifiants} rubriques={rubriques} jour={aujourdhui()} />

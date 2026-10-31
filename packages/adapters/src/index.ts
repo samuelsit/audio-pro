@@ -38,3 +38,4 @@ export {
   LecteurVitaleAbsent,
   type SimulationVitale,
 } from './vitale/fake-vitale-reader';
+export { FakeESignature } from './signature/fake-e-signature';

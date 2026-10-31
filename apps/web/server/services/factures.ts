@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { formaterInstantParis } from '@ha/adapters';
+import type { Prisma } from '@ha/db';
 import {
   calculerPagination,
   centimes,
@@ -9,6 +10,7 @@ import {
   designationAideSchema,
   designationConsommableSchema,
   devisCalculeSchema,
+  dossierAcceptePec,
   etatFacture,
   extensionDocument,
   filtreAFacturerSchema,
@@ -510,6 +512,43 @@ export async function confirmerCouvertureAmo(
   );
 }
 
+const MESSAGE_PEC_HORS_DELAI = 'La prise en charge se saisit de la prescription à la facturation.';
+
+/** La facture préparée n'existe qu'une fois le dossier à facturer : la PEC peut la précéder. */
+async function exigerPecPossible(
+  client: Client,
+  acteur: UtilisateurConnecte,
+  dossierId: string,
+): Promise<{ dossier: DossierLu; factureId: string | null }> {
+  const dossier = await lireDossier(client, acteur, dossierId);
+  if (!dossierAcceptePec(dossier.statut)) {
+    throw new ErreurSaisie({}, MESSAGE_PEC_HORS_DELAI);
+  }
+  const facture = await client.facturePreparee.findUnique({
+    where: { dossierId },
+    select: { id: true },
+  });
+  return { dossier, factureId: facture?.id ?? null };
+}
+
+function evenementPec(
+  dossier: DossierLu,
+  factureId: string | null,
+  statut: string,
+): EvenementAudit {
+  if (factureId !== null) {
+    return evenementFacture('UPDATE', factureId, dossier, { pec: statut });
+  }
+  return {
+    action: 'UPDATE',
+    entiteType: 'DOSSIER',
+    entiteId: dossier.id,
+    patientId: dossier.patientId,
+    centreId: dossier.centreId,
+    details: { pec: statut },
+  };
+}
+
 /**
  * Saisie de la prise en charge complémentaire, remplacée à chaque enregistrement. Sans nouveau fichier, le
  * justificatif reste. Il est déposé hors transaction ; si elle échoue, l'objet déposé est retiré, et
@@ -526,7 +565,7 @@ export async function enregistrerPec(
   if (verification && !verification.valide) {
     throw ErreurSaisie.surChamp('justificatif', verification.message);
   }
-  await exigerAFacturer(base(acteur), acteur, dossierId);
+  await exigerPecPossible(base(acteur), acteur, dossierId);
   const nouveau = verification?.valide
     ? { cle: `prises-en-charge/${randomUUID()}`, type: verification.type }
     : null;
@@ -549,7 +588,7 @@ export async function enregistrerPec(
     const { ancienneCle } = await withAudit(
       acteur,
       async (tx) => {
-        const { dossier, factureId } = await exigerAFacturer(tx, acteur, dossierId);
+        const { dossier, factureId } = await exigerPecPossible(tx, acteur, dossierId);
         const existante = await tx.priseEnCharge.findUnique({
           where: { dossierId },
           select: { justificatifCle: true },
@@ -561,8 +600,7 @@ export async function enregistrerPec(
         });
         return { dossier, factureId, ancienneCle: nouveau ? existante?.justificatifCle : null };
       },
-      ({ dossier, factureId }) =>
-        evenementFacture('UPDATE', factureId, dossier, { pec: donnees.statut }),
+      ({ dossier, factureId }) => evenementPec(dossier, factureId, donnees.statut),
     );
     if (ancienneCle) {
       await documents()
@@ -594,26 +632,35 @@ export async function lireJustificatifPec(
     acteur,
     async (tx) => {
       const dossier = await lireDossier(tx, acteur, dossierId);
-      const facture = await tx.facturePreparee.findUnique({
-        where: { dossierId },
-        select: { id: true },
-      });
       const pec = await tx.priseEnCharge.findUnique({
         where: { dossierId },
         select: { justificatifCle: true, justificatifType: true },
       });
-      if (!facture || !pec?.justificatifCle || !pec.justificatifType) {
+      if (!pec?.justificatifCle || !pec.justificatifType) {
         throw new AccesRefuseError();
       }
+      const facture = await tx.facturePreparee.findUnique({
+        where: { dossierId },
+        select: { id: true },
+      });
       return {
         cle: pec.justificatifCle,
         type: pec.justificatifType,
         dossier,
-        factureId: facture.id,
+        factureId: facture?.id ?? null,
       };
     },
     ({ dossier, factureId }) =>
-      evenementFacture('READ', factureId, dossier, { document: 'JUSTIFICATIF_PEC' }),
+      factureId === null
+        ? {
+            action: 'READ',
+            entiteType: 'DOSSIER',
+            entiteId: dossier.id,
+            patientId: dossier.patientId,
+            centreId: dossier.centreId,
+            details: { document: 'JUSTIFICATIF_PEC' },
+          }
+        : evenementFacture('READ', factureId, dossier, { document: 'JUSTIFICATIF_PEC' }),
   );
   const typeDocument = z.enum(TYPES_DOCUMENT).parse(type);
   return {
@@ -633,6 +680,41 @@ export interface PecAffichee {
   montantAccordeCentimes: number | null;
   datePec: string | null;
   justificatif: boolean;
+}
+
+function versPecAffichee(pec: Prisma.PriseEnChargeGetPayload<object>): PecAffichee {
+  return {
+    statut: pec.statut,
+    organisme: pec.organisme,
+    plateforme: pec.plateforme,
+    numeroAccord: pec.numeroAccord,
+    montantAccordeCentimes: pec.montantAccordeCentimes,
+    datePec: pec.datePec && depuisDate(pec.datePec),
+    justificatif: pec.justificatifCle !== null,
+  };
+}
+
+/** PEC du dossier avant la facturation ; `saisissable` dit si la section s'affiche sur le dossier. */
+export async function lirePecDossier(
+  acteur: UtilisateurConnecte,
+  dossierId: string,
+): Promise<{ pec: PecAffichee | null; saisissable: boolean }> {
+  const client = base(acteur);
+  const dossier = await lireDossier(client, acteur, dossierId);
+  const [pec, couverture] = await Promise.all([
+    client.priseEnCharge.findUnique({ where: { dossierId } }),
+    client.couvertureAmo.findUnique({
+      where: { patientId: dossier.patientId },
+      select: { c2s: true },
+    }),
+  ]);
+  return {
+    pec: pec && versPecAffichee(pec),
+    saisissable:
+      dossierAcceptePec(dossier.statut) &&
+      dossier.statut !== 'A_FACTURER' &&
+      couverture?.c2s !== true,
+  };
 }
 
 export interface FactureDetail extends FactureEvaluee {
@@ -671,15 +753,7 @@ export async function obtenirFacture(
     ...evaluee,
     c2s: couverture?.c2s ?? false,
     amoConfirmeeLe: facture.amoConfirmeeLe?.toISOString() ?? null,
-    pec: pec && {
-      statut: pec.statut,
-      organisme: pec.organisme,
-      plateforme: pec.plateforme,
-      numeroAccord: pec.numeroAccord,
-      montantAccordeCentimes: pec.montantAccordeCentimes,
-      datePec: pec.datePec && depuisDate(pec.datePec),
-      justificatif: pec.justificatifCle !== null,
-    },
+    pec: pec && versPecAffichee(pec),
   };
 }
 

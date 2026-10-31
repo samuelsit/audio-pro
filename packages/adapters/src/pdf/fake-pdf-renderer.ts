@@ -8,4 +8,8 @@ export class FakePdfRenderer implements PdfRenderer {
     this.rendus.push(html);
     return new TextEncoder().encode(`%PDF-1.7 simulation ${String(this.rendus.length)}\n`);
   }
+
+  async assembler(documents: readonly Uint8Array[]): Promise<Uint8Array> {
+    return Buffer.concat(documents);
+  }
 }
