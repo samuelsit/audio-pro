@@ -39,7 +39,9 @@ describe('ecartAccessoire', () => {
 
 describe('peutGererInventaire', () => {
   it.each(ROLES)('%s', (role) => {
-    expect(peutGererInventaire(role)).toBe(role === 'ADMIN_CLIENT' || role === 'RESPONSABLE_CENTRE');
+    expect(peutGererInventaire(role)).toBe(
+      role === 'ADMIN_CLIENT' || role === 'RESPONSABLE_CENTRE',
+    );
   });
 });
 
@@ -82,6 +84,8 @@ describe('saisies', () => {
     expect(
       justificationEcartSaisieSchema.safeParse({ numeroSerie: 'AB12', justification: ' ' }).success,
     ).toBe(false);
-    expect(justificationEcartSaisieSchema.safeParse({ justification: 'Casse' }).success).toBe(false);
+    expect(justificationEcartSaisieSchema.safeParse({ justification: 'Casse' }).success).toBe(
+      false,
+    );
   });
 });

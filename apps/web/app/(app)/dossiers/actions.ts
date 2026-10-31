@@ -9,6 +9,7 @@ import { requireSession } from '@/server/auth/gardes';
 import { notifier } from '@/server/notifications';
 import {
   abandonnerDossier,
+  choisirBilanReference,
   creerDossier,
   enregistrerPrescription,
 } from '@/server/services/dossiers';
@@ -30,6 +31,8 @@ export async function creerDossierAction(
     typeDroite: texte(formData, 'typeDroite'),
     typeGauche: texte(formData, 'typeGauche'),
     surdicecite: coche(formData, 'surdicecite'),
+    rdvId: texte(formData, 'rdvId'),
+    bilanId: texte(formData, 'bilanId'),
   };
   let id = '';
   const erreur = await executer(async () => {
@@ -41,6 +44,24 @@ export async function creerDossierAction(
   revalidatePath(`/patients/${patientId}/dossiers`);
   await notifier('Dossier créé.');
   redirect(accesDossier(id));
+}
+
+export async function choisirBilanReferenceAction(
+  dossierId: string,
+  _: EtatFormulaire,
+  formData: FormData,
+): Promise<EtatFormulaire> {
+  const acteur = await requireSession();
+  const donnees = {
+    bilanId: texte(formData, 'bilanId'),
+    statutAttendu: texte(formData, 'statutAttendu'),
+  };
+  const erreur = await executer(() => choisirBilanReference(acteur, dossierId, donnees), donnees);
+  if (erreur) {
+    return erreur;
+  }
+  revalidatePath(accesDossier(dossierId));
+  return { succes: 'Bilan de référence enregistré.' };
 }
 
 async function octetsDuScan(formData: FormData): Promise<Uint8Array> {

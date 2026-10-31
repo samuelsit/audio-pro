@@ -743,3 +743,26 @@ La mise à niveau de l'étape 10 demande des mouvements liables à une commande,
 - Deux fabricants peuvent partager un numéro de série : un pointage vaut alors pour les deux appareils du centre.
 - Un appareil réellement perdu reste `EN_STOCK` : il ressortira manquant à chaque inventaire jusqu'à ce qu'un statut de sortie existe.
 - La valeur n'est une valeur d'inventaire comptable que si les prix sont saisis : le seed les renseigne, sauf pour les appareils en consignation.
+
+## ADR-024 – Dossier : ordre des statuts, bilan de référence et origine
+
+- **Date** : 2026-11-01
+- **Statut** : acceptée. Complète l'ADR-011, confirme les ADR-012 et ADR-013.
+
+### Contexte
+
+La mise à niveau de l'étape 11 demandait l'ordre `DEVIS_EMIS → DEVIS_SIGNE → EN_ESSAI → A_FACTURER`, avec migration des dossiers, un lien vers le bilan de référence, la création d'un dossier depuis un RDV ou un bilan, et le forçage réservé à ADMIN_CLIENT.
+
+### Décision
+
+- **Ordre maintenu** (arbitré le 2026-11-01) : `DEVIS_EMIS → EN_ESSAI → DEVIS_SIGNE → A_FACTURER`. Le modèle de devis l'impose : le devis n'engage pas « jusqu'à la signature du point 5 » (p. 1) et la signature vient « à l'issue de la période d'essai » (p. 2 § 5). Inverser reviendrait à faire signer l'engagement avant l'essai. Les 9 statuts existaient déjà : aucune migration de dossiers n'est nécessaire, et l'ordre de l'enum Prisma, sans effet, reste celui demandé.
+- **Bilan de référence** : `Dossier.bilanReferenceId` nullable, modifiable tant que `prescriptionModifiable`. Contrôle de service plutôt qu'une clé composite : la fusion de patients déplace dossiers et bilans par deux écritures, qu'une clé composite ferait échouer. Aucune reprise sur les dossiers existants : choisir un bilan est un acte clinique.
+- **Accès au bilan** : la fiche dossier n'expose que les dates des bilans. Le contenu reste à l'écran du bilan, soumis à ses droits (ADR-022).
+- **Origine** : `creerDossier` accepte `rdvId` ou `bilanId`, portés par le formulaire. Le RDV reçoit `dossierId` dans la transaction de création, version vérifiée. Un RDV de prospect n'ouvre pas de dossier : le patient doit exister (contrainte `rendez_vous_dossier_avec_patient`).
+- **Rattachement** : `rattacherRdvDossier` relie un RDV sans dossier à un dossier du même patient. Il ne change pas un rattachement existant.
+- **Forçage** : déjà conforme, seule la prescription se force et seul ADMIN_CLIENT le peut (ADR-011). Devis et signature restent sans forçage, car leurs erreurs sont des minimums du texte (ADR-013). Test ajouté pour `RESPONSABLE_CENTRE`.
+
+### Conséquences
+
+- La frise garde l'ordre de `STATUTS_DOSSIER`, différent de celui de l'enum Prisma. Aucun tri SQL ne repose sur cet enum.
+- Un dossier n'exige pas de bilan de référence : aucun texte de `docs/ref` ne l'impose.

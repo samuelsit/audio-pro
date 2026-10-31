@@ -20,6 +20,7 @@ import {
   marquerArrivee,
   modifierNotesRdv,
   prendreEnCharge,
+  rattacherRdvDossier,
 } from './agenda';
 import { creerPatient, ErreurDoublonPossible, fusionnerPatients } from './patients';
 
@@ -711,5 +712,50 @@ describe('fusion de patients', () => {
     const id = await creerRdv(d.acteurs.audioAB, rdv({ patientId: doublon }));
     await fusionnerPatients(d.acteurs.admin, patientId, doublon, {});
     expect((await ligne(id)).patientId).toBe(patientId);
+  });
+});
+
+describe('rattachement à un dossier', () => {
+  async function creerDossierFictif(patient: string): Promise<string> {
+    const dossier = await prisma().dossier.create({
+      data: {
+        organisationId: d.organisation.id,
+        patientId: patient,
+        centreId: d.centres.a.id,
+        praticienId: d.praticiens.praticienAB.id,
+        oreilles: 'DROITE',
+        typeDroite: 'PRIMO',
+        dateOuverture: new Date('2030-01-02T00:00:00.000Z'),
+        surdicecite: 'v1.fictif',
+      },
+    });
+    return dossier.id;
+  }
+
+  it('rattache un rendez-vous, une seule fois', async () => {
+    const id = await creerRdv(d.acteurs.audioAB, rdv());
+    const dossierId = await creerDossierFictif(patientId);
+    await rattacherRdvDossier(d.acteurs.audioAB, id, { version: 1, dossierId });
+    expect(await ligne(id)).toMatchObject({ dossierId, version: 2 });
+    await expect(
+      rattacherRdvDossier(d.acteurs.audioAB, id, { version: 2, dossierId }),
+    ).rejects.toBeInstanceOf(ErreurSaisie);
+  });
+
+  it('refuse le dossier d’un autre patient et une version périmée', async () => {
+    const id = await creerRdv(d.acteurs.audioAB, rdv());
+    const autre = await creerPatient(d.acteurs.audioAB, {
+      ...PATIENT,
+      centreId: d.centres.a.id,
+      nomNaissance: 'Autre',
+    });
+    const dossierAutre = await creerDossierFictif(autre);
+    await expect(
+      rattacherRdvDossier(d.acteurs.audioAB, id, { version: 1, dossierId: dossierAutre }),
+    ).rejects.toBeInstanceOf(ErreurSaisie);
+    const dossierId = await creerDossierFictif(patientId);
+    await expect(
+      rattacherRdvDossier(d.acteurs.audioAB, id, { version: 9, dossierId }),
+    ).rejects.toBeInstanceOf(ErreurRdvModifie);
   });
 });

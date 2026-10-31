@@ -20,6 +20,9 @@ export const dossierSaisieSchema = z
     typeDroite: typeOreilleSchema,
     typeGauche: typeOreilleSchema,
     surdicecite: z.boolean(),
+    /** Rendez-vous ou bilan d'origine : le dossier s'y rattache à sa création. */
+    rdvId: texteOptionnelSchema.pipe(identifiantSchema('Rendez-vous inconnu.').nullable()),
+    bilanId: texteOptionnelSchema.pipe(identifiantSchema('Bilan inconnu.').nullable()),
   })
   .superRefine(({ oreilles, typeDroite, typeGauche }, ctx) => {
     const concernees = oreillesConcernees(oreilles);
@@ -41,6 +44,13 @@ export const dossierSaisieSchema = z
     };
   });
 export type DossierSaisie = z.output<typeof dossierSaisieSchema>;
+
+export const bilanReferenceSaisieSchema = z.object({
+  /** Vide : retire le bilan de référence. */
+  bilanId: texteOptionnelSchema.pipe(identifiantSchema('Bilan inconnu.').nullable()),
+  /** Statut affiché à l'utilisateur : s'il a changé entre-temps, l'opération est refusée. */
+  statutAttendu: z.enum(STATUTS_DOSSIER, { error: 'Statut actuel inconnu.' }),
+});
 
 export const prescriptionSaisieSchema = z.object({
   prescripteurId: identifiantSchema('Choisir un prescripteur.'),

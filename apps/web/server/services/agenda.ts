@@ -21,6 +21,7 @@ import {
   peutPasserA,
   plagesCabine,
   plagesPraticien,
+  rattachementRdvSchema,
   rdvSaisieSchema,
   rechercheCreneauxSchema,
   versionRdvSchema,
@@ -764,6 +765,34 @@ async function lireRdvPourEcrire(
   }
   verifierAccesCentre(acteur, rdv.centreId);
   return rdv;
+}
+
+/** Rattache à un dossier du même patient un rendez-vous qui n'en a pas encore. */
+export async function rattacherRdvDossier(
+  acteur: UtilisateurConnecte,
+  id: string,
+  saisie: unknown,
+): Promise<void> {
+  const { version, dossierId } = valider(rattachementRdvSchema, saisie);
+  await withAudit(
+    acteur,
+    async (tx) => {
+      const rdv = await lireRdvPourEcrire(tx, acteur, id);
+      const dossier = await tx.dossier.findFirst({
+        where: { id: dossierId, patientId: rdv.patientId ?? '' },
+        select: { id: true },
+      });
+      if (!dossier) {
+        throw ErreurSaisie.surChamp('dossierId', 'Ce dossier n’est pas celui de ce patient.');
+      }
+      if (rdv.dossierId !== null) {
+        throw ErreurSaisie.surChamp('dossierId', 'Ce rendez-vous a déjà un dossier.');
+      }
+      await ecrireRdv(tx, id, version, { dossierId });
+      return rdv;
+    },
+    (rdv) => evenementRdv(rdv, rdv, { dossierId }),
+  );
 }
 
 /** Toute écriture passe ici : la version lue doit être la dernière (verrou optimiste). */

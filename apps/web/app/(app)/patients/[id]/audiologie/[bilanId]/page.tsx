@@ -11,6 +11,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 import { EtatVide } from '@/components/etat-vide';
+import { Button } from '@/components/ui/button';
 import {
   Table,
   TableBody,
@@ -64,6 +65,11 @@ export default async function PageBilan({
 
   return (
     <div className="grid gap-6">
+      <div>
+        <Button asChild variant="outline">
+          <Link href={`/patients/${id}/dossiers/nouveau?bilan=${bilanId}`}>Créer un dossier</Link>
+        </Button>
+      </div>
       <EnteteBilan bilan={bilan} courant="bilan">
         {vide ? (
           <EtatVide titre="Bilan à compléter">

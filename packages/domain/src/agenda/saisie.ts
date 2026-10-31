@@ -117,6 +117,11 @@ export const deplacementRdvSchema = horaireRdvSchema
   });
 export type DeplacementRdv = z.output<typeof deplacementRdvSchema>;
 
+export const rattachementRdvSchema = z.object({
+  version: z.number().int().min(1),
+  dossierId: z.uuid({ error: 'Choisir un dossier.' }),
+});
+
 export const changementStatutRdvSchema = z.object({
   version: versionRdvSchema,
   // `ARRIVE` passe par `marquerArrivee` (un prospect s'y convertit), `ANNULE` par `annulerRdv` (événement).

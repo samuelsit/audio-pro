@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import type { Prisma } from '@ha/db';
 import {
   abandonDossierSaisieSchema,
+  bilanReferenceSaisieSchema,
   CODES_CONTROLE,
   controlePrescription,
   dossierSaisieSchema,
@@ -42,6 +43,7 @@ import { withAudit, type EvenementAudit } from '../audit/journal';
 import { base, type ClientTransaction } from '../chiffrement';
 import { documents } from '../documents';
 import { ErreurSaisie, valider, type ErreursChamps } from '../erreurs';
+import { ecrireRdv } from './agenda';
 import { abandonnerEssaiOuvert } from './essais-socle';
 import { aujourdhui, lireFiche, type Client, type PatientDetail } from './patients';
 
@@ -167,6 +169,7 @@ export interface DonneesCreationDossier {
 export async function donneesCreationDossier(
   acteur: UtilisateurConnecte,
   fiche: Pick<PatientDetail, 'centre'>,
+  origine: OrigineDossier = SANS_ORIGINE,
 ): Promise<DonneesCreationDossier> {
   const centres = await centresSelectionnables(acteur);
   const exercices = await base(acteur).praticienCentre.findMany({
@@ -196,10 +199,91 @@ export async function donneesCreationDossier(
           nom: `${utilisateur.prenom} ${utilisateur.nom}`,
         })),
     })),
-    centreParDefaut: centres.some((c) => c.id === fiche.centre.id) ? fiche.centre.id : null,
+    centreParDefaut:
+      [origine.centreId, fiche.centre.id].find((id) => centres.some((c) => c.id === id)) ?? null,
     praticienParDefaut:
-      exercices.find((e) => e.praticien.utilisateurId === acteur.id)?.praticien.id ?? null,
+      origine.praticienId ??
+      exercices.find((e) => e.praticien.utilisateurId === acteur.id)?.praticien.id ??
+      null,
   };
+}
+
+export interface OrigineDossier {
+  rdvId: string | null;
+  bilanId: string | null;
+  centreId: string | null;
+  praticienId: string | null;
+}
+
+const SANS_ORIGINE: OrigineDossier = {
+  rdvId: null,
+  bilanId: null,
+  centreId: null,
+  praticienId: null,
+};
+
+/**
+ * Rendez-vous ou bilan dont part le formulaire : préremplit le centre et le praticien. Une origine qui n'est
+ * pas celle de ce patient est ignorée ; `creerDossier` la refuse si elle revient dans la saisie.
+ */
+export async function lireOrigineDossier(
+  acteur: UtilisateurConnecte,
+  patientId: string,
+  { rdv, bilan }: { rdv?: string | undefined; bilan?: string | undefined },
+): Promise<OrigineDossier> {
+  const client = base(acteur);
+  if (rdv) {
+    const ligne = await client.rendezVous.findFirst({
+      where: { id: rdv, patientId, dossierId: null },
+      select: { id: true, centreId: true, praticienId: true },
+    });
+    if (ligne) {
+      const { id: rdvId, centreId, praticienId } = ligne;
+      return { ...SANS_ORIGINE, rdvId, centreId, praticienId };
+    }
+  }
+  if (bilan) {
+    const ligne = await client.bilanAudiologique.findFirst({
+      where: { id: bilan, patientId },
+      select: { id: true, centreId: true, praticienId: true },
+    });
+    if (ligne) {
+      const { id: bilanId, centreId, praticienId } = ligne;
+      return { ...SANS_ORIGINE, bilanId, centreId, praticienId };
+    }
+  }
+  return SANS_ORIGINE;
+}
+
+async function verifierBilanDuPatient(
+  tx: ClientTransaction,
+  bilanId: string,
+  patientId: string,
+): Promise<void> {
+  const bilan = await tx.bilanAudiologique.findFirst({
+    where: { id: bilanId, patientId },
+    select: { id: true },
+  });
+  if (!bilan) {
+    throw ErreurSaisie.surChamp('bilanId', 'Ce bilan n’est pas celui de ce patient.');
+  }
+}
+
+/** Le rendez-vous rejoint le dossier dans la même transaction : aucun des deux n'existe sans l'autre. */
+async function rattacherRdvOrigine(
+  tx: ClientTransaction,
+  rdvId: string,
+  patientId: string,
+  dossierId: string,
+): Promise<void> {
+  const rdv = await tx.rendezVous.findFirst({
+    where: { id: rdvId, patientId, dossierId: null },
+    select: { version: true },
+  });
+  if (!rdv) {
+    throw ErreurSaisie.surChamp('rdvId', 'Ce rendez-vous ne peut pas ouvrir ce dossier.');
+  }
+  await ecrireRdv(tx, rdvId, rdv.version, { dossierId });
 }
 
 export async function creerDossier(
@@ -240,12 +324,16 @@ export async function creerDossier(
           'Cet audioprothésiste n’exerce pas dans ce centre.',
         );
       }
+      if (donnees.bilanId !== null) {
+        await verifierBilanDuPatient(tx, donnees.bilanId, patientId);
+      }
       const dossier = await tx.dossier.create({
         data: {
           organisationId: acteur.organisationId,
           patientId,
           centreId: donnees.centreId,
           praticienId: donnees.praticienId,
+          bilanReferenceId: donnees.bilanId,
           oreilles: donnees.oreilles,
           typeDroite: donnees.typeDroite,
           typeGauche: donnees.typeGauche,
@@ -257,6 +345,9 @@ export async function creerDossier(
       await tx.transitionDossier.create({
         data: { dossierId: dossier.id, statutApres: 'BROUILLON', utilisateurId: acteur.id },
       });
+      if (donnees.rdvId !== null) {
+        await rattacherRdvOrigine(tx, donnees.rdvId, patientId, dossier.id);
+      }
       return dossier.id;
     },
     (id) => ({
@@ -265,6 +356,47 @@ export async function creerDossier(
       entiteId: id,
       patientId,
       centreId: donnees.centreId,
+      details: { rdvId: donnees.rdvId, bilanId: donnees.bilanId },
+    }),
+  );
+}
+
+/** Le bilan appuie la prescription : il se choisit tant qu'elle reste modifiable. */
+export async function choisirBilanReference(
+  acteur: UtilisateurConnecte,
+  dossierId: string,
+  saisie: unknown,
+): Promise<void> {
+  const { bilanId, statutAttendu } = valider(bilanReferenceSaisieSchema, saisie);
+  await withAudit(
+    acteur,
+    async (tx) => {
+      const dossier = await lireDossier(tx, acteur, dossierId);
+      if (dossier.statut !== statutAttendu) {
+        throw new ErreurConflitDossier();
+      }
+      if (!prescriptionModifiable(dossier.statut)) {
+        throw new ErreurSaisie({}, 'Le bilan de référence ne change plus à ce stade.');
+      }
+      if (bilanId !== null) {
+        await verifierBilanDuPatient(tx, bilanId, dossier.patientId);
+      }
+      const { count } = await tx.dossier.updateMany({
+        where: { id: dossierId, statut: dossier.statut },
+        data: { bilanReferenceId: bilanId },
+      });
+      if (count !== 1) {
+        throw new ErreurConflitDossier();
+      }
+      return dossier;
+    },
+    (dossier) => ({
+      action: 'UPDATE',
+      entiteType: 'DOSSIER',
+      entiteId: dossierId,
+      patientId: dossier.patientId,
+      centreId: dossier.centreId,
+      details: { bilanId },
     }),
   );
 }
@@ -365,6 +497,9 @@ export interface DossierDetail extends DossierResume {
   patientId: string;
   centreId: string;
   surdicecite: boolean;
+  bilanReferenceId: string | null;
+  /** Bilans du patient, dates seules : le contenu reste à l'écran du bilan. */
+  bilans: { id: string; dateBilan: string }[];
   fiche: PatientDetail;
   passages: PassageAffiche[];
   /** La plus récente d'abord : c'est elle qui fait foi. */
@@ -388,11 +523,11 @@ export async function obtenirDossier(
 ): Promise<DossierDetail> {
   const client = base(acteur);
   const dossierLu = await lireDossier(client, acteur, dossierId);
-  const [resume, chiffre, transitions, prescriptions, fiche] = await Promise.all([
+  const [resume, chiffre, transitions, prescriptions, fiche, bilans] = await Promise.all([
     client.dossier.findUniqueOrThrow({ where: { id: dossierId }, select: selectionResume }),
     client.dossier.findUniqueOrThrow({
       where: { id: dossierId },
-      select: { surdicecite: true },
+      select: { surdicecite: true, bilanReferenceId: true },
     }),
     client.transitionDossier.findMany({
       where: { dossierId },
@@ -409,12 +544,19 @@ export async function obtenirDossier(
     }),
     // L'accès vient du centre du dossier : la fiche peut être rattachée à un autre centre.
     lireFiche(client, acteur, dossierLu.patientId, { accesVerifie: true }),
+    client.bilanAudiologique.findMany({
+      where: { patientId: dossierLu.patientId },
+      select: { id: true, dateBilan: true },
+      orderBy: [{ dateBilan: 'desc' }, { id: 'desc' }],
+    }),
   ]);
   const detail: DossierDetail = {
     ...versResume(resume),
     patientId: dossierLu.patientId,
     centreId: dossierLu.centreId,
     surdicecite: chiffre.surdicecite === 'OUI',
+    bilanReferenceId: chiffre.bilanReferenceId,
+    bilans: bilans.map((b) => ({ id: b.id, dateBilan: depuisDate(b.dateBilan) })),
     fiche,
     passages: transitions.map((t) => ({
       statut: t.statutApres,

@@ -35,12 +35,49 @@ import {
   annulerRdvAction,
   changerStatutRdvAction,
   deplacerRdvAction,
+  dossiersDuPatientAction,
   lireRdvAction,
   marquerArriveeAction,
   modifierNotesRdvAction,
   prendreEnChargeAction,
+  rattacherRdvDossierAction,
 } from './actions';
 import { ChoixPatient } from './choix-patient';
+
+/** Un rendez-vous sans dossier : on le rattache à un dossier du patient, ou on en ouvre un. */
+function DossierDuRdv({
+  rdv,
+  patientId,
+  executer,
+}: {
+  rdv: RdvDetail;
+  patientId: string;
+  executer: (action: () => Promise<EtatFormulaire>) => void;
+}) {
+  const [dossiers, setDossiers] = useState<{ id: string; libelle: string }[]>([]);
+  useEffect(() => {
+    void dossiersDuPatientAction(patientId).then(setDossiers);
+  }, [patientId]);
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <Button asChild variant="outline" size="sm">
+        <Link href={`/patients/${patientId}/dossiers/nouveau?rdv=${rdv.id}`}>Créer un dossier</Link>
+      </Button>
+      {dossiers.map((d) => (
+        <Button
+          key={d.id}
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            executer(() => rattacherRdvDossierAction(rdv.id, rdv.version, d.id));
+          }}
+        >
+          Rattacher au {d.libelle.toLowerCase()}
+        </Button>
+      ))}
+    </div>
+  );
+}
 
 function ArriveeProspect({
   rdv,
@@ -324,6 +361,9 @@ export function PanneauRdv({
                 </Link>
               ) : null}
             </div>
+            {rdv.patientId && rdv.ficheAccessible && !rdv.dossierId ? (
+              <DossierDuRdv rdv={rdv} patientId={rdv.patientId} executer={executer} />
+            ) : null}
             <div className="flex flex-wrap gap-2">
               {peutPasserA(statut, 'CONFIRME') ? (
                 <Button

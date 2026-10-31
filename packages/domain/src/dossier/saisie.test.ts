@@ -22,7 +22,7 @@ function chemins(resultat: ReturnType<typeof dossierSaisieSchema.safeParse>): un
 
 describe('dossierSaisieSchema', () => {
   it('accepte un type par oreille', () => {
-    expect(dossierSaisieSchema.parse(DOSSIER)).toEqual(DOSSIER);
+    expect(dossierSaisieSchema.parse(DOSSIER)).toEqual({ ...DOSSIER, rdvId: null, bilanId: null });
   });
 
   it.each([

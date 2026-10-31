@@ -45,9 +45,11 @@ function estOreilles(valeur: string): valeur is OreillesDossier {
 export function FormulaireDossier({
   patientId,
   donnees: { centres, centreParDefaut, praticienParDefaut },
+  origine,
 }: {
   patientId: string;
   donnees: DonneesCreationDossier;
+  origine: { rdvId: string | null; bilanId: string | null };
 }) {
   const [etat, envoyer] = useActionState(creerDossierAction.bind(null, patientId), ETAT_INITIAL);
   const [centreId, setCentreId] = useState(centreParDefaut ?? '');
@@ -57,6 +59,8 @@ export function FormulaireDossier({
   return (
     <form action={envoyer} className="grid max-w-xl gap-4">
       <MessageFormulaire etat={etat} />
+      <input type="hidden" name="rdvId" value={origine.rdvId ?? ''} />
+      <input type="hidden" name="bilanId" value={origine.bilanId ?? ''} />
       <ListeDeroulante
         etat={etat}
         nom="centreId"

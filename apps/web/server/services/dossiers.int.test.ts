@@ -3,7 +3,7 @@ import type { FakeDocumentStore } from '@ha/adapters';
 import { ajouterJours, decomposerDate, type StatutDossier } from '@ha/domain';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { creerJeuDeDonnees, viderBase, type JeuDeDonnees } from '@/test/donnees';
+import { creerJeuDeDonnees, creerResponsable, viderBase, type JeuDeDonnees } from '@/test/donnees';
 
 import { AccesRefuseError, type UtilisateurConnecte } from '../auth/acces';
 import { withAudit } from '../audit/journal';
@@ -13,12 +13,14 @@ import { ErreurSaisie } from '../erreurs';
 import {
   abandonnerDossier,
   appliquerTransition,
+  choisirBilanReference,
   creerDossier,
   donneesCreationDossier,
   enregistrerPrescription,
   ErreurConflitDossier,
   ErreurPrescriptionBloquee,
   listerDossiersDuPatient,
+  lireOrigineDossier,
   lireScan,
   obtenirDossier,
 } from './dossiers';
@@ -720,5 +722,153 @@ describe('contraintes en base', () => {
     await expect(
       prisma().dossier.update({ where: { id }, data: { typeGauche: 'PRIMO' } }),
     ).rejects.toThrow();
+  });
+});
+
+describe('origine et bilan de référence', () => {
+  async function creerBilan(patientId: string, centreId = d.centres.a.id) {
+    return prisma().bilanAudiologique.create({
+      data: {
+        organisationId: d.organisation.id,
+        patientId,
+        centreId,
+        dateBilan: new Date('2026-01-10T00:00:00.000Z'),
+        createdById: admin.id,
+      },
+    });
+  }
+
+  async function creerRdv(patientId: string, dossierId: string | null = null, jour = '02') {
+    const type = await prisma().typeRdv.create({
+      data: {
+        organisationId: d.organisation.id,
+        nom: `Type ${String(Math.random())}`,
+        dureeMinutes: 30,
+        couleur: '#000000',
+        requierePraticien: true,
+        requiereCabine: false,
+      },
+    });
+    return prisma().rendezVous.create({
+      data: {
+        organisationId: d.organisation.id,
+        centreId: d.centres.a.id,
+        typeRdvId: type.id,
+        patientId,
+        dossierId,
+        praticienId: d.praticiens.praticienAB.id,
+        debut: new Date(`2026-02-${jour}T09:00:00.000Z`),
+        fin: new Date(`2026-02-${jour}T09:30:00.000Z`),
+        origine: 'INTERNE',
+        createdById: admin.id,
+      },
+    });
+  }
+
+  it('crée le dossier depuis un rendez-vous et l’y rattache', async () => {
+    const rdv = await creerRdv(patientA);
+    const dossierId = await creerDossier(audio, patientA, saisieDossier({ rdvId: rdv.id }));
+    const relu = await prisma().rendezVous.findUniqueOrThrow({ where: { id: rdv.id } });
+    expect(relu).toMatchObject({ dossierId, version: rdv.version + 1 });
+  });
+
+  it('refuse le rendez-vous d’un autre patient ou déjà rattaché, sans créer de dossier', async () => {
+    const autre = await creerPatient(d.centres.a.id, 'Autre');
+    const rdvAutre = await creerRdv(autre);
+    await expect(
+      creerDossier(audio, patientA, saisieDossier({ rdvId: rdvAutre.id })),
+    ).rejects.toBeInstanceOf(ErreurSaisie);
+    const dossierId = await creerDossier(audio, patientA, saisieDossier());
+    const rdvRattache = await creerRdv(patientA, dossierId, '03');
+    await expect(
+      creerDossier(audio, patientA, saisieDossier({ rdvId: rdvRattache.id })),
+    ).rejects.toBeInstanceOf(ErreurSaisie);
+    expect(await prisma().dossier.count({ where: { patientId: patientA } })).toBe(1);
+  });
+
+  it('crée le dossier depuis un bilan, qui devient sa référence', async () => {
+    const bilan = await creerBilan(patientA);
+    const dossierId = await creerDossier(audio, patientA, saisieDossier({ bilanId: bilan.id }));
+    const detail = await obtenirDossier(audio, dossierId);
+    expect(detail.bilanReferenceId).toBe(bilan.id);
+    expect(detail.bilans).toEqual([{ id: bilan.id, dateBilan: '2026-01-10' }]);
+  });
+
+  it('refuse le bilan d’un autre patient', async () => {
+    const autre = await creerPatient(d.centres.a.id, 'Autre');
+    const bilan = await creerBilan(autre);
+    await expect(
+      creerDossier(audio, patientA, saisieDossier({ bilanId: bilan.id })),
+    ).rejects.toBeInstanceOf(ErreurSaisie);
+  });
+
+  it('préremplit le formulaire depuis l’origine, et ignore une origine étrangère', async () => {
+    const rdv = await creerRdv(patientA);
+    const bilan = await creerBilan(patientA, d.centres.b.id);
+    expect(await lireOrigineDossier(audio, patientA, { rdv: rdv.id })).toEqual({
+      rdvId: rdv.id,
+      bilanId: null,
+      centreId: d.centres.a.id,
+      praticienId: d.praticiens.praticienAB.id,
+    });
+    expect(await lireOrigineDossier(audio, patientA, { bilan: bilan.id })).toMatchObject({
+      bilanId: bilan.id,
+      centreId: d.centres.b.id,
+    });
+    const autre = await creerPatient(d.centres.a.id, 'Autre');
+    expect(await lireOrigineDossier(audio, autre, { rdv: rdv.id, bilan: bilan.id })).toEqual({
+      rdvId: null,
+      bilanId: null,
+      centreId: null,
+      praticienId: null,
+    });
+  });
+
+  it('change le bilan tant que la prescription reste modifiable, puis le fige', async () => {
+    const dossierId = await creerDossier(audio, patientA, saisieDossier());
+    const bilan = await creerBilan(patientA);
+    await choisirBilanReference(audio, dossierId, {
+      bilanId: bilan.id,
+      statutAttendu: 'BROUILLON',
+    });
+    expect((await obtenirDossier(audio, dossierId)).bilanReferenceId).toBe(bilan.id);
+    await choisirBilanReference(audio, dossierId, { bilanId: '', statutAttendu: 'BROUILLON' });
+    expect((await obtenirDossier(audio, dossierId)).bilanReferenceId).toBeNull();
+
+    await forcerStatut(dossierId, 'DEVIS_EMIS');
+    await expect(
+      choisirBilanReference(audio, dossierId, { bilanId: bilan.id, statutAttendu: 'DEVIS_EMIS' }),
+    ).rejects.toThrow('Le bilan de référence ne change plus à ce stade.');
+  });
+
+  it('refuse un statut périmé, le bilan d’un autre patient et un centre hors périmètre', async () => {
+    const dossierId = await creerDossier(audio, patientA, saisieDossier());
+    const autre = await creerPatient(d.centres.a.id, 'Autre');
+    const bilan = await creerBilan(autre);
+    await expect(
+      choisirBilanReference(audio, dossierId, { bilanId: '', statutAttendu: 'PRESCRIPTION_OK' }),
+    ).rejects.toBeInstanceOf(ErreurConflitDossier);
+    await expect(
+      choisirBilanReference(audio, dossierId, { bilanId: bilan.id, statutAttendu: 'BROUILLON' }),
+    ).rejects.toBeInstanceOf(ErreurSaisie);
+    await expect(
+      choisirBilanReference(assistantB, dossierId, { bilanId: '', statutAttendu: 'BROUILLON' }),
+    ).rejects.toBeInstanceOf(AccesRefuseError);
+  });
+});
+
+describe('forçage par un responsable de centre', () => {
+  it('refuse le forçage : il reste réservé à l’ADMIN_CLIENT', async () => {
+    const responsable = await creerResponsable(d);
+    const dossierId = await creerDossier(audio, patientA, saisieDossier());
+    await delivrance(patientA, 'DROITE', ilYa(24));
+    await expect(
+      enregistrerPrescription(
+        responsable,
+        dossierId,
+        saisiePrescription({ forcer: true, motifForcage: MOTIF }),
+        SCAN,
+      ),
+    ).rejects.toBeInstanceOf(AccesRefuseError);
   });
 });

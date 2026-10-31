@@ -17,6 +17,7 @@ import {
   marquerArrivee,
   modifierNotesRdv,
   prendreEnCharge,
+  rattacherRdvDossier,
   rechercherPatientsPourRdv,
   type CreneauPropose,
   type PatientPropose,
@@ -147,6 +148,18 @@ export async function dossiersDuPatientAction(
     id: d.id,
     libelle: `Dossier du ${d.dateOuverture.split('-').reverse().join('/')}`,
   }));
+}
+
+export async function rattacherRdvDossierAction(
+  id: string,
+  version: number,
+  dossierId: string,
+): Promise<EtatFormulaire> {
+  const acteur = await requireSession();
+  return terminer(
+    await executer(() => rattacherRdvDossier(acteur, id, { version, dossierId })),
+    'Rendez-vous rattaché au dossier.',
+  );
 }
 
 export async function chercherCreneauxAction(saisie: unknown): Promise<CreneauPropose[]> {

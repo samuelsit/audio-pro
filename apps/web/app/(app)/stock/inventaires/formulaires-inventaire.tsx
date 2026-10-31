@@ -98,13 +98,7 @@ export function FormulaireJustification({
   const [etat, envoyer] = useActionState(action, ETAT_INITIAL);
   return (
     <form action={envoyer} className="flex items-end gap-2">
-      <ChampTexte
-        etat={etat}
-        nom="justification"
-        libelle={libelle}
-        defaut={defaut ?? ''}
-        requis
-      />
+      <ChampTexte etat={etat} nom="justification" libelle={libelle} defaut={defaut ?? ''} requis />
       <BoutonEnvoi variant="outline">Justifier</BoutonEnvoi>
     </form>
   );

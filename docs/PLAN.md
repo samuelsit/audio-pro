@@ -59,7 +59,6 @@ Numérotation du plan SaaS (ADR-015). Les références aux étapes dans `docs/DE
 - [x] **9** – Dossier audiologique (ADR-022)
   - À VÉRIFIER : intitulés français des grades BIAP, grille des trois fréquences consécutives (R24) ; pas de 5 dB et symboles (R25) ; anamnèse par défaut, questionnaires validés et leurs droits d'usage (R26)
   - reporté à l'étape 24 : port `NoahConnector`, import, correspondance des champs sur la documentation HIMSA, schéma de relecture sans le pas de 5 dB
-  - reporté à l'étape 11 : lien entre un bilan et un dossier d'appareillage
   - reporté à l'étape 22 : durée de conservation des bilans et des photos, retrait d'une photo seule
 - [x] **10** – Stock (ADR-023)
   - reporté à l'étape 17 : clés étrangères de `commande_id`, avec leur trigger ; appel de `receptionnerDansTransaction`
@@ -67,7 +66,7 @@ Numérotation du plan SaaS (ADR-015). Les références aux étapes dans `docs/DE
   - reporté à l'étape 14 : vente pilotée par le dossier
   - reporté à l'étape 29 : reprise des appareils de Cosium, sans passer par la machine à états
   - à planifier : recherche des détenteurs par modèle ou par lot pour la matériovigilance (art. 21), numéro de lot à décider
-- [ ] **11** – Dossier d'appareillage et prescription — à mettre à niveau
+- [x] **11** – Dossier d'appareillage et prescription (ADR-024)
   - [x] Statuts alignés sur le prompt 11 : `EXPORTE` et `FACTURE_EXTERNE` remplacés par `FACTURE` (ADR-015)
   - À VÉRIFIER : date de comparaison des 4 ans, exigence du RPPS du prescripteur, effet de la mention de renouvellement (voir `docs/REGLES_AUDIO.md`)
   - à arbitrer : retour arrière après un devis refusé

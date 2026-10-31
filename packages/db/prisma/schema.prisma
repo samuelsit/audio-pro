@@ -983,6 +983,8 @@ model Dossier {
   patientId          String              @map("patient_id")
   centreId           String              @map("centre_id")
   praticienId        String              @map("praticien_id")
+  /// Bilan audiologique de référence, du même patient (contrôle du service, ADR-024).
+  bilanReferenceId   String?             @map("bilan_reference_id")
   oreilles           OreillesDossier
   /// Renseigné si et seulement si l'oreille est concernée (contrainte CHECK).
   typeDroite         TypeAppareillage?   @map("type_droite")
@@ -997,6 +999,7 @@ model Dossier {
   patient            Patient             @relation(fields: [patientId], references: [id], onDelete: Restrict)
   centre             Centre              @relation(fields: [centreId], references: [id], onDelete: Restrict)
   praticien          Praticien           @relation(fields: [praticienId], references: [id], onDelete: Restrict)
+  bilanReference     BilanAudiologique?  @relation(fields: [bilanReferenceId], references: [id], onDelete: Restrict)
   transitions        TransitionDossier[]
   prescriptions      Prescription[]
   delivrances        Delivrance[]
@@ -1009,6 +1012,7 @@ model Dossier {
 
   @@index([patientId])
   @@index([centreId, statut])
+  @@index([bilanReferenceId])
   @@map("dossier")
 }
 
@@ -1879,6 +1883,7 @@ model BilanAudiologique {
   mesures        MesureAudiologique[]
   otoscopies     Otoscopie[]
   reponses       ReponseFormulaire[]
+  dossiers       Dossier[]
 
   @@index([patientId, dateBilan])
   @@index([organisationId])

@@ -20,10 +20,12 @@ import { obtenirDossier, type PrescriptionAffichee } from '@/server/services/dos
 import { obtenirFacture } from '@/server/services/factures';
 
 import { AlerteDroits, EntetePatient } from '../../patients/entete-patient';
+import { choisirBilanReferenceAction } from '../actions';
 import { AbandonDossier } from './abandon-dossier';
 import { BlocDevis } from './devis/bloc-devis';
 import { BlocEssai } from './essai/bloc-essai';
 import { BlocFacture } from './facture/bloc-facture';
+import { FormulaireBilanReference } from './formulaire-bilan-reference';
 import { FormulairePrescription } from './formulaire-prescription';
 import { FriseStatuts } from './frise-statuts';
 import { ListeConstats } from './liste-constats';
@@ -145,6 +147,8 @@ export default async function PageDossier({ params }: PageProps<'/dossiers/[id]'
     />
   );
 
+  const bilanReference = dossier.bilans.find((b) => b.id === dossier.bilanReferenceId);
+
   return (
     <div className="grid gap-6">
       <EntetePatient fiche={fiche} titre="Dossier d’appareillage">
@@ -185,6 +189,26 @@ export default async function PageDossier({ params }: PageProps<'/dossiers/[id]'
             <Ligne libelle="Situation">
               <Badge variant="secondary">Personne sourde et aveugle</Badge>
             </Ligne>
+          ) : null}
+          <Ligne libelle="Bilan de référence">
+            {bilanReference ? (
+              <Link
+                className="underline underline-offset-2"
+                href={`/patients/${dossier.patientId}/audiologie/${bilanReference.id}`}
+              >
+                Bilan du {formaterDate(bilanReference.dateBilan)}
+              </Link>
+            ) : (
+              'Aucun'
+            )}
+          </Ligne>
+          {dossier.prescriptionModifiable && dossier.bilans.length > 0 ? (
+            <FormulaireBilanReference
+              action={choisirBilanReferenceAction.bind(null, dossier.id)}
+              bilans={dossier.bilans}
+              bilanId={dossier.bilanReferenceId}
+              statutAttendu={dossier.statut}
+            />
           ) : null}
         </Bloc>
 
