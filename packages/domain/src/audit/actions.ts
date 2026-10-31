@@ -49,6 +49,10 @@ export const TYPES_ENTITE = [
   'PRESCRIPTEUR',
   'APPAREIL',
   'STOCK_ACCESSOIRE',
+  'RENDEZ_VOUS',
+  'TYPE_RDV',
+  'CABINE',
+  'EXCEPTION_AGENDA',
 ] as const;
 
 export const typeEntiteSchema = z.enum(TYPES_ENTITE, { error: 'Type d’entité inconnu.' });
@@ -73,4 +77,8 @@ export const LIBELLES_TYPES_ENTITE: Readonly<Record<TypeEntite, string>> = {
   PRESCRIPTEUR: 'Prescripteur',
   APPAREIL: 'Appareil',
   STOCK_ACCESSOIRE: 'Stock d’accessoires',
+  RENDEZ_VOUS: 'Rendez-vous',
+  TYPE_RDV: 'Type de rendez-vous',
+  CABINE: 'Cabine',
+  EXCEPTION_AGENDA: 'Exception d’agenda',
 };

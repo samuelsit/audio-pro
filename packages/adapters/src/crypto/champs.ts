@@ -15,4 +15,5 @@ export const CHAMPS_CHIFFRES: ConfigurationChampsChiffres = {
   EssaiAppareil: { motifRetrait: 'essai_appareil.motif_retrait' },
   EssaiRdv: { compteRendu: 'essai_rdv.compte_rendu' },
   ProlongationEssai: { motif: 'prolongation_essai.motif' },
+  RendezVous: { notes: 'rendez_vous.notes' },
 };
