@@ -1,142 +1,97 @@
 # Plan de réalisation
 
-Une étape est cochée quand ses tests sont verts, le typecheck OK et la CI verte.
+Une étape est cochée quand ses tests sont verts et le typecheck OK.
 
-- [x] **0** – Socle technique (monorepo, configs, Docker, CI)
-- [ ] **1** – Authentification et centres — terminée en local le 2026-10-29 (tests, typecheck, E2E verts), à cocher quand la CI est verte
-  - [x] Modèle : organisation, centres, utilisateurs (rôles, rattachements), praticiens (RPPS, ADELI, centres d'exercice) ; migration `auth_centres`
-  - [x] Connexion e-mail + mot de passe (Better Auth), sessions en base, limitation de débit
-  - [x] 2FA TOTP obligatoire pour l'ADMIN, facultative pour les autres ; mot de passe provisoire à changer
-  - [x] Gardes `requireSession`, `requireRole`, `requireCentreAccess` ; sélecteur de centre courant (« Tous les centres » pour l'ADMIN)
-  - [x] Écrans admin : centres, utilisateurs, praticiens ; page Équipe
-  - [x] Seed : 3 centres, 1 admin, 2 audioprothésistes, 2 assistantes (fictifs)
-  - [x] Tests : domaine 100 %, intégration (cloisonnement A/B, RPPS, unicités), E2E (assistante, ADMIN + 2FA, formulaires admin)
-- [ ] **2** – Journal d'audit, chiffrement applicatif, layout — terminée en local le 2026-10-29 (tests, typecheck, E2E verts), à cocher quand la CI est verte
-  - [x] Table `journal_audit` en ajout seul (trigger), actions READ/CREATE/UPDATE/DELETE/EXPORT/PRINT + connexions ; migration `journal_audit`
-  - [x] Domaine : liste blanche des champs journalisés, masquage du NIR, filtres, pagination, CSV
-  - [x] `withAudit()` : opération et journal dans la même transaction ; actions d'administration et connexions journalisées (reporté de l'étape 1)
-  - [x] Écran admin « Journal d'audit » filtrable (utilisateur, patient, période) et export CSV journalisé
-  - [x] Chiffrement AES-256-GCM, trousseau en variables d'environnement avec rotation, extension Prisma des champs chiffrés
-  - [x] Layout : menu latéral (mobile compris), tableaux paginés, filtres, notifications, confirmations, pages vides par entrée
-  - [x] Tests : domaine 100 %, adaptateurs (chiffrement, extension Prisma), intégration (journal, services, connexions), E2E (menu, journal, export)
-  - reporté à l'étape 3 : empreinte HMAC du NIR, premier modèle chiffré et test d'intégration de l'extension sur ce modèle
-  - reporté à l'étape 15 : adresse IP et agent utilisateur dans le journal, durée de conservation et purge, script de rechiffrement en masse
-- [ ] **3** – Patients — terminée en local le 2026-10-29 (tests, typecheck, E2E verts), à cocher quand la CI est verte
-  - [x] Domaine : NIR (format, clé, Corse 2A/2B), `ageAt`, saisie patient avec couvertures AMO/AMC, normalisation de recherche, motifs de doublon, fusion champ par champ
-  - [x] Modèle : `Patient`, `CouvertureAmo`, `CouvertureAmc` ; NIR, ALD et notes chiffrés (contraintes CHECK) ; migration `patients`
-  - [x] Empreinte HMAC-SHA256 du NIR (clé `EMPREINTE_CLE` distincte), branchée sur `CHAMPS_CHIFFRES` (reporté de l'étape 2)
-  - [x] Service : liste paginée et recherche (nom, prénom, date de naissance, NIR exact en POST), fiche avec audit READ, création avec détection des doublons dans toute l'organisation (sans identité hors périmètre), modification, fusion logique (ADMIN et AUDIO)
-  - [x] Écrans : liste, recherche par NIR, fiche, création, modification, fusion
-  - [x] Seed : 30 patients fictifs (ayants droit, jumeaux, Corse, origine Vitale, paire de doublons)
-  - [x] Tests : domaine 100 %, adaptateur d'empreinte, intégration (chiffrement en base, doublons, cloisonnement, fusion, audit), E2E (création, recherche, doublons, fusion)
+Numérotation du plan SaaS (ADR-015). Les références aux étapes dans `docs/DECISIONS.md` et dans le code antérieur à ce plan suivent l'ancienne numérotation : ancienne 7 → 10, 8 → 11, 9 → 12, 10 → 13, 11 → 14, 13 → 29, 14 → 20, 15 → 22, 16 → 23, 17 → 25 ; l'ancienne 12 (export Cosium) est supprimée.
+
+## Phase A – Socle
+
+- [x] **0** – Socle
+- [ ] **1** – Clients, centres, comptes — à mettre à niveau
+- [ ] **2** – Audit, chiffrement, interface — à mettre à niveau
+  - reporté à l'étape 22 : adresse IP et agent utilisateur dans le journal, durée de conservation et purge, script de rechiffrement en masse
+
+## Phase B – Patients et lecture Vitale
+
+- [x] **3** – Patients
   - reporté : recherche par nom de patient dans le filtre du journal d'audit, contrôle de cohérence entre le NIR et le sexe ou la date de naissance, historique des couvertures
-- [ ] **4** – Lecture Vitale simulée — terminée en local le 2026-10-29 (tests, typecheck, E2E verts), à cocher quand la CI est verte
-  - [x] Port `VitaleReader` (structure provisoire, à aligner sur AreaFSE) : bénéficiaires, source CARTE/APCV, date de lecture ; erreurs typées AUCUN_LECTEUR, CARTE_ABSENTE, CARTE_INVALIDE, CARTE_BLOQUEE, ERREUR_TECHNIQUE
-  - [x] Domaine : correspondance bénéficiaire/fiche (règle « même bénéficiaire » de l'ADR-006), état des droits AMO, comparaison champ par champ et application des mises à jour, origine après lecture, pré-remplissage
-  - [x] `FakeVitaleReader` et 5 cartes fictives (`fixtures/vitale` : assuré seul, famille de 3, C2S, droits expirés, carte bloquée), incidents simulés ; sélecteur de la carte insérée en développement (`VITALE_LECTEUR=simulation`)
-  - [x] Modèle : `LectureVitale` en ajout seul (qui, quand, centre, résultat, source, nombre de bénéficiaires, jamais le contenu) ; migration `lecture_vitale`
-  - [x] Lecture en cours dans un cookie chiffré de 15 min lié à l'utilisateur, rien en base
-  - [x] Écrans : bouton « Lire la carte Vitale » sur la liste et la fiche, choix du bénéficiaire, comparaison base/carte avec acceptation ou refus de chaque mise à jour, création pré-remplie ; bandeau des droits expirés ; badge C2S sur la liste, la fiche, la modification et la comparaison
-  - [x] Tests : domaine 100 %, adaptateur, intégration (historique de chaque résultat, jeton, correspondance, cloisonnement, comparaison, mises à jour, création, audit), E2E (famille, assuré seul, erreurs, droits expirés, C2S)
-  - reporté : écran de consultation de l'historique des lectures (ADMIN), date de début des droits AMO en base, droits appréciés à la date de délivrance (étape 11), lecteur réel AreaFSE (étape 17)
-- [ ] **5** – Référentiels : LPP, catalogue, prescripteurs — terminée en local le 2026-10-30 (tests, typecheck, E2E verts), à cocher quand la CI est verte
-  - [x] Domaine : règles LPP (repérage du titre II chapitre 3, prix limite, code générique, tarif en vigueur à une date), préparation d'un import, lecture CSV, schémas du catalogue et des prescripteurs
-  - [x] Lecteur dBase III maison (`packages/adapters`), Latin-1
-  - [x] Modèle : `LppVersion`, `LppCode`, `LppFiche`, `LppTarif`, `LppLien`, `Fabricant`, `ModeleAideAuditive`, `ModeleCodeLpp`, `Accessoire`, `Prescripteur` ; migration `referentiels`
-  - [x] `pnpm import:lpp <dossier-version>` : instantané complet par version, tarif lu par date d'effet, réimport sans doublon, tout validé avant la première écriture ; base 908 importée (846 codes, 855 tarifs, 13 646 liens, 273 codes reliés à un générique)
-  - [x] Fixtures `fixtures/lpp` : extrait réel de la 908 et version 907 synthétique, script de régénération ; DBF complets hors dépôt
-  - [x] Écrans admin : fabricants, modèles, accessoires et piles ; import CSV tout ou rien, erreurs par ligne
-  - [x] Prescripteurs : écran, recherche rapide (nom, prénom, RPPS), composant `SelecteurPrescripteur` avec création à la volée
-  - [x] Seed : 3 fabricants et 10 modèles fictifs, classes I et II
-  - [x] Tests : domaine 100 %, adaptateur, intégration (import, historisation, réimport, recherche, droits, audit, CSV), E2E (modèle, CSV, création à la volée)
-  - reporté à l'étape 6 : borne des 20 ans, plafonds C2S, éligibilité du prescripteur, contrôle du prix conseillé d'un modèle de classe I par rapport au prix limite, contrôles comp/incomp
-  - reporté à l'étape 8 : branchement de `SelecteurPrescripteur` sur le dossier, RPPS exigé selon l'avancement du dossier
-  - fait à l'étape 11 : choix du code à facturer (spécifique, sinon générique avec avertissement) ; `RJT` reste à confirmer
-- [ ] **6** – Moteur de règles audio — terminée en local le 2026-10-30 (tests, typecheck, lint verts), à cocher quand la CI est verte
-  - [x] `docs/REGLES_AUDIO.md` : chaque règle vérifiée dans docs/ref, écarts et points À VÉRIFIER, décisions validées (ADR-009)
-  - [x] Domaine : `trancheAge`, `codePrestation`, `plafondPrixVente`, `baseRemboursement`, `partAMO`, `eligibiliteRenouvellement`, `prescriptionValide`, `etatEssai`, `controleDevis`, `ventilation`, dans `packages/domain/src/audio-rules`
-  - [x] Constantes réunies dans `audio-rules/constantes.ts`, chacune avec date d'effet et source ; prix limites et bases lus dans la LPP
-  - [x] Service `tarifsAudioEnVigueur` : tarifs lus dans la base importée à une date
-  - [x] Arithmétique calendaire pure dans `commun/date.ts`
-  - [x] Tests : domaine 100 %, tests table-driven reprenant les cas FR 201 n° 6 à 10, intégration sur l'extrait LPP 908
+- [x] **4** – Lecture Vitale simulée
+  - reporté : écran de consultation de l'historique des lectures, date de début des droits AMO en base, droits appréciés à la date de délivrance (étape 14), lecteur réel AreaFSE (étape 25)
+
+## Phase C – Référentiels et moteur de règles audio
+
+- [x] **5** – Référentiels LPP, catalogue, prescripteurs
+- [x] **6** – Moteur de règles audio
   - À VÉRIFIER : voir la liste de `docs/REGLES_AUDIO.md` ; le texte de la nomenclature LPP en lèverait la plupart
-  - reporté à l'étape 8 : champs `surdicecite` et type d'appareillage par oreille sur le dossier
-  - reporté à l'étape 9 : branchement de `controleDevis`, contrôle du prix conseillé d'un modèle de classe I (reporté de l'étape 5), exigence des 3 options parmi 8 de l'offre 100 % santé (non modélisée)
-  - fait à l'étape 10 : branchement de `etatEssai`
-  - fait à l'étape 11 : branchement de `ventilation` ; contrôles comp/incomp toujours en attente, aucun document ne les définit
-- [ ] **7** – Stock — terminée en local le 2026-10-31 (tests, typecheck, lint, E2E verts), à cocher quand la CI est verte
-  - [x] Domaine : machine à états des appareils, normalisation et doublons de numéros de série, droits, saisies, filtres, CSV, dans `packages/domain/src/stock`
-  - [x] Modèle : `Appareil`, `MouvementAppareil`, `StockAccessoire`, `MouvementAccessoire` ; unicité par fabricant, clé composite modèle-fabricant, mouvements en ajout seul et motifs chiffrés (contraintes CHECK) ; migration `stock`
-  - [x] Service : réception tout ou rien, changement de statut, transfert immédiat, annulation de vente (ADMIN), correction d'une fiche, recherche, fiche avec historique, liste, export CSV, accessoires et piles
-  - [x] Mouvement dans la même transaction que le changement ; `updateMany` conditionné contre les écritures simultanées (ADR-010)
-  - [x] Cloisonnement : recherche hors périmètre limitée au modèle et au centre, patient hors droits masqué, audit READ par patient, prix d'achat réservé à l'ADMIN
-  - [x] Écrans : liste filtrable, réception à la douchette, recherche, fiche et actions, accessoires et piles, exports
-  - [x] Fusion de patients : `Appareil.patientId` suit la fiche conservée ; fabricant d'un modèle en stock figé
-  - [x] Seed : 12 appareils et 3 accessoires fictifs, stock dans chaque centre
-  - [x] Tests : domaine 100 % (matrice complète des transitions), intégration (unicité, transfert, réservations et réceptions simultanées, atomicité, droits, audit, CSV, accessoires), E2E (réception, recherche, transfert, réservation, accessoires)
-  - reporté à l'étape 8 : clé étrangère et saisie de `dossierId`
-  - fait à l'étape 10 : essai piloté par le dossier ; reporté à l'étape 12 : vente pilotée par le dossier (ADR-014)
-  - reporté à l'étape 13 : reprise des appareils de Cosium, sans passer par la machine à états
+  - en attente : contrôles comp/incomp, aucun document ne les définit
+
+## Phase D – Agenda et prise de RDV en ligne
+
+- [ ] **7** – Agenda
+- [ ] **8** – Prise de RDV en ligne
+
+## Phase E – Dossier audiologique et appareillage
+
+- [ ] **9** – Dossier audiologique
+- [ ] **10** – Stock — à mettre à niveau
+  - reporté à l'étape 14 : vente pilotée par le dossier
+  - reporté à l'étape 29 : reprise des appareils de Cosium, sans passer par la machine à états
   - à planifier : recherche des détenteurs par modèle ou par lot pour la matériovigilance (art. 21), numéro de lot à décider
-- [ ] **8** – Dossier et prescription — terminée en local le 2026-10-31 (tests, typecheck, lint, E2E verts), à cocher quand la CI est verte
-  - [x] Domaine : machine à états du dossier (étape suivante ou abandon, sans saut), oreilles et type par oreille, saisies, droits, signature et taille des documents, dans `packages/domain/src/dossier`
-  - [x] `controlePrescription` (`audio-rules`) : `prescriptionValide` et `eligibiliteRenouvellement` oreille par oreille, à la première délivrance possible ; types d'appareillage renommés `PRIMO` et `RENOUVELLEMENT`
-  - [x] Modèle : `Dossier`, `TransitionDossier` et `Prescription` en ajout seul, `Delivrance`, type par oreille (CHECK), `surdicecite` et motifs chiffrés, clé étrangère `mouvement_appareil.dossier_id` ; migration `dossiers`
-  - [x] Port `DocumentStore`, `S3DocumentStore` (MinIO), `FakeDocumentStore`, `DocumentStoreChiffre`, chiffrement binaire AES-256-GCM
-  - [x] Service : création, prescription versionnée, forçage ADMIN, scan, abandon ; écriture du statut par `appliquerTransition` seule, `updateMany` conditionné ; dossiers et délivrances suivent la fusion de patients
-  - [x] Écrans : onglet « Dossiers » de la fiche, création, frise des statuts, prescription avec `SelecteurPrescripteur`, erreurs et avertissements, forçage sans rechoisir le fichier, abandon, ouverture du scan
-  - [x] Seed : 2 prescripteurs, 1 dossier et 1 délivrance fictifs
-  - [x] Tests : domaine 100 % (100 couples de transitions, renouvellement par oreille), adaptateurs (S3 contre MinIO, hors CI), intégration (droits, cloisonnement, forçage, audit, atomicité du scan, conflits, ajout seul, fusion), E2E (dossier mixte, refus et acceptation par oreille, forçage, abandon)
+- [ ] **11** – Dossier d'appareillage et prescription — à mettre à niveau
   - À VÉRIFIER : date de comparaison des 4 ans, exigence du RPPS du prescripteur, effet de la mention de renouvellement (voir `docs/REGLES_AUDIO.md`)
-  - reporté à l'étape 9 : passage à DEVIS_EMIS et DEVIS_SIGNE, type par oreille et date du précédent appareillage sur le devis ; retour arrière après un devis refusé, à arbitrer
-  - fait à l'étape 10 : saisie de `dossierId` depuis le dossier (reportée de l'étape 7) ; passage à EN_ESSAI fait à l'étape 9 ; nouvel essai, toujours à arbitrer
-  - fait à l'étape 10 : passage à A_FACTURER ; fait à l'étape 11 : RPPS du prescripteur, qui reste un avertissement ; reporté à l'étape 12 : écriture de `Delivrance` (ADR-014)
-  - reporté à l'étape 13 : reprise des délivrances Cosium ; d'ici là, un patient sans ligne ressort éligible
-  - reporté à l'étape 14 : liste `/dossiers` du menu
+  - à arbitrer : retour arrière après un devis refusé
+  - reporté à l'étape 14 : écriture de `Delivrance`
+  - reporté à l'étape 29 : reprise des délivrances Cosium ; d'ici là, un patient sans ligne ressort éligible
+  - reporté à l'étape 20 : liste `/dossiers` du menu
   - à planifier : avertissement si deux dossiers ouverts portent sur la même oreille, service S3 en CI
-- [ ] **9** – Devis normalisé — terminée en local le 2026-10-31 (tests, typecheck, lint, E2E verts), à cocher quand la CI est verte
-  - [x] Domaine : `calculerDevis`, `prixHT`, `finGarantieMinimale`, `controleDevis` étendu (offre 1.1, 3 options, note 1, mentions du catalogue, date du précédent appareillage, identification de l'entreprise), états, droits, saisies, textes officiels et rendu HTML, dans `packages/domain/src/devis`
-  - [x] Ordre du dossier aligné sur le modèle : `DEVIS_EMIS`, `EN_ESSAI`, `DEVIS_SIGNE`, plus le retour `DEVIS_SIGNE` → `EN_ESSAI` à l'émission d'une nouvelle version (ADR-012)
-  - [x] Modèle : `Devis`, `DevisOffre`, `DevisLigne`, `SignatureDevis` (`SCAN`, `ELECTRONIQUE` prévue), `CompteurDevis`, mentions du catalogue et identification des centres ; gel par triggers ; migration `devis`
-  - [x] Port `PdfRenderer`, `ChromiumPdfRenderer`, `FakePdfRenderer`
-  - [x] Service : création, brouillon, nouvelle version, émission, impression, démarrage de l'essai, dépôt du scan, signature, tous journalisés
-  - [x] Écrans : bloc Devis du dossier, formulaire, totaux et constats, actions ; admin des modèles, fabricants, accessoires et centres ; imports CSV complétés
-  - [x] Seed : mentions du catalogue et identification des centres fictives ; `pnpm demo:devis <sortie.pdf>`
-  - [x] Tests : domaine 100 %, instantané du HTML, intégration (droits, cloisonnement, audit, blocage, gel, versions, signature, concurrence), adaptateur Chromium (hors CI), E2E (parcours complet)
+- [ ] **12** – Devis normalisé et signature — à mettre à niveau
   - À VÉRIFIER : TVA, code de regroupement, identifiants d'entreprise, départ de la garantie, mentions anciennes du modèle (voir `docs/REGLES_AUDIO.md`)
-  - abandonné : contrôle du prix conseillé d'un modèle de classe I (reporté des étapes 5 et 6), `controleDevis` bloque le prix réel
-  - fait à l'étape 10 : rendez-vous, échéance et stock de l'essai, contrôle de la fin d'essai à la signature ; nouvel essai après échec, toujours à arbitrer
-  - reporté à l'étape 15 : fichier du logo commercial (cadre vide au PDF), image Docker avec Chromium et `PDF_CHROMIUM_CHEMIN`
+  - reporté à l'étape 22 : fichier du logo commercial (cadre vide au PDF)
+  - reporté à l'étape 23 : image Docker avec Chromium et `PDF_CHROMIUM_CHEMIN`
   - à planifier : fiche technique stockée au catalogue (case déclarative pour le MVP), signature électronique
-- [ ] **10** – Essai — terminée en local le 2026-10-31 (tests, typecheck, lint, E2E verts), à cocher quand la CI est verte
-  - [x] Ordre de l'ADR-012 conservé : démarrage sur `DEVIS_EMIS`, signature en fin d'essai, achat depuis `DEVIS_SIGNE`
-  - [x] Domaine : `refusAppareilEssai`, `blocagesSignature`, `peutConfirmerAchat`, saisies et `rendreCompteRenduEssaiHtml` dans `packages/domain/src/essai` ; alerte `ECHEANCE_DEPASSEE` ; `EN_ESSAI` → `RESERVE` et `verifierTransitionManuelle` au stock
-  - [x] Modèle : `Essai`, `EssaiAppareil`, `EssaiRdv` en ajout seul, `ProlongationEssai` ; index partiels, un essai actif par appareil ; textes libres chiffrés ; migration `essai`
-  - [x] Service : démarrage par numéro de série, rendez-vous, prolongation avec justificatif, changement d'appareil, achat, abandon relié au stock, compte rendu, liste par centre, `dossierId` saisi sur les mouvements (reporté des étapes 7 et 8)
-  - [x] Signature refusée avant l'échéance, sans 2 rendez-vous ou sur un appareil hors de l'offre retenue (reporté de l'étape 9)
-  - [x] Fiche appareil : changements de statut retirés tant qu'un essai le tient, lien vers le dossier
-  - [x] Écrans : « Essais en cours », bloc Essai du dossier, numéros de série au démarrage, justificatif et compte rendu au prescripteur (PDF)
-  - [x] Seed : un essai fictif à une semaine de son échéance
-  - [x] Tests : domaine 100 %, intégration (cycle complet, changement, alertes, refus dont concurrence, abandon, droits, audit, chiffrement, atomicité du justificatif), E2E (parcours complet, PDF réel)
+- [ ] **13** – Essai — à mettre à niveau
   - À VÉRIFIER : autre modèle en cours d'essai, nombre de prolongations et demande après l'échéance, contenu du compte rendu (voir `docs/REGLES_AUDIO.md`)
-  - reporté à l'étape 12 (ADR-014) : `RESERVE` → `VENDU`, fermeture du lien à la vente, retrait du `VENDU` manuel, écriture de `Delivrance`
-  - à arbitrer : embouts sur mesure facturés à l'abandon
-  - à arbitrer : nouvelle période d'essai après un échec (un dossier n'a qu'un essai), correction d'un rendez-vous saisi par erreur
-- [ ] **11** – Facture préparée — terminée en local le 2026-10-31 (tests, typecheck, lint, E2E verts), à cocher quand la CI est verte
-  - [x] Ni numéro de facture ni encaissement, volontairement : ils restent dans Cosium (ADR-014)
-  - [x] Domaine : `preparerFacture`, `repartirAmc`, `controlerFacture`, saisie de la PEC dans `packages/domain/src/facture` ; `choisirCodeLpp`, `partAMCC2S`, `couvertureAmoAJour` dans `audio-rules`
-  - [x] Modèle : `FacturePreparee` et `PriseEnCharge` ; lignes calculées à la lecture, seuls la date de délivrance, la confirmation AMO et la PEC sont stockés ; migration `facture_preparee`
-  - [x] Service : préparation ouverte à l'achat, évaluation groupée, PEC avec justificatif chiffré, confirmation AMO, date de délivrance, file par centre, tous journalisés
-  - [x] Écrans : file « À facturer » (prêts et bloqués, avec motifs), bloc Facture préparée du dossier, justificatif
-  - [x] Seed : un dossier fictif à facturer, bloqué faute de PEC
-  - [x] Tests : domaine 100 % (ventilation adulte classe I et II, moins de 20 ans, C2S, un cas par contrôle bloquant), intégration (droits, cloisonnement, audit, justificatif, atomicité, file), E2E (de l'achat à la file)
+  - reporté à l'étape 14 : `RESERVE` → `VENDU`, fermeture du lien à la vente, retrait du `VENDU` manuel, écriture de `Delivrance`
+  - à arbitrer : embouts sur mesure facturés à l'abandon, nouvelle période d'essai après un échec (un dossier n'a qu'un essai), correction d'un rendez-vous saisi par erreur
+
+## Phase F – Facturation, caisse et tiers payant
+
+- [ ] **14** – Facturation — à faire évoluer depuis FacturePreparee
   - À VÉRIFIER : sens de `RJT`, délai de lecture Vitale, confirmation manuelle, procédure de PEC et répartition, part AMC C2S sur les consommables, logiciels de caisse (voir `docs/REGLES_AUDIO.md`)
-  - reporté à l'étape 12 : gel du contenu exporté, nouveau contrôle à l'export, vente, `Delivrance`, sortie de stock des piles et accessoires
-  - à planifier : saisie de la PEC avant l'achat (la table le permet), codes `7xxxxxx` reliés au catalogue, port `BillingEngine` (étape 17)
-- [ ] **12** – Export Cosium
-- [ ] **13** – Reprise des données Cosium
-- [ ] **14** – Renouvellements et tableau de bord
-- [ ] **15** – Sécurité et RGPD
+  - à reprendre : vente, `Delivrance`, sortie de stock des piles et accessoires (reportés depuis l'ancienne étape 12)
+  - à planifier : saisie de la PEC avant l'achat (la table le permet), codes `7xxxxxx` reliés au catalogue, port `BillingEngine`
+- [ ] **15** – Encaissement et caisse
+- [ ] **16** – Tiers payant et PEC
+
+## Phase G – Commandes fabricants et SAV
+
+- [ ] **17** – Commandes fabricants
+- [ ] **18** – SAV, garanties, prêts
+
+## Phase H – Relances
+
+- [ ] **19** – Relances et communication
+
+## Phase I – Pilotage
+
+- [ ] **20** – Renouvellements et tableau de bord
+
+## Phase J – Produit commercial
+
+- [ ] **21** – Onboarding client et abonnements
+- [ ] **22** – Sécurité et RGPD
   - reporté de l'étape 1 : réinitialisation du mot de passe par e-mail, liste et révocation des sessions par l'utilisateur
-- [ ] **16** – E2E et déploiement
-- [ ] **17** – Préparation AreaFSE
+- [ ] **23** – E2E et déploiement HDS
+
+## Phase K – Intégrations soumises à prérequis
+
+- [ ] **24** – NOAH
+- [ ] **25** – AreaFSE : analyse et lecture Vitale réelle
+- [ ] **26** – AreaFSE : FSE, DRE, NOEMIE, SCOR
+- [ ] **27** – Préparation de l'agrément CNDA
+- [ ] **28** – PEC en EDI
+
+## Phase L – Migration et bascule
+
+- [ ] **29** – Migration depuis Cosium
+- [ ] **30** – Pilote et bascule
