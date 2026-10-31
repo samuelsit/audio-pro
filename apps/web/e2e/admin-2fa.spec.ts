@@ -197,3 +197,34 @@ test('l’ADMIN_CLIENT force un renouvellement refusé, avec un motif et sans re
   await expect(page.getByRole('row', { name: /RENOUVELLEMENT_AVANT_DELAI/ })).toBeVisible();
   await expect(page.locator('main')).not.toContainText('accord de la caisse');
 });
+
+test('l’ADMIN_CLIENT paramètre un questionnaire', async ({ page }) => {
+  await seConnecter(page, COMPTES.admin);
+  await page.getByLabel('Code de vérification').fill(await codeTotp(secret));
+  await page.getByRole('button', { name: 'Vérifier' }).click();
+  await expect(page.getByRole('heading', { name: 'Bonjour Alex' })).toBeVisible();
+
+  await page.goto('/admin/formulaires/nouveau');
+  await page.getByLabel('Nom').fill('Écoute au quotidien');
+  await page.getByLabel('Nature').selectOption('BENEFICE');
+  await page.getByLabel('Titre').fill('Quotidien');
+  await page.getByLabel('Question', { exact: true }).fill('Compréhension à table');
+  await page.getByRole('combobox', { name: /^Type/ }).selectOption('ECHELLE');
+  await page.getByRole('button', { name: 'Ajouter un score' }).click();
+  await page.getByLabel('Libellé').fill('Score quotidien');
+  await page.getByLabel('Compréhension à table').check();
+  await page.getByRole('button', { name: 'Enregistrer' }).click();
+
+  const ligne = page.getByRole('row', { name: /Écoute au quotidien/ });
+  await expect(ligne).toContainText('Questionnaire de bénéfice');
+
+  // Modifier crée une version ; retirer le modèle ne l'efface pas.
+  await ligne.getByRole('link', { name: 'Écoute au quotidien' }).click();
+  await expect(page.getByText('Enregistrer crée la version 2.')).toBeVisible();
+  await page.getByLabel('Nom').fill('Écoute au quotidien, révisé');
+  await page.getByRole('button', { name: 'Enregistrer' }).click();
+  const revisee = page.getByRole('row', { name: /révisé/ });
+  await expect(revisee.getByRole('cell').nth(2)).toHaveText('2');
+  await revisee.getByRole('button', { name: 'Retirer' }).click();
+  await expect(revisee).toContainText('Retiré');
+});

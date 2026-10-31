@@ -44,6 +44,7 @@ export const LIENS_ADMINISTRATION: readonly LienSousNavigation[] = [
   { href: '/admin/fabricants', libelle: 'Fabricants' },
   { href: '/admin/modeles', libelle: 'Modèles' },
   { href: '/admin/accessoires', libelle: 'Accessoires et piles' },
+  { href: '/admin/formulaires', libelle: 'Formulaires cliniques' },
   { href: '/admin/journal', libelle: 'Journal d’audit' },
 ];
 

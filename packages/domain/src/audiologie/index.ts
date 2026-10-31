@@ -4,6 +4,7 @@ export * from './formulaire';
 export * from './frequences';
 export * from './grade';
 export * from './graphique';
+export * from './grille';
 export * from './mesure';
 export * from './otoscopie';
 export * from './perte-moyenne';

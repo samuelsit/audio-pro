@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 
 const ONGLETS = [
   { cle: 'fiche', libelle: 'Fiche', suffixe: '' },
+  { cle: 'audiologie', libelle: 'Audiologie', suffixe: '/audiologie' },
   { cle: 'dossiers', libelle: 'Dossiers', suffixe: '/dossiers' },
   { cle: 'rendez-vous', libelle: 'Rendez-vous', suffixe: '/rendez-vous' },
 ] as const;
