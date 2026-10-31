@@ -1,10 +1,10 @@
 import { bornesJourneeParis, formaterInstantParis } from '@ha/adapters';
-import { prisma, type Prisma } from '@ha/db';
+import type { Prisma } from '@ha/db';
 import {
   calculerPagination,
   filtreJournalSchema,
   LIBELLES_ACTIONS_AUDIT,
-  LIBELLES_ROLES,
+  LIBELLES_ROLES_COMPTE,
   LIBELLES_TYPES_ENTITE,
   ligneCsv,
   resumerChampsModifies,
@@ -14,7 +14,7 @@ import {
   type FiltreJournal,
   type Pagination,
   type Perimetre,
-  type Role,
+  type RoleCompte,
 } from '@ha/domain';
 
 import { verifierPerimetre, verifierRole, type UtilisateurConnecte } from '../auth/acces';
@@ -30,7 +30,7 @@ export interface LigneJournal {
   horodatage: Date;
   utilisateurId: string | null;
   utilisateurLibelle: string;
-  role: Role | null;
+  role: RoleCompte | null;
   centreNom: string | null;
   action: ActionAudit;
   /** Libellé du type d'entité (le code brut s'il est inconnu du domaine). */
@@ -42,15 +42,14 @@ export interface LigneJournal {
   details: string;
 }
 
-/** Réservé à l'ADMIN ; le périmètre (centre courant) n'est jamais cru sur parole. */
+/** Réservé à l'ADMIN_CLIENT ; le périmètre (centre courant) n'est jamais cru sur parole. */
 function verifierAcces(acteur: UtilisateurConnecte, perimetre: Perimetre): void {
-  verifierRole(acteur, 'ADMIN');
+  verifierRole(acteur, 'ADMIN_CLIENT');
   verifierPerimetre(acteur, perimetre);
 }
 
 /**
- * Lignes de l'organisation (et échecs de connexion sur des comptes inconnus, sans organisation),
- * limitées au centre courant s'il y en a un : les lignes sans centre (comptes, connexions) n'apparaissent
+ * Lignes de l'organisation, limitées au centre courant s'il y en a un : les lignes sans centre (comptes, connexions) n'apparaissent
  * alors pas. Période en jours Europe/Paris, bornes incluses.
  */
 function clauseFiltre(
@@ -66,7 +65,7 @@ function clauseFiltre(
     horodatage.lt = new Date(bornesJourneeParis(filtre.au).fin);
   }
   return {
-    OR: [{ organisationId: acteur.organisationId }, { organisationId: null }],
+    organisationId: acteur.organisationId,
     ...(perimetre.type === 'centre' ? { centreId: perimetre.centreId } : {}),
     ...(filtre.utilisateurId ? { utilisateurId: filtre.utilisateurId } : {}),
     ...(filtre.patientId ? { patientId: filtre.patientId } : {}),
@@ -82,7 +81,7 @@ const ORDRE = [
 type LigneBrute = Prisma.JournalAuditGetPayload<object>;
 
 async function nomsDesCentres(acteur: UtilisateurConnecte): Promise<Map<string, string>> {
-  const centres = await prisma().centre.findMany({
+  const centres = await base(acteur).centre.findMany({
     where: { organisationId: acteur.organisationId },
     select: { id: true, nom: true },
   });
@@ -117,10 +116,10 @@ export async function listerJournal(
   verifierAcces(acteur, perimetre);
   const filtre = valider(filtreJournalSchema, saisie);
   const where = clauseFiltre(acteur, perimetre, filtre);
-  const total = await prisma().journalAudit.count({ where });
+  const total = await base(acteur).journalAudit.count({ where });
   const pagination = calculerPagination(filtre.page, LIGNES_PAR_PAGE, total);
   const [lignes, centres] = await Promise.all([
-    prisma().journalAudit.findMany({
+    base(acteur).journalAudit.findMany({
       where,
       orderBy: ORDRE,
       skip: pagination.decalage,
@@ -135,8 +134,8 @@ export async function listerJournal(
 export async function utilisateursPourFiltre(
   acteur: UtilisateurConnecte,
 ): Promise<{ id: string; libelle: string }[]> {
-  verifierRole(acteur, 'ADMIN');
-  const utilisateurs = await prisma().utilisateur.findMany({
+  verifierRole(acteur, 'ADMIN_CLIENT');
+  const utilisateurs = await base(acteur).utilisateur.findMany({
     where: { organisationId: acteur.organisationId },
     select: { id: true, prenom: true, nom: true, email: true },
     orderBy: [{ nom: 'asc' }, { prenom: 'asc' }],
@@ -171,7 +170,7 @@ export async function exporterJournal(
   const filtresExportes = Object.fromEntries(
     Object.entries(filtre).filter(([cle]) => cle !== 'page'),
   );
-  await journaliser(base(), auteurDepuisActeur(acteur), {
+  await journaliser(base(acteur), auteurDepuisActeur(acteur), {
     action: 'EXPORT',
     entiteType: 'JOURNAL_AUDIT',
     centreId: perimetre.type === 'centre' ? perimetre.centreId : null,
@@ -184,7 +183,7 @@ export async function exporterJournal(
     yield ligneCsv(ENTETES_EXPORT);
     let curseur: string | undefined;
     for (;;) {
-      const lot = await prisma().journalAudit.findMany({
+      const lot = await base(acteur).journalAudit.findMany({
         where,
         orderBy: ORDRE,
         take: LOT_EXPORT,
@@ -195,7 +194,7 @@ export async function exporterJournal(
         yield ligneCsv([
           formaterInstantParis(l.horodatage),
           l.utilisateurLibelle,
-          l.role ? LIBELLES_ROLES[l.role] : '',
+          l.role ? LIBELLES_ROLES_COMPTE[l.role] : '',
           l.centreNom,
           LIBELLES_ACTIONS_AUDIT[l.action],
           l.entite,

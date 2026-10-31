@@ -72,7 +72,7 @@ export async function lireCarte(
           ? 'CARTE_INVALIDE'
           : 'ERREUR_TECHNIQUE';
   }
-  const ligne = await base().lectureVitale.create({
+  const ligne = await base(acteur).lectureVitale.create({
     data: {
       organisationId: acteur.organisationId,
       utilisateurId: acteur.id,
@@ -151,7 +151,7 @@ export async function rechercherBeneficiaire(
 ): Promise<RechercheBeneficiaire> {
   const b = beneficiaire(ouvrir(acteur, jeton), index);
   const empreinte = empreinteNir(b.nir);
-  const lignes = await base().patient.findMany({
+  const lignes = await base(acteur).patient.findMany({
     where: {
       organisationId: acteur.organisationId,
       fusionneDansId: null,

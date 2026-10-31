@@ -1,4 +1,4 @@
-import { prisma } from '@ha/db';
+import { prisma } from '@ha/db/admin';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { creerJeuDeDonnees, viderBase, type JeuDeDonnees } from '@/test/donnees';

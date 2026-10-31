@@ -10,7 +10,7 @@ import { FormulaireModele } from '../formulaire-modele';
 export const metadata: Metadata = { title: 'Nouveau modèle – HA-Gestion' };
 
 export default async function PageNouveauModele() {
-  const acteur = await requireRole('ADMIN');
+  const acteur = await requireRole('ADMIN_CLIENT');
   const fabricants = await listerFabricants(acteur);
   return (
     <div className="grid gap-6">

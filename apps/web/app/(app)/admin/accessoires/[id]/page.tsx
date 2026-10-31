@@ -11,7 +11,7 @@ export const metadata: Metadata = { title: 'Accessoire – HA-Gestion' };
 
 export default async function PageAccessoire({ params }: PageProps<'/admin/accessoires/[id]'>) {
   const { id } = await params;
-  const acteur = await requireRole('ADMIN');
+  const acteur = await requireRole('ADMIN_CLIENT');
   const accessoire = await ouIntrouvable(obtenirAccessoire(acteur, id));
   return (
     <div className="grid gap-6">

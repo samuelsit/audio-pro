@@ -1,5 +1,6 @@
 'use client';
 
+import { JOURS_SEMAINE, LIBELLES_JOURS, PLAGES_PAR_JOUR } from '@ha/domain';
 import { useActionState } from 'react';
 
 import { BoutonEnvoi, CaseACocher, ChampTexte, MessageFormulaire } from '@/components/formulaire';
@@ -76,7 +77,7 @@ export function FormulaireCentre({
           libelle="Raison sociale"
           defaut={centre?.raisonSociale}
         />
-        <ChampTexte etat={etat} nom="siret" libelle="N° SIRET" defaut={centre?.siret} />
+        <ChampTexte etat={etat} nom="siret" libelle="N° SIRET" defaut={centre?.siret} requis />
         <ChampTexte etat={etat} nom="rcs" libelle="N° RCS" defaut={centre?.rcs} />
         <ChampTexte
           etat={etat}
@@ -85,6 +86,37 @@ export function FormulaireCentre({
           defaut={centre?.tvaIntracommunautaire}
         />
       </div>
+      <fieldset className="grid gap-3">
+        <legend className="text-sm font-medium">Horaires d’ouverture</legend>
+        {etat.erreurs?.horairesOuverture?.length ? (
+          <p className="text-sm text-destructive">{etat.erreurs.horairesOuverture.join(' ')}</p>
+        ) : null}
+        {JOURS_SEMAINE.map((jour) => (
+          <div key={jour} className="grid items-end gap-2 sm:grid-cols-[6rem_1fr_1fr]">
+            <p className="text-sm">{LIBELLES_JOURS[jour]}</p>
+            {Array.from({ length: PLAGES_PAR_JOUR }, (_, i) => (
+              <div key={i} className="grid grid-cols-2 gap-2">
+                <ChampTexte
+                  etat={etat}
+                  nom={`${jour}-${i}-debut`}
+                  libelle="Début"
+                  type="time"
+                  mentionFacultatif={false}
+                  defaut={centre?.horairesOuverture[jour][i]?.debut}
+                />
+                <ChampTexte
+                  etat={etat}
+                  nom={`${jour}-${i}-fin`}
+                  libelle="Fin"
+                  type="time"
+                  mentionFacultatif={false}
+                  defaut={centre?.horairesOuverture[jour][i]?.fin}
+                />
+              </div>
+            ))}
+          </div>
+        ))}
+      </fieldset>
       <CaseACocher etat={etat} nom="actif" libelle="Centre actif" defaut={centre?.actif ?? true} />
       <div>
         <BoutonEnvoi>{centre ? 'Enregistrer' : 'Créer le centre'}</BoutonEnvoi>

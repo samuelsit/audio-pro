@@ -1,7 +1,7 @@
 import path from 'node:path';
 
 import type { FakeDocumentStore } from '@ha/adapters';
-import { prisma } from '@ha/db';
+import { prisma } from '@ha/db/admin';
 import { ajouterJours } from '@ha/domain';
 import { beforeEach, describe, expect, it } from 'vitest';
 
@@ -371,7 +371,7 @@ describe('prise en charge complémentaire', () => {
   it('refuse un dossier sorti de la file, et lit un justificatif absent comme un refus', async () => {
     const { dossierId } = await dossierAFacturer();
     await expect(lireJustificatifPec(audio, dossierId)).rejects.toBeInstanceOf(AccesRefuseError);
-    await prisma().dossier.update({ where: { id: dossierId }, data: { statut: 'EXPORTE' } });
+    await prisma().dossier.update({ where: { id: dossierId }, data: { statut: 'FACTURE' } });
 
     await expect(enregistrerPec(audio, dossierId, accord(), VIDE)).rejects.toThrow(
       'Ce dossier n’est plus à facturer.',
@@ -420,7 +420,7 @@ describe('droits et file par centre', () => {
     expect(await lectures()).toBe(avant);
   });
 
-  it('cloisonne la file : rien pour le centre B, tout pour l’ADMIN', async () => {
+  it('cloisonne la file : rien pour le centre B, tout pour l’ADMIN_CLIENT', async () => {
     await dossierAFacturer();
     const centreB = { type: 'centre', centreId: d.centres.b.id } as const;
 

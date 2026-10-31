@@ -1,6 +1,6 @@
 import path from 'node:path';
 
-import { prisma } from '@ha/db';
+import { prisma } from '@ha/db/admin';
 import { ErreurImportLpp } from '@ha/domain';
 import { beforeEach, describe, expect, it } from 'vitest';
 

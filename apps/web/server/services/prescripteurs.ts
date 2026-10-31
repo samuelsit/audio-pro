@@ -1,4 +1,4 @@
-import { prisma, type Prisma } from '@ha/db';
+import type { Prisma } from '@ha/db';
 import {
   calculerPagination,
   criteresRecherchePrescripteurSchema,
@@ -11,6 +11,7 @@ import {
   type SpecialitePrescripteur,
 } from '@ha/domain';
 
+import { base } from '../chiffrement';
 import { AccesRefuseError, verifierRole, type UtilisateurConnecte } from '../auth/acces';
 import { withAudit } from '../audit/journal';
 import { traduireDoublon, valider } from '../erreurs';
@@ -74,11 +75,11 @@ export async function listerPrescripteurs(
   const { q, page } = valider(criteresRecherchePrescripteurSchema, parametres);
   const where = {
     ...filtreRecherche(acteur, q),
-    ...(acteur.role === 'ADMIN' ? {} : { actif: true }),
+    ...(acteur.role === 'ADMIN_CLIENT' ? {} : { actif: true }),
   };
-  const total = await prisma().prescripteur.count({ where });
+  const total = await base(acteur).prescripteur.count({ where });
   const pagination = calculerPagination(page, LIGNES_PAR_PAGE, total);
-  const prescripteurs = await prisma().prescripteur.findMany({
+  const prescripteurs = await base(acteur).prescripteur.findMany({
     where,
     select: selection,
     orderBy: [{ nomRecherche: 'asc' }, { prenomRecherche: 'asc' }, { id: 'asc' }],
@@ -97,7 +98,7 @@ export async function rechercherPrescripteurs(
   if (q === '') {
     return [];
   }
-  return prisma().prescripteur.findMany({
+  return base(acteur).prescripteur.findMany({
     where: { ...filtreRecherche(acteur, q), actif: true },
     select: selection,
     orderBy: [{ nomRecherche: 'asc' }, { prenomRecherche: 'asc' }],
@@ -109,7 +110,7 @@ export async function obtenirPrescripteur(
   acteur: UtilisateurConnecte,
   prescripteurId: string,
 ): Promise<PrescripteurResume> {
-  const p = await prisma().prescripteur.findFirst({
+  const p = await base(acteur).prescripteur.findFirst({
     where: { id: prescripteurId, organisationId: acteur.organisationId },
     select: selection,
   });
@@ -158,7 +159,7 @@ export async function modifierPrescripteur(
   prescripteurId: string,
   saisie: unknown,
 ): Promise<void> {
-  verifierRole(acteur, 'ADMIN');
+  verifierRole(acteur, 'ADMIN_CLIENT');
   const actuel = await obtenirPrescripteur(acteur, prescripteurId);
   const donnees = valider(prescripteurSaisieSchema, saisie);
   try {
@@ -194,7 +195,7 @@ export async function changerActivationPrescripteur(
   prescripteurId: string,
   actif: boolean,
 ): Promise<void> {
-  verifierRole(acteur, 'ADMIN');
+  verifierRole(acteur, 'ADMIN_CLIENT');
   const actuel = await obtenirPrescripteur(acteur, prescripteurId);
   await withAudit(
     acteur,

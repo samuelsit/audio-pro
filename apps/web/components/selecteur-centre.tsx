@@ -20,7 +20,7 @@ export function SelecteurCentre({
 }: {
   centres: readonly { id: string; nom: string }[];
   valeur: string;
-  /** Option « Tous les centres » (ADMIN). */
+  /** Option « Tous mes centres » (ADMIN_CLIENT et RESPONSABLE_CENTRE). */
   tousLesCentres: boolean;
   choisir: (choix: string) => Promise<void>;
 }) {
@@ -35,7 +35,7 @@ export function SelecteurCentre({
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
-        {tousLesCentres ? <SelectItem value={VALEUR_TOUS}>Tous les centres</SelectItem> : null}
+        {tousLesCentres ? <SelectItem value={VALEUR_TOUS}>Tous mes centres</SelectItem> : null}
         {centres.map((c) => (
           <SelectItem key={c.id} value={c.id}>
             {c.nom}

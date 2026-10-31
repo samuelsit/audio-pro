@@ -1,4 +1,4 @@
-import { prisma } from '@ha/db';
+import { prisma } from '@ha/db/admin';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { creerJeuDeDonnees, viderBase, type JeuDeDonnees } from '@/test/donnees';
@@ -30,6 +30,7 @@ function ligne(horodatage: string, surcharge: Record<string, unknown> = {}) {
 beforeEach(async () => {
   await viderBase();
   d = await creerJeuDeDonnees();
+  const autre = await prisma().organisation.create({ data: { raisonSociale: 'Autre réseau' } });
   await prisma().journalAudit.createMany({
     data: [
       // 24 octobre 23:59 à Paris (heure d'été).
@@ -40,7 +41,7 @@ beforeEach(async () => {
       ligne('2026-10-25T22:30:00Z', {
         utilisateurId: d.utilisateurs.admin.id,
         utilisateurLibelle: 'Admin Test <admin@exemple.test>',
-        role: 'ADMIN',
+        role: 'ADMIN_CLIENT',
         centreId: null,
         action: 'UPDATE',
         entiteType: 'UTILISATEUR',
@@ -52,7 +53,7 @@ beforeEach(async () => {
       }),
       // Centre B, le 26 octobre.
       ligne('2026-10-26T09:00:00Z', { centreId: d.centres.b.id, patientId: PATIENT_1 }),
-      // Échec de connexion sur un compte inconnu (sans organisation).
+      // Échec de connexion sur un compte inconnu (sans organisation) : visible d'aucun client.
       ligne('2026-10-26T10:00:00Z', {
         organisationId: null,
         utilisateurId: null,
@@ -64,10 +65,7 @@ beforeEach(async () => {
         details: { motif: 'E-mail ou mot de passe incorrect, ou compte désactivé' },
       }),
       // Autre organisation : jamais visible.
-      ligne('2026-10-26T11:00:00Z', {
-        organisationId: '019a2f3c-0000-7000-8000-00000000ffff',
-        centreId: null,
-      }),
+      ligne('2026-10-26T11:00:00Z', { organisationId: autre.id, centreId: null }),
     ],
   });
 });
@@ -88,20 +86,19 @@ describe('listerJournal', () => {
   it('liste les lignes de l’organisation, les plus récentes d’abord', async () => {
     const resultat = await listerJournal(d.acteurs.admin, tous, {});
     expect(libelles(resultat)).toEqual([
-      'ECHEC_CONNEXION 2026-10-26T10:00:00.000Z',
       'READ 2026-10-26T09:00:00.000Z',
       'UPDATE 2026-10-25T22:30:00.000Z',
       'READ 2026-10-24T22:30:00.000Z',
       'READ 2026-10-24T21:59:00.000Z',
     ]);
-    expect(resultat.pagination).toMatchObject({ page: 1, total: 5, nbPages: 1 });
-    expect(resultat.lignes[2]).toMatchObject({
+    expect(resultat.pagination).toMatchObject({ page: 1, total: 4, nbPages: 1 });
+    expect(resultat.lignes[1]).toMatchObject({
       utilisateurLibelle: 'Admin Test <admin@exemple.test>',
       centreNom: null,
       entite: 'Utilisateur',
       champs: 'nom : Test → Essai ; motDePasse : modifié',
     });
-    expect(resultat.lignes[1]?.centreNom).toBe('Centre B');
+    expect(resultat.lignes[0]?.centreNom).toBe('Centre B');
   });
 
   it.each([
@@ -112,7 +109,7 @@ describe('listerJournal', () => {
       filtre: () => ({ du: '2026-10-25', au: '2026-10-25' }),
       attendu: 2,
     },
-    { cas: 'début seul', filtre: () => ({ du: '2026-10-26' }), attendu: 2 },
+    { cas: 'début seul', filtre: () => ({ du: '2026-10-26' }), attendu: 1 },
     { cas: 'fin seule', filtre: () => ({ au: '2026-10-24' }), attendu: 1 },
     {
       cas: 'filtres combinés',
@@ -140,8 +137,8 @@ describe('listerJournal', () => {
       ),
     });
     const page2 = await listerJournal(d.acteurs.admin, tous, { page: '2' });
-    expect(page2.pagination).toMatchObject({ page: 2, total: 55, nbPages: 2 });
-    expect(page2.lignes).toHaveLength(5);
+    expect(page2.pagination).toMatchObject({ page: 2, total: 54, nbPages: 2 });
+    expect(page2.lignes).toHaveLength(4);
     const auDela = await listerJournal(d.acteurs.admin, tous, { page: '9' });
     expect(auDela.pagination.page).toBe(2);
   });
@@ -157,7 +154,7 @@ describe('listerJournal', () => {
     ]);
   });
 
-  it('est réservé à l’ADMIN', async () => {
+  it('est réservé à l’ADMIN_CLIENT', async () => {
     const centreA = { type: 'centre', centreId: d.centres.a.id } as const;
     await expect(listerJournal(d.acteurs.audioAB, centreA, {})).rejects.toThrow(AccesRefuseError);
     await expect(listerJournal(d.acteurs.assistantA, centreA, {})).rejects.toThrow(
@@ -199,8 +196,8 @@ describe('exporterJournal', () => {
     });
     const flux = await exporterJournal(d.acteurs.admin, tous, {});
     const lignesCsv = (await lireTout(flux)).length;
-    // En-tête + 2100 + 5 lignes du jeu + la ligne EXPORT elle-même.
-    expect(lignesCsv).toBe(1 + 2100 + 5 + 1);
+    // En-tête + 2100 + 4 lignes du jeu + la ligne EXPORT elle-même.
+    expect(lignesCsv).toBe(1 + 2100 + 4 + 1);
   });
 });
 

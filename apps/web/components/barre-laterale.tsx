@@ -109,7 +109,7 @@ function Navigation({
   );
 }
 
-/** Menu latéral, affiché à partir de la largeur « md ». La section Admin n'est rendue que pour l'ADMIN. */
+/** Menu latéral, affiché à partir de la largeur « md ». La section Admin n'est rendue que pour l'ADMIN_CLIENT. */
 export function BarreLaterale({ estAdmin }: { estAdmin: boolean }) {
   return (
     <aside className="hidden w-60 shrink-0 border-r px-3 py-6 md:block">

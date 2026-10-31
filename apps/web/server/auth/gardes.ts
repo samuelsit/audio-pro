@@ -1,45 +1,72 @@
-import { deuxFacteursObligatoire, peutAccederAuCentre, type Role } from '@ha/domain';
+import {
+  deuxFacteursObligatoire,
+  peutAccederAuCentre,
+  ROLE_SUPERADMIN,
+  type Role,
+} from '@ha/domain';
 import { cookies, headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import { cache } from 'react';
 
 import {
   AccesRefuseError,
-  chargerUtilisateurConnecte,
+  chargerCompteConnecte,
   resoudrePerimetreActeur,
+  type CompteConnecte,
+  type SuperadminConnecte,
   type UtilisateurConnecte,
 } from './acces';
 import { auth } from './auth';
-import { CHEMIN_CONNEXION, COOKIE_CENTRE_COURANT } from './constantes';
+import { CHEMIN_CONNEXION, CHEMIN_CONSOLE, COOKIE_CENTRE_COURANT } from './constantes';
 
 // Gardes pour les pages et server actions. Les services revérifient les droits de leur côté.
 
-/** Utilisateur de la session courante, relu en base (une fois par requête). */
-export const utilisateurConnecte = cache(async (): Promise<UtilisateurConnecte | null> => {
+/** Compte de la session courante, relu en base (une fois par requête). */
+export const compteConnecte = cache(async (): Promise<CompteConnecte | null> => {
   const session = await auth().api.getSession({ headers: await headers() });
-  return session ? chargerUtilisateurConnecte(session.user.id) : null;
+  return session ? chargerCompteConnecte(session.user.id) : null;
 });
 
 /**
- * Exige une session valide d'un compte actif. Par défaut, impose aussi les étapes obligatoires :
- * changement du mot de passe provisoire, puis activation de la 2FA pour un ADMIN.
+ * Exige une session valide d'un compte actif, client ou éditeur. Par défaut, impose aussi les étapes
+ * obligatoires : changement du mot de passe provisoire, puis activation de la 2FA si elle est exigée.
  */
-export async function requireSession({
+export async function requireCompte({
   etapesObligatoires = true,
-}: { etapesObligatoires?: boolean } = {}): Promise<UtilisateurConnecte> {
-  const utilisateur = await utilisateurConnecte();
-  if (!utilisateur) {
+}: { etapesObligatoires?: boolean } = {}): Promise<CompteConnecte> {
+  const compte = await compteConnecte();
+  if (!compte) {
     redirect(CHEMIN_CONNEXION);
   }
   if (etapesObligatoires) {
-    if (utilisateur.doitChangerMotDePasse) {
+    if (compte.doitChangerMotDePasse) {
       redirect('/compte/mot-de-passe');
     }
-    if (deuxFacteursObligatoire(utilisateur.role) && !utilisateur.twoFactorEnabled) {
+    if (deuxFacteursObligatoire(compte.role) && !compte.twoFactorEnabled) {
       redirect('/compte/2fa');
     }
   }
-  return utilisateur;
+  return compte;
+}
+
+/** Exige un utilisateur d'un client. Un SUPERADMIN n'a pas d'organisation : il part vers la console. */
+export async function requireSession(options?: {
+  etapesObligatoires?: boolean;
+}): Promise<UtilisateurConnecte> {
+  const compte = await requireCompte(options);
+  if (compte.role === ROLE_SUPERADMIN) {
+    redirect(CHEMIN_CONSOLE);
+  }
+  return compte;
+}
+
+/** Exige un compte de la console éditeur ; sinon 404. */
+export async function requireSuperadmin(): Promise<SuperadminConnecte> {
+  const compte = await requireCompte();
+  if (compte.role !== ROLE_SUPERADMIN) {
+    notFound();
+  }
+  return compte;
 }
 
 /** Exige l'un des rôles ; sinon 404 (on ne révèle pas l'existence de la page). */

@@ -17,13 +17,13 @@ import { FormulaireFusion } from './formulaire-fusion';
 
 export const metadata: Metadata = { title: 'Fusion de fiches – HA-Gestion' };
 
-/** Réservé à l'ADMIN et aux audioprothésistes ayant accès aux centres des deux fiches. */
+/** Réservé à l'ADMIN_CLIENT et aux audioprothésistes ayant accès aux centres des deux fiches. */
 export default async function PageFusion({
   searchParams,
 }: {
   searchParams: Promise<ParametresRecherche>;
 }) {
-  const acteur = await requireRole('ADMIN', 'AUDIO');
+  const acteur = await requireRole('ADMIN_CLIENT', 'RESPONSABLE_CENTRE', 'AUDIO');
   const { conservee: conserveeId, doublon: doublonId } = premieresValeurs(await searchParams);
   if (!conserveeId || !doublonId) {
     notFound();

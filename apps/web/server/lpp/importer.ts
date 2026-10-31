@@ -2,7 +2,7 @@ import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { lireDbf } from '@ha/adapters';
-import { prisma } from '@ha/db';
+import { prisma } from '@ha/db/admin';
 import { preparerImportLpp, resoudreFichiersLpp, type TypeFichierLpp } from '@ha/domain';
 
 const LIENS_PAR_PAQUET = 5_000;

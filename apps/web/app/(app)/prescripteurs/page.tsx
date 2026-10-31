@@ -79,7 +79,7 @@ export default async function PagePrescripteurs({
       </FormulaireFiltres>
 
       <TableauPagine
-        colonnes={colonnes(acteur.role === 'ADMIN')}
+        colonnes={colonnes(acteur.role === 'ADMIN_CLIENT')}
         lignes={prescripteurs}
         cleLigne={(p) => p.id}
         pagination={pagination}

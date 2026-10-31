@@ -11,7 +11,7 @@ export const metadata: Metadata = { title: 'Fabricant – HA-Gestion' };
 
 export default async function PageFabricant({ params }: PageProps<'/admin/fabricants/[id]'>) {
   const { id } = await params;
-  const acteur = await requireRole('ADMIN');
+  const acteur = await requireRole('ADMIN_CLIENT');
   const fabricant = await ouIntrouvable(obtenirFabricant(acteur, id));
   return (
     <div className="grid gap-6">

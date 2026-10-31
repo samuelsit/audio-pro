@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto';
 
-import { prisma } from '@ha/db';
 import {
   achatEssaiSaisieSchema,
   calculerPagination,
@@ -136,7 +135,7 @@ export async function enregistrerProlongation(
   if (donnees.dateDemande > aujourdhui()) {
     throw ErreurSaisie.surChamp('dateDemande', 'La date de la demande ne peut pas être future.');
   }
-  const client = base();
+  const client = base(acteur);
   await lireDossier(client, acteur, dossierId);
   const lu = await exigerEssaiOuvert(client, dossierId);
   const existante = await client.prolongationEssai.count({ where: { essaiId: lu.id } });
@@ -280,7 +279,7 @@ export async function changerAppareilEssai(
 /**
  * Conclut l'essai par l'achat, une fois le devis signé (modele-devis-audio.pdf p. 2 § 5) : appareils
  * réservés au patient, dossier à facturer et préparation ouverte. Aucune délivrance n'est écrite : sa date
- * sera celle de la facture Cosium (étape 12, ADR-014).
+ * sera celle de la facture (étape 14, ADR-015).
  */
 export async function confirmerAchat(
   acteur: UtilisateurConnecte,
@@ -402,7 +401,7 @@ export async function obtenirEssai(
   acteur: UtilisateurConnecte,
   dossierId: string,
 ): Promise<EssaiDetail | null> {
-  const client = base();
+  const client = base(acteur);
   const dossier = await lireDossier(client, acteur, dossierId);
   const essai = await client.essai.findUnique({ where: { dossierId } });
   if (!essai) {
@@ -488,8 +487,8 @@ export async function appareilsProposables(
   acteur: UtilisateurConnecte,
   dossierId: string,
 ): Promise<AppareilProposable[]> {
-  const dossier = await lireDossier(base(), acteur, dossierId);
-  const lignes = await prisma().appareil.findMany({
+  const dossier = await lireDossier(base(acteur), acteur, dossierId);
+  const lignes = await base(acteur).appareil.findMany({
     where: {
       organisationId: acteur.organisationId,
       centreId: dossier.centreId,
@@ -536,9 +535,9 @@ export async function listerEssaisEnCours(
     issue: null,
     ...(centres === null ? {} : { dossier: { centreId: { in: [...centres] } } }),
   };
-  const total = await prisma().essai.count({ where });
+  const total = await base(acteur).essai.count({ where });
   const pagination = calculerPagination(page, LIGNES_PAR_PAGE_ESSAIS, total);
-  const essais = await prisma().essai.findMany({
+  const essais = await base(acteur).essai.findMany({
     where,
     select: {
       id: true,
@@ -600,7 +599,7 @@ async function vueCompteRendu(
   acteur: UtilisateurConnecte,
   dossier: DossierLu,
 ): Promise<{ essaiId: string; vue: VueCompteRenduEssai }> {
-  const client = base();
+  const client = base(acteur);
   const detail = await obtenirEssai(acteur, dossier.id);
   if (!detail) {
     throw new ErreurSaisie({}, MESSAGE_ESSAI_ABSENT);
@@ -692,7 +691,7 @@ export async function compteRenduEssai(
   acteur: UtilisateurConnecte,
   dossierId: string,
 ): Promise<DocumentEssai> {
-  const client = base();
+  const client = base(acteur);
   const dossier = await lireDossier(client, acteur, dossierId);
   const { essaiId, vue } = await vueCompteRendu(acteur, dossier);
   const contenu = await rendeurPdf().rendre(rendreCompteRenduEssaiHtml(vue));

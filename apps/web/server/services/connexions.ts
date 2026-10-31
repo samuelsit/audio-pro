@@ -1,8 +1,7 @@
-import { prisma } from '@ha/db';
+import { clientPlateforme } from '@ha/db';
 
 import { auteurDepuisActeur, journaliser, type AuteurAudit } from '../audit/journal';
-import type { UtilisateurConnecte } from '../auth/acces';
-import { base } from '../chiffrement';
+import type { CompteConnecte } from '../auth/acces';
 
 export type MotifEchecConnexion = 'IDENTIFIANTS' | 'CODE_2FA';
 
@@ -12,15 +11,15 @@ const LIBELLES_MOTIFS: Readonly<Record<MotifEchecConnexion, string>> = {
 };
 
 /** Connexion complète (après le second facteur s'il est exigé). */
-export async function journaliserConnexion(acteur: UtilisateurConnecte): Promise<void> {
-  await journaliser(base(), auteurDepuisActeur(acteur), {
+export async function journaliserConnexion(acteur: CompteConnecte): Promise<void> {
+  await journaliser(clientPlateforme(), auteurDepuisActeur(acteur), {
     action: 'CONNEXION',
     entiteType: 'SESSION',
   });
 }
 
-export async function journaliserDeconnexion(acteur: UtilisateurConnecte): Promise<void> {
-  await journaliser(base(), auteurDepuisActeur(acteur), {
+export async function journaliserDeconnexion(acteur: CompteConnecte): Promise<void> {
+  await journaliser(clientPlateforme(), auteurDepuisActeur(acteur), {
     action: 'DECONNEXION',
     entiteType: 'SESSION',
   });
@@ -35,7 +34,7 @@ export async function journaliserEchecConnexion(
   motif: MotifEchecConnexion,
 ): Promise<void> {
   const compte = email
-    ? await prisma().utilisateur.findUnique({
+    ? await clientPlateforme().utilisateur.findUnique({
         where: { email },
         select: { id: true, prenom: true, nom: true, role: true, organisationId: true },
       })
@@ -53,7 +52,7 @@ export async function journaliserEchecConnexion(
         role: null,
         organisationId: null,
       };
-  await journaliser(base(), auteur, {
+  await journaliser(clientPlateforme(), auteur, {
     action: 'ECHEC_CONNEXION',
     entiteType: 'SESSION',
     details: { motif: LIBELLES_MOTIFS[motif] },

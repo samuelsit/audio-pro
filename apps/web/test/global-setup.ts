@@ -1,4 +1,4 @@
-import { preparerBaseJetable } from '@ha/db';
+import { preparerBaseJetable } from '@ha/db/admin';
 
 import { urlBaseJetable } from './env';
 

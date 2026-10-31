@@ -1,4 +1,4 @@
-import { prisma } from '@ha/db';
+import { prisma } from '@ha/db/admin';
 import type { FakeDocumentStore } from '@ha/adapters';
 import { ajouterJours, decomposerDate, type StatutDossier } from '@ha/domain';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -7,7 +7,7 @@ import { creerJeuDeDonnees, viderBase, type JeuDeDonnees } from '@/test/donnees'
 
 import { AccesRefuseError, type UtilisateurConnecte } from '../auth/acces';
 import { withAudit } from '../audit/journal';
-import { base } from '../chiffrement';
+import { clientTransactions } from '../chiffrement';
 import { documents, stockageBrut } from '../documents';
 import { ErreurSaisie } from '../erreurs';
 import {
@@ -316,7 +316,7 @@ describe('enregistrerPrescription', () => {
     ).rejects.toBeInstanceOf(ErreurPrescriptionBloquee);
   });
 
-  it('un ADMIN force avec un motif, chiffré et absent du journal', async () => {
+  it('un ADMIN_CLIENT force avec un motif, chiffré et absent du journal', async () => {
     await delivrance(patientA, 'DROITE', ilYa(24));
     const blocage = await enregistrerPrescription(
       admin,
@@ -394,7 +394,7 @@ describe('enregistrerPrescription', () => {
     expect(prescription).toMatchObject({ forceePar: null, motifForcage: null });
   });
 
-  it('refuse une oreille non prescrite, erreur que l’ADMIN peut forcer', async () => {
+  it('refuse une oreille non prescrite, erreur que l’ADMIN_CLIENT peut forcer', async () => {
     await expect(
       enregistrerPrescription(
         assistantA,
@@ -436,7 +436,7 @@ describe('enregistrerPrescription', () => {
 
   it.each([
     {
-      cas: 'date future, même pour un ADMIN',
+      cas: 'date future, même pour un ADMIN_CLIENT',
       saisie: { datePrescription: '2099-01-01', forcer: true, motifForcage: MOTIF },
       contenu: SCAN,
       champ: 'datePrescription',
@@ -521,7 +521,7 @@ describe('enregistrerPrescription', () => {
   });
 
   it('retire le scan déposé si la transaction échoue', async () => {
-    vi.spyOn(base(), '$transaction').mockRejectedValueOnce(new Error('panne'));
+    vi.spyOn(clientTransactions(), '$transaction').mockRejectedValueOnce(new Error('panne'));
     await expect(
       enregistrerPrescription(assistantA, dossierId, saisiePrescription(), SCAN),
     ).rejects.toThrow('panne');

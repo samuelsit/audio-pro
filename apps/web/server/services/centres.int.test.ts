@@ -1,4 +1,4 @@
-import { prisma } from '@ha/db';
+import { prisma } from '@ha/db/admin';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { creerJeuDeDonnees, viderBase, type JeuDeDonnees } from '@/test/donnees';
@@ -22,6 +22,7 @@ const saisie = (surcharge: object = {}) => ({
   ville: 'Lyon',
   finess: '69 000 0000',
   numeroFacturationAm: '',
+  siret: '000 000 000 00044',
   email: 'd@exemple.test',
   telephone: '04 00 00 00 04',
   actif: true,
@@ -73,14 +74,14 @@ describe('creerCentre / modifierCentre', () => {
     ]);
   });
 
-  it('est réservé à l’ADMIN', async () => {
+  it('est réservé à l’ADMIN_CLIENT', async () => {
     await expect(creerCentre(d.acteurs.audioAB, saisie())).rejects.toThrow(AccesRefuseError);
     await expect(modifierCentre(d.acteurs.assistantA, d.centres.a.id, saisie())).rejects.toThrow(
       AccesRefuseError,
     );
   });
 
-  it('un non-ADMIN ne voit pas un centre inactif auquel il est rattaché', async () => {
+  it('un non-ADMIN_CLIENT ne voit pas un centre inactif auquel il est rattaché', async () => {
     await expect(obtenirCentre(d.acteurs.admin, d.centres.ferme.id)).resolves.toBeDefined();
     const assistant = { ...d.acteurs.assistantA, centreIds: [d.centres.ferme.id] };
     await expect(obtenirCentre(assistant, d.centres.ferme.id)).rejects.toThrow(AccesRefuseError);

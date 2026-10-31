@@ -1,7 +1,7 @@
 import path from 'node:path';
 
 import type { FakeDocumentStore, FakePdfRenderer } from '@ha/adapters';
-import { prisma } from '@ha/db';
+import { prisma } from '@ha/db/admin';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -296,7 +296,7 @@ describe('droits et cloisonnement', () => {
     await expect(listerDevisDuDossier(assistantB, dossierId)).rejects.toThrow(AccesRefuseError);
   });
 
-  it('réserve l’émission et la signature à l’ADMIN et à l’AUDIO', async () => {
+  it('réserve l’émission et la signature à l’ADMIN_CLIENT et à l’AUDIO', async () => {
     const devisId = await creerDevis(assistantA, dossierId, saisieDevis());
     await expect(emettreDevis(assistantA, devisId, { statutAttendu: 'BROUILLON' })).rejects.toThrow(
       AccesRefuseError,

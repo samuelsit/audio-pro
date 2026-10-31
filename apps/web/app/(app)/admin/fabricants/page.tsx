@@ -17,7 +17,7 @@ import { listerFabricants } from '@/server/services/catalogue';
 export const metadata: Metadata = { title: 'Fabricants – HA-Gestion' };
 
 export default async function PageFabricants() {
-  const acteur = await requireRole('ADMIN');
+  const acteur = await requireRole('ADMIN_CLIENT');
   const fabricants = await listerFabricants(acteur);
   return (
     <div className="grid gap-6">

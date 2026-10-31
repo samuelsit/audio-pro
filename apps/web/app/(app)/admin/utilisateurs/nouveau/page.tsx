@@ -10,7 +10,7 @@ import { FormulaireUtilisateur } from '../formulaire-utilisateur';
 export const metadata: Metadata = { title: 'Nouvel utilisateur – HA-Gestion' };
 
 export default async function PageNouvelUtilisateur() {
-  const acteur = await requireRole('ADMIN');
+  const acteur = await requireRole('ADMIN_CLIENT');
   const centres = await listerCentres(acteur, { type: 'tous' });
   return (
     <div className="grid gap-6">

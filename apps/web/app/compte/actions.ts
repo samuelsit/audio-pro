@@ -1,6 +1,6 @@
 'use server';
 
-import { motDePasseSchema } from '@ha/domain';
+import { deuxFacteursObligatoire, motDePasseSchema } from '@ha/domain';
 import { APIError } from 'better-auth/api';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
@@ -9,7 +9,7 @@ import { encode } from 'uqr';
 import { texte, type EtatFormulaire } from '@/lib/formulaire';
 import { auth } from '@/server/auth/auth';
 import { CHEMIN_CONNEXION } from '@/server/auth/constantes';
-import { requireSession, utilisateurConnecte } from '@/server/auth/gardes';
+import { compteConnecte, requireCompte } from '@/server/auth/gardes';
 import { journaliserDeuxFacteurs, marquerMotDePasseChange } from '@/server/services/compte';
 import { journaliserDeconnexion } from '@/server/services/connexions';
 
@@ -17,7 +17,7 @@ export async function changerMotDePasse(
   _: EtatFormulaire,
   formData: FormData,
 ): Promise<EtatFormulaire> {
-  const acteur = await requireSession({ etapesObligatoires: false });
+  const acteur = await requireCompte({ etapesObligatoires: false });
   const actuel = texte(formData, 'motDePasseActuel');
   const nouveau = motDePasseSchema.safeParse(texte(formData, 'nouveauMotDePasse'));
   if (!nouveau.success) {
@@ -73,7 +73,7 @@ export async function demarrerActivation(
   _: EtatActivation,
   formData: FormData,
 ): Promise<EtatActivation> {
-  await requireSession({ etapesObligatoires: false });
+  await requireCompte({ etapesObligatoires: false });
   try {
     const resultat = await auth().api.enableTwoFactor({
       body: { password: texte(formData, 'motDePasse'), method: 'totp' },
@@ -100,7 +100,7 @@ export async function confirmerActivation(
   _: EtatFormulaire,
   formData: FormData,
 ): Promise<EtatFormulaire> {
-  const acteur = await requireSession({ etapesObligatoires: false });
+  const acteur = await requireCompte({ etapesObligatoires: false });
   const code = texte(formData, 'code').replace(/\s+/g, '');
   try {
     await auth().api.verifyTOTP({ body: { code }, headers: await headers() });
@@ -121,9 +121,9 @@ export async function desactiverDeuxFacteurs(
   _: EtatFormulaire,
   formData: FormData,
 ): Promise<EtatFormulaire> {
-  const acteur = await requireSession();
-  if (acteur.role === 'ADMIN') {
-    return { message: 'La vérification en deux étapes est obligatoire pour un administrateur.' };
+  const acteur = await requireCompte();
+  if (deuxFacteursObligatoire(acteur.role)) {
+    return { message: 'La vérification en deux étapes est obligatoire pour ce compte.' };
   }
   try {
     await auth().api.disableTwoFactor({
@@ -141,7 +141,7 @@ export async function desactiverDeuxFacteurs(
 }
 
 export async function seDeconnecter(): Promise<void> {
-  const acteur = await utilisateurConnecte();
+  const acteur = await compteConnecte();
   await auth().api.signOut({ headers: await headers() });
   if (acteur) {
     await journaliserDeconnexion(acteur);

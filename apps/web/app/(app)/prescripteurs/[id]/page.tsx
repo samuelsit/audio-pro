@@ -12,7 +12,7 @@ export const metadata: Metadata = { title: 'Prescripteur – HA-Gestion' };
 
 export default async function PagePrescripteur({ params }: PageProps<'/prescripteurs/[id]'>) {
   const { id } = await params;
-  const acteur = await requireRole('ADMIN');
+  const acteur = await requireRole('ADMIN_CLIENT');
   const prescripteur = await ouIntrouvable(obtenirPrescripteur(acteur, id));
   return (
     <div className="grid gap-6">

@@ -151,7 +151,7 @@ const selectionPatient = {
 
 type LignePatient = Prisma.PatientGetPayload<{ select: typeof selectionPatient }>;
 
-/** Client qui chiffre et déchiffre : `base()` ou une transaction ouverte par `withAudit`. */
+/** Client qui chiffre et déchiffre : `base(acteur)` ou une transaction ouverte par `withAudit`. */
 export type Client = ClientTransaction | ReturnType<typeof base>;
 
 /**
@@ -247,7 +247,7 @@ export async function obtenirPatient(
   acteur: UtilisateurConnecte,
   patientId: string,
 ): Promise<ResultatOuverture> {
-  const fiche = await lireFiche(base(), acteur, patientId);
+  const fiche = await lireFiche(base(acteur), acteur, patientId);
   if (fiche.fusionneDansId !== null) {
     return { type: 'fusionnee', conserveeId: fiche.fusionneDansId };
   }
@@ -301,9 +301,9 @@ export async function listerPatients(
     ...(criteres.dateNaissance ? { dateNaissance: versDate(criteres.dateNaissance) } : {}),
     ...(criteres.empreinte ? { couvertureAmo: { nirEmpreinte: criteres.empreinte } } : {}),
   };
-  const total = await base().patient.count({ where });
+  const total = await base(acteur).patient.count({ where });
   const pagination = calculerPagination(criteres.page, PATIENTS_PAR_PAGE, total);
-  const lignes = await base().patient.findMany({
+  const lignes = await base(acteur).patient.findMany({
     where,
     select: {
       id: true,
@@ -349,7 +349,7 @@ export async function rechercherParNir(
   verifierPerimetre(acteur, perimetre);
   const { nir } = valider(z.object({ nir: nirSchema }), saisie);
   const empreinte = empreinteNir(nir);
-  const trouves = await base().patient.findMany({
+  const trouves = await base(acteur).patient.findMany({
     where: { ...clausePerimetre(acteur, perimetre), couvertureAmo: { nirEmpreinte: empreinte } },
     select: { id: true },
     take: 2,
@@ -373,7 +373,7 @@ async function chercherDoublons(
   const noms = [identite.nomNaissance, identite.nomUsage]
     .filter((nom): nom is string => nom !== null)
     .map(normaliserPourRecherche);
-  const lignes = await base().patient.findMany({
+  const lignes = await base(acteur).patient.findMany({
     where: {
       organisationId: acteur.organisationId,
       fusionneDansId: null,
@@ -477,7 +477,7 @@ async function verifierCentreRattachement(
   acteur: UtilisateurConnecte,
   centreId: string,
 ): Promise<void> {
-  const centre = await base().centre.findFirst({
+  const centre = await base(acteur).centre.findFirst({
     where: { id: centreId, organisationId: acteur.organisationId, actif: true },
     select: { id: true },
   });
@@ -708,7 +708,7 @@ export async function modifierPatient(
   patientId: string,
   saisie: unknown,
 ): Promise<void> {
-  const actuelle = await lireFiche(base(), acteur, patientId);
+  const actuelle = await lireFiche(base(acteur), acteur, patientId);
   if (actuelle.fusionneDansId !== null) {
     throw new ErreurSaisie({}, 'Cette fiche a été fusionnée : modifiez la fiche conservée.');
   }
@@ -802,14 +802,14 @@ export interface PreparationFusion {
   champs: { champ: ChampFusion; parDefaut: SourceFusion }[];
 }
 
-/** Fusion : ADMIN ou AUDIO, avec accès aux centres des deux fiches, toutes deux non fusionnées. */
+/** Fusion : ADMIN_CLIENT ou AUDIO, avec accès aux centres des deux fiches, toutes deux non fusionnées. */
 async function lireCouple(
   client: Client,
   acteur: UtilisateurConnecte,
   conserveeId: string,
   doublonId: string,
 ): Promise<[PatientDetail, PatientDetail]> {
-  verifierRole(acteur, 'ADMIN', 'AUDIO');
+  verifierRole(acteur, 'ADMIN_CLIENT', 'RESPONSABLE_CENTRE', 'AUDIO');
   if (conserveeId === doublonId) {
     throw new ErreurSaisie({}, 'Choisissez deux fiches différentes.');
   }

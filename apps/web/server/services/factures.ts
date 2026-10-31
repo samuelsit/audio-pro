@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
 import { formaterInstantParis } from '@ha/adapters';
-import { prisma } from '@ha/db';
 import {
   calculerPagination,
   centimes,
@@ -204,9 +203,10 @@ async function tarifsParDate(
 
 /** Évalue des dossiers à facturer en quelques requêtes groupées, sans rien écrire. Hors transaction. */
 async function evaluerFactures(
+  acteur: UtilisateurConnecte,
   dossiers: readonly DossierLu[],
 ): Promise<Map<string, FactureEvaluee>> {
-  const client = base();
+  const client = base(acteur);
   const ids = dossiers.map((d) => d.id);
   const patientIds = dossiers.map((d) => d.patientId);
   const [factures, chiffres, patients, amo, amc, prescriptions, devis, liens, delivrances, pecs] =
@@ -526,7 +526,7 @@ export async function enregistrerPec(
   if (verification && !verification.valide) {
     throw ErreurSaisie.surChamp('justificatif', verification.message);
   }
-  await exigerAFacturer(base(), acteur, dossierId);
+  await exigerAFacturer(base(acteur), acteur, dossierId);
   const nouveau = verification?.valide
     ? { cle: `prises-en-charge/${randomUUID()}`, type: verification.type }
     : null;
@@ -647,12 +647,12 @@ export async function obtenirFacture(
   acteur: UtilisateurConnecte,
   dossierId: string,
 ): Promise<FactureDetail | null> {
-  const client = base();
+  const client = base(acteur);
   const dossier = await lireDossier(client, acteur, dossierId);
   if (dossier.statut !== 'A_FACTURER') {
     return null;
   }
-  const evaluee = (await evaluerFactures([dossier])).get(dossierId);
+  const evaluee = (await evaluerFactures(acteur, [dossier])).get(dossierId);
   if (!evaluee) {
     return null;
   }
@@ -713,7 +713,7 @@ export async function listerAFacturer(
   verifierPerimetre(acteur, perimetre);
   const { page, etat } = valider(filtreAFacturerSchema, saisie);
   const centres = centresDuPerimetre(acteur, perimetre);
-  const lignes = await prisma().facturePreparee.findMany({
+  const lignes = await base(acteur).facturePreparee.findMany({
     where: {
       organisationId: acteur.organisationId,
       dossier: {
@@ -739,7 +739,10 @@ export async function listerAFacturer(
     },
     orderBy: [{ dateDelivrance: 'asc' }, { id: 'asc' }],
   });
-  const evaluees = await evaluerFactures(lignes.map((l) => l.dossier));
+  const evaluees = await evaluerFactures(
+    acteur,
+    lignes.map((l) => l.dossier),
+  );
   const toutes = lignes.flatMap(({ dossier }) => {
     const evaluee = evaluees.get(dossier.id);
     return evaluee ? [{ dossier, evaluee }] : [];

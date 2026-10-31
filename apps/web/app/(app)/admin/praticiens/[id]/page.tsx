@@ -13,7 +13,7 @@ export const metadata: Metadata = { title: 'Praticien – HA-Gestion' };
 
 export default async function PagePraticien({ params }: PageProps<'/admin/praticiens/[id]'>) {
   const { id } = await params;
-  const acteur = await requireRole('ADMIN');
+  const acteur = await requireRole('ADMIN_CLIENT');
   const [praticien, centres] = await Promise.all([
     ouIntrouvable(obtenirPraticien(acteur, id)),
     listerCentres(acteur, { type: 'tous' }),

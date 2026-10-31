@@ -112,7 +112,7 @@ function ResumePec({ dossierId, pec }: { dossierId: string; pec: FactureDetail['
   );
 }
 
-/** Préparation pour Cosium : aucun numéro de facture ni encaissement ici (ADR-014). */
+/** Préparation de la facture : ni numéro ni encaissement avant les étapes 14 et 15 (ADR-015). */
 export function BlocFacture({ dossierId, detail }: { dossierId: string; detail: FactureDetail }) {
   const { etat, controle, facture, dateDelivrance, pec, c2s, amoConfirmeeLe } = detail;
   const aConfirmer = controle.erreurs.some((c) => c.code === 'COUVERTURE_AMO_A_CONFIRMER');
@@ -120,7 +120,7 @@ export function BlocFacture({ dossierId, detail }: { dossierId: string; detail: 
     <>
       <div className="flex flex-wrap items-center gap-2 text-sm">
         <Badge variant={etat === 'PRET' ? 'secondary' : 'destructive'}>
-          {etat === 'PRET' ? 'Prêt à exporter' : LIBELLES_ETATS_FACTURE.BLOQUE}
+          {etat === 'PRET' ? 'Prêt à facturer' : LIBELLES_ETATS_FACTURE.BLOQUE}
         </Badge>
         <span>Délivrance le {formaterDate(dateDelivrance)}</span>
         {amoConfirmeeLe ? (
@@ -131,7 +131,7 @@ export function BlocFacture({ dossierId, detail }: { dossierId: string; detail: 
       </div>
       {controle.erreurs.length > 0 ? (
         <Alert variant="destructive">
-          <AlertTitle>À corriger avant l’export</AlertTitle>
+          <AlertTitle>À corriger avant la facturation</AlertTitle>
           <AlertDescription>
             <ListeConstats constats={controle.erreurs} />
           </AlertDescription>

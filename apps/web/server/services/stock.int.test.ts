@@ -1,4 +1,4 @@
-import { prisma } from '@ha/db';
+import { prisma } from '@ha/db/admin';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { creerJeuDeDonnees, viderBase, type JeuDeDonnees } from '@/test/donnees';
@@ -116,7 +116,7 @@ async function amener(id: string, statuts: string[], patientId: string | null = 
         where: { id },
         data: { statut: 'EN_ESSAI', patientId: patientEssai },
       });
-      await base().mouvementAppareil.create({
+      await base({ organisationId: avant.organisationId }).mouvementAppareil.create({
         data: {
           organisationId: avant.organisationId,
           appareilId: id,
@@ -210,7 +210,7 @@ describe('réception', () => {
     expect(await prisma().appareil.count()).toBe(0);
   });
 
-  it('seul l’ADMIN saisit un prix d’achat', async () => {
+  it('seul l’ADMIN_CLIENT saisit un prix d’achat', async () => {
     await expect(
       recevoirAppareils(audio, reception(['SN0001'], { prixAchatCentimes: '650,00' })),
     ).rejects.toBeInstanceOf(AccesRefuseError);
@@ -448,7 +448,7 @@ describe('machine à états, par le service', () => {
 });
 
 describe('annulation de vente', () => {
-  it('réservée à l’ADMIN, motif obligatoire, tracée', async () => {
+  it('réservée à l’ADMIN_CLIENT, motif obligatoire, tracée', async () => {
     const id = await recevoirUn();
     await amener(id, ['EN_ESSAI', 'VENDU']);
     await expect(annulerVente(audio, id, { motif: 'x' })).rejects.toBeInstanceOf(AccesRefuseError);
@@ -687,7 +687,7 @@ describe('modification de la fiche', () => {
     );
   });
 
-  it('le prix d’achat : modifié par l’ADMIN, intact sinon, jamais en clair dans le journal', async () => {
+  it('le prix d’achat : modifié par l’ADMIN_CLIENT, intact sinon, jamais en clair dans le journal', async () => {
     const id = await recevoirUn();
     await modifierAppareil(admin, id, modification({ prixAchatCentimes: '123,45' }));
     expect((await etat(id)).prixAchatCentimes).toBe(12345);
@@ -700,7 +700,7 @@ describe('modification de la fiche', () => {
     expect(JSON.stringify(audit)).not.toContain('12345');
   });
 
-  it('l’ADMIN corrige numéro et modèle tant que seule la réception existe', async () => {
+  it('l’ADMIN_CLIENT corrige numéro et modèle tant que seule la réception existe', async () => {
     const id = await recevoirUn('FAUTE01');
     const autre = await creerFabricantEtModele('Fabricant Deux');
     await expect(
@@ -718,7 +718,7 @@ describe('modification de la fiche', () => {
     });
   });
 
-  it('un rôle non ADMIN peut renvoyer le numéro et le modèle inchangés', async () => {
+  it('un rôle non ADMIN_CLIENT peut renvoyer le numéro et le modèle inchangés', async () => {
     const id = await recevoirUn('AB123');
     await modifierAppareil(audio, id, modification({ numeroSerie: 'ab123', modeleId }));
     expect((await etat(id)).referenceFactureFabricant).toBe('F-42');
@@ -776,7 +776,7 @@ describe('recherche et fiche', () => {
 
   it('un appareil d’une autre organisation reste invisible', async () => {
     const id = await recevoirUn('AB123');
-    const autre = await prisma().organisation.create({ data: { nom: 'Autre réseau' } });
+    const autre = await prisma().organisation.create({ data: { raisonSociale: 'Autre réseau' } });
     await prisma().utilisateur.update({
       where: { id: admin.id },
       data: { organisationId: autre.id },
@@ -848,7 +848,7 @@ describe('recherche et fiche', () => {
     expect(pourAdmin.patient?.libelle).toBe('Gamma Fictive');
   });
 
-  it('le prix d’achat n’apparaît que pour l’ADMIN, l’annulation et la correction aussi', async () => {
+  it('le prix d’achat n’apparaît que pour l’ADMIN_CLIENT, l’annulation et la correction aussi', async () => {
     const [id] = await recevoirAppareils(
       admin,
       reception(['SN0001'], { prixAchatCentimes: '650,00' }),
@@ -910,7 +910,7 @@ describe('liste et export', () => {
     expect(await numeros(PERIMETRE_A(), { fabricantId: autre.fabricantId })).toEqual(['CCC333']);
   });
 
-  it('« tous les centres » est réservé à l’ADMIN, un centre hors droits est refusé', async () => {
+  it('« tous les centres » est réservé à l’ADMIN_CLIENT, un centre hors droits est refusé', async () => {
     await preparerStock();
     const { lignes } = await listerStock(admin, { type: 'tous' }, {});
     expect(lignes).toHaveLength(4);
@@ -929,7 +929,7 @@ describe('liste et export', () => {
     );
   });
 
-  it('l’export suit les filtres, se journalise et ne contient le prix que pour l’ADMIN', async () => {
+  it('l’export suit les filtres, se journalise et ne contient le prix que pour l’ADMIN_CLIENT', async () => {
     await preparerStock();
     const pourAudio = await lire(exporterStock(audio, PERIMETRE_A(), { statut: 'EN_STOCK' }));
     expect(pourAudio).toContain('BBB222');

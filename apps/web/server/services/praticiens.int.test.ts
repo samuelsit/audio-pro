@@ -1,4 +1,4 @@
-import { prisma } from '@ha/db';
+import { prisma } from '@ha/db/admin';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { creerJeuDeDonnees, viderBase, type JeuDeDonnees } from '@/test/donnees';
@@ -144,7 +144,7 @@ describe('creerPraticien', () => {
     expect(erreur.erreurs.centreIds).toHaveLength(1);
   });
 
-  it('est réservé à l’ADMIN', async () => {
+  it('est réservé à l’ADMIN_CLIENT', async () => {
     const utilisateurId = await nouvelAudio([d.centres.a.id]);
     await expect(
       creerPraticien(d.acteurs.audioAB, {

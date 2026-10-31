@@ -33,7 +33,7 @@ const OPTIONS_OREILLES = OREILLES_DOSSIER.map((valeur) => ({
 
 /**
  * Envoi par `onSubmit` : un formulaire branché sur `action` est réinitialisé par React après chaque
- * envoi, et l'ADMIN qui force devrait choisir à nouveau le fichier du scan. La saisie reste en place.
+ * envoi, et l'ADMIN_CLIENT qui force devrait choisir à nouveau le fichier du scan. La saisie reste en place.
  */
 export function FormulairePrescription({
   dossierId,

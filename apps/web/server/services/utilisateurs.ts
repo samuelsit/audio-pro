@@ -1,4 +1,4 @@
-import { prisma, type Prisma } from '@ha/db';
+import type { Prisma } from '@ha/db';
 import {
   centresExerciceHorsRattachement,
   differencesAuditees,
@@ -6,12 +6,14 @@ import {
   nomAffiche,
   peutAccederAuCentre,
   peutEtrePraticien,
+  roleSchema,
   utilisateurSaisieSchema,
   type Perimetre,
   type Role,
 } from '@ha/domain';
 import { hashPassword } from 'better-auth/crypto';
 
+import { base } from '../chiffrement';
 import {
   AccesRefuseError,
   verifierPerimetre,
@@ -59,7 +61,7 @@ function versResume(acteur: UtilisateurConnecte, u: LigneUtilisateur): Utilisate
     prenom: u.prenom,
     nom: u.nom,
     email: u.email,
-    role: u.role,
+    role: roleSchema.parse(u.role),
     actif: u.actif,
     deuxFacteursActif: u.twoFactorEnabled,
     centres: u.centres
@@ -70,8 +72,8 @@ function versResume(acteur: UtilisateurConnecte, u: LigneUtilisateur): Utilisate
 }
 
 /**
- * Utilisateurs rattachés à un centre du périmètre. Avec « Tous les centres » (ADMIN), tous les
- * comptes de l'organisation, y compris les ADMIN (non rattachés). Seul l'ADMIN voit les comptes inactifs.
+ * Utilisateurs rattachés à un centre du périmètre. Avec « Tous mes centres » (ADMIN_CLIENT), tous les
+ * comptes de l'organisation, y compris les ADMIN_CLIENT (non rattachés). Seul l'ADMIN_CLIENT voit les comptes inactifs.
  */
 export async function listerUtilisateurs(
   acteur: UtilisateurConnecte,
@@ -79,10 +81,10 @@ export async function listerUtilisateurs(
 ): Promise<UtilisateurResume[]> {
   verifierPerimetre(acteur, perimetre);
   const centres = filtreParCentre(acteur, perimetre);
-  const lignes = await prisma().utilisateur.findMany({
+  const lignes = await base(acteur).utilisateur.findMany({
     where: {
       organisationId: acteur.organisationId,
-      ...(acteur.role === 'ADMIN' ? {} : { actif: true }),
+      ...(acteur.role === 'ADMIN_CLIENT' ? {} : { actif: true }),
       ...(centres ? { centres } : {}),
     },
     select: selectionUtilisateur,
@@ -95,8 +97,8 @@ export async function obtenirUtilisateur(
   acteur: UtilisateurConnecte,
   utilisateurId: string,
 ): Promise<UtilisateurDetail> {
-  verifierRole(acteur, 'ADMIN');
-  const u = await prisma().utilisateur.findFirst({
+  verifierRole(acteur, 'ADMIN_CLIENT');
+  const u = await base(acteur).utilisateur.findFirst({
     where: { id: utilisateurId, organisationId: acteur.organisationId },
     select: selectionUtilisateur,
   });
@@ -114,7 +116,7 @@ async function verifierCentresDeLOrganisation(
   acteur: UtilisateurConnecte,
   centreIds: readonly string[],
 ): Promise<void> {
-  const trouves = await prisma().centre.count({
+  const trouves = await base(acteur).centre.count({
     where: { id: { in: [...centreIds] }, organisationId: acteur.organisationId },
   });
   if (trouves !== centreIds.length) {
@@ -132,7 +134,7 @@ export async function creerUtilisateur(
   saisie: unknown,
   motDePasseInitial: unknown,
 ): Promise<string> {
-  verifierRole(acteur, 'ADMIN');
+  verifierRole(acteur, 'ADMIN_CLIENT');
   const donnees = valider(utilisateurSaisieSchema, saisie);
   const resultatMdp = motDePasseSchema.safeParse(motDePasseInitial);
   if (!resultatMdp.success) {
@@ -184,12 +186,12 @@ export async function modifierUtilisateur(
   utilisateurId: string,
   saisie: unknown,
 ): Promise<void> {
-  verifierRole(acteur, 'ADMIN');
+  verifierRole(acteur, 'ADMIN_CLIENT');
   const actuel = await obtenirUtilisateur(acteur, utilisateurId);
   const donnees = valider(utilisateurSaisieSchema, saisie);
   await verifierCentresDeLOrganisation(acteur, donnees.centreIds);
 
-  if (utilisateurId === acteur.id && (donnees.role !== 'ADMIN' || !donnees.actif)) {
+  if (utilisateurId === acteur.id && (donnees.role !== 'ADMIN_CLIENT' || !donnees.actif)) {
     throw new ErreurSaisie(
       {},
       'Vous ne pouvez pas retirer votre propre rôle administrateur ni désactiver votre compte.',
@@ -202,7 +204,7 @@ export async function modifierUtilisateur(
         'Cet utilisateur a une fiche praticien : son rôle doit rester Audioprothésiste.',
       );
     }
-    const praticien = await prisma().praticien.findUniqueOrThrow({
+    const praticien = await base(acteur).praticien.findUniqueOrThrow({
       where: { utilisateurId },
       select: { centres: { select: { centreId: true } } },
     });
@@ -273,7 +275,7 @@ export async function reinitialiserMotDePasse(
   utilisateurId: string,
   nouveauMotDePasse: unknown,
 ): Promise<void> {
-  verifierRole(acteur, 'ADMIN');
+  verifierRole(acteur, 'ADMIN_CLIENT');
   await obtenirUtilisateur(acteur, utilisateurId);
   const resultat = motDePasseSchema.safeParse(nouveauMotDePasse);
   if (!resultat.success) {

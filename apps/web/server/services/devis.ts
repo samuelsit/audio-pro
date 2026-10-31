@@ -419,8 +419,8 @@ export async function creerDevis(
   saisie: unknown,
 ): Promise<string> {
   const donnees = valider(devisSaisieSchema, saisie);
-  const dossierLu = await lireDossier(base(), acteur, dossierId);
-  const offres = await resoudreOffres(base(), acteur, dossierLu, donnees);
+  const dossierLu = await lireDossier(base(acteur), acteur, dossierId);
+  const offres = await resoudreOffres(base(acteur), acteur, dossierLu, donnees);
   const { devisId } = await withAudit(
     acteur,
     async (tx) => {
@@ -455,8 +455,8 @@ export async function modifierDevis(
   saisie: unknown,
 ): Promise<void> {
   const donnees = valider(devisSaisieSchema, saisie);
-  const lu = await lireDevis(base(), acteur, devisId);
-  const offres = await resoudreOffres(base(), acteur, lu.dossier, donnees);
+  const lu = await lireDevis(base(acteur), acteur, devisId);
+  const offres = await resoudreOffres(base(acteur), acteur, lu.dossier, donnees);
   await withAudit(
     acteur,
     async (tx) => {
@@ -602,7 +602,7 @@ const selectionCentre = {
 
 /** Lit ce que le devis ne porte pas. Hors transaction : Prisma charge les relations en parallèle. */
 async function lireFaits(acteur: UtilisateurConnecte, dossier: DossierLu): Promise<FaitsDevis> {
-  const client = base();
+  const client = base(acteur);
   const [fiche, chiffre, centre, praticien, prescription, delivrances] = await Promise.all([
     lireFiche(client, acteur, dossier.patientId, { accesVerifie: true }),
     client.dossier.findUniqueOrThrow({
@@ -790,7 +790,7 @@ export async function emettreDevis(
     throw new AccesRefuseError();
   }
   const { statutAttendu } = valider(actionDevisSaisieSchema, saisie);
-  const { devis, dossier: dossierLu } = await lireDevis(base(), acteur, devisId);
+  const { devis, dossier: dossierLu } = await lireDevis(base(acteur), acteur, devisId);
   exigerStatut(devis, statutAttendu);
   if (!devisModifiable(devis.statut)) {
     throw new ErreurSaisie({}, 'Ce devis est déjà émis.');
@@ -1026,7 +1026,7 @@ export async function deposerScanDevis(
   if (!document.valide) {
     throw ErreurSaisie.surChamp('scan', document.message);
   }
-  const lu = await lireDevis(base(), acteur, devisId);
+  const lu = await lireDevis(base(acteur), acteur, devisId);
   exigerStatut(lu.devis, statutAttendu);
   exigerSignaturePossible(lu.devis, lu.dossier);
   const scanCle = `devis-signes/${randomUUID()}`;
@@ -1180,7 +1180,7 @@ export async function listerDevisDuDossier(
   acteur: UtilisateurConnecte,
   dossierId: string,
 ): Promise<DevisResume[]> {
-  const client = base();
+  const client = base(acteur);
   await lireDossier(client, acteur, dossierId);
   const lignes = await client.devis.findMany({
     where: { dossierId },
@@ -1246,7 +1246,7 @@ export async function obtenirDevis(
   acteur: UtilisateurConnecte,
   devisId: string,
 ): Promise<DevisDetail> {
-  const client = base();
+  const client = base(acteur);
   const { devis, dossier } = await lireDevis(client, acteur, devisId);
   const signature = await client.signatureDevis.findUnique({
     where: { devisId },
@@ -1322,7 +1322,7 @@ export async function lignesCatalogueDevis(
   acteur: UtilisateurConnecte,
   devisId: string,
 ): Promise<LignesCatalogueDevis> {
-  const { devis } = await lireDevis(base(), acteur, devisId);
+  const { devis } = await lireDevis(base(acteur), acteur, devisId);
   const idModele = (offre: OffreLue, oreille: Oreille) =>
     offre.lignes.find((l) => l.oreille === oreille)?.modeleId ?? '';
   return {
@@ -1379,7 +1379,7 @@ export async function donneesFormulaireDevis(
   acteur: UtilisateurConnecte,
   dossierId: string,
 ): Promise<DonneesFormulaireDevis> {
-  const client = base();
+  const client = base(acteur);
   const dossier = await lireDossier(client, acteur, dossierId);
   const [modeles, articles, centre, couverture, delivrances] = await Promise.all([
     client.modeleAideAuditive.findMany({

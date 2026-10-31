@@ -1,4 +1,4 @@
-import { prisma, type Prisma } from '@ha/db';
+import type { Prisma } from '@ha/db';
 import {
   accessoireSaisieSchema,
   differencesAuditees,
@@ -21,7 +21,7 @@ import {
 
 import { AccesRefuseError, verifierRole, type UtilisateurConnecte } from '../auth/acces';
 import { withAudit } from '../audit/journal';
-import type { ClientTransaction } from '../chiffrement';
+import { base, type ClientTransaction } from '../chiffrement';
 import { ErreurSaisie, traduireDoublon, valider } from '../erreurs';
 import { codesLppInconnus } from './lpp';
 
@@ -104,10 +104,10 @@ const selectionFabricant = {
 } as const;
 
 export async function listerFabricants(acteur: UtilisateurConnecte): Promise<FabricantResume[]> {
-  return prisma().fabricant.findMany({
+  return base(acteur).fabricant.findMany({
     where: {
       organisationId: acteur.organisationId,
-      ...(acteur.role === 'ADMIN' ? {} : { actif: true }),
+      ...(acteur.role === 'ADMIN_CLIENT' ? {} : { actif: true }),
     },
     select: selectionFabricant,
     orderBy: { nom: 'asc' },
@@ -118,7 +118,7 @@ export async function obtenirFabricant(
   acteur: UtilisateurConnecte,
   fabricantId: string,
 ): Promise<FabricantResume> {
-  const f = await prisma().fabricant.findFirst({
+  const f = await base(acteur).fabricant.findFirst({
     where: { id: fabricantId, organisationId: acteur.organisationId },
     select: selectionFabricant,
   });
@@ -132,7 +132,7 @@ export async function creerFabricant(
   acteur: UtilisateurConnecte,
   saisie: unknown,
 ): Promise<string> {
-  verifierRole(acteur, 'ADMIN');
+  verifierRole(acteur, 'ADMIN_CLIENT');
   const donnees = valider(fabricantSaisieSchema, saisie);
   try {
     const f = await withAudit(
@@ -160,7 +160,7 @@ export async function modifierFabricant(
   fabricantId: string,
   saisie: unknown,
 ): Promise<void> {
-  verifierRole(acteur, 'ADMIN');
+  verifierRole(acteur, 'ADMIN_CLIENT');
   const actuel = await obtenirFabricant(acteur, fabricantId);
   const donnees = valider(fabricantSaisieSchema, saisie);
   try {
@@ -226,10 +226,10 @@ const DOUBLON_MODELE = {
 } as const;
 
 export async function listerModeles(acteur: UtilisateurConnecte): Promise<ModeleResume[]> {
-  const lignes = await prisma().modeleAideAuditive.findMany({
+  const lignes = await base(acteur).modeleAideAuditive.findMany({
     where: {
       organisationId: acteur.organisationId,
-      ...(acteur.role === 'ADMIN' ? {} : { actif: true }),
+      ...(acteur.role === 'ADMIN_CLIENT' ? {} : { actif: true }),
     },
     select: selectionModele,
     orderBy: [{ fabricant: { nom: 'asc' } }, { gamme: 'asc' }, { nom: 'asc' }],
@@ -241,7 +241,7 @@ export async function obtenirModele(
   acteur: UtilisateurConnecte,
   modeleId: string,
 ): Promise<ModeleResume> {
-  const m = await prisma().modeleAideAuditive.findFirst({
+  const m = await base(acteur).modeleAideAuditive.findFirst({
     where: { id: modeleId, organisationId: acteur.organisationId },
     select: selectionModele,
   });
@@ -253,7 +253,7 @@ export async function obtenirModele(
 
 async function validerModele(acteur: UtilisateurConnecte, saisie: unknown): Promise<ModeleSaisie> {
   const donnees = valider(modeleSaisieSchema, saisie);
-  const fabricant = await prisma().fabricant.findFirst({
+  const fabricant = await base(acteur).fabricant.findFirst({
     where: { id: donnees.fabricantId, organisationId: acteur.organisationId },
     select: { id: true },
   });
@@ -265,7 +265,7 @@ async function validerModele(acteur: UtilisateurConnecte, saisie: unknown): Prom
 }
 
 export async function creerModele(acteur: UtilisateurConnecte, saisie: unknown): Promise<string> {
-  verifierRole(acteur, 'ADMIN');
+  verifierRole(acteur, 'ADMIN_CLIENT');
   const { codesLpp, ...donnees } = await validerModele(acteur, saisie);
   try {
     const m = await withAudit(
@@ -309,11 +309,11 @@ export async function modifierModele(
   modeleId: string,
   saisie: unknown,
 ): Promise<void> {
-  verifierRole(acteur, 'ADMIN');
+  verifierRole(acteur, 'ADMIN_CLIENT');
   const actuel = await obtenirModele(acteur, modeleId);
   const { codesLpp, ...donnees } = await validerModele(acteur, saisie);
   if (donnees.fabricantId !== actuel.fabricantId) {
-    const appareils = await prisma().appareil.count({ where: { modeleId } });
+    const appareils = await base(acteur).appareil.count({ where: { modeleId } });
     if (appareils > 0) {
       throw ErreurSaisie.surChamp(
         'fabricantId',
@@ -380,10 +380,10 @@ const DOUBLON_ACCESSOIRE = {
 } as const;
 
 export async function listerAccessoires(acteur: UtilisateurConnecte): Promise<AccessoireResume[]> {
-  return prisma().accessoire.findMany({
+  return base(acteur).accessoire.findMany({
     where: {
       organisationId: acteur.organisationId,
-      ...(acteur.role === 'ADMIN' ? {} : { actif: true }),
+      ...(acteur.role === 'ADMIN_CLIENT' ? {} : { actif: true }),
     },
     select: selectionAccessoire,
     orderBy: [{ nature: 'asc' }, { nom: 'asc' }],
@@ -394,7 +394,7 @@ export async function obtenirAccessoire(
   acteur: UtilisateurConnecte,
   accessoireId: string,
 ): Promise<AccessoireResume> {
-  const a = await prisma().accessoire.findFirst({
+  const a = await base(acteur).accessoire.findFirst({
     where: { id: accessoireId, organisationId: acteur.organisationId },
     select: selectionAccessoire,
   });
@@ -414,7 +414,7 @@ export async function creerAccessoire(
   acteur: UtilisateurConnecte,
   saisie: unknown,
 ): Promise<string> {
-  verifierRole(acteur, 'ADMIN');
+  verifierRole(acteur, 'ADMIN_CLIENT');
   const donnees = await validerAccessoire(saisie);
   try {
     const a = await withAudit(
@@ -442,7 +442,7 @@ export async function modifierAccessoire(
   accessoireId: string,
   saisie: unknown,
 ): Promise<void> {
-  verifierRole(acteur, 'ADMIN');
+  verifierRole(acteur, 'ADMIN_CLIENT');
   const actuel = await obtenirAccessoire(acteur, accessoireId);
   const donnees = await validerAccessoire(saisie);
   try {
@@ -524,9 +524,9 @@ export async function importerModelesCsv(
   acteur: UtilisateurConnecte,
   texte: string,
 ): Promise<BilanImportCsv> {
-  verifierRole(acteur, 'ADMIN');
+  verifierRole(acteur, 'ADMIN_CLIENT');
   const lignes = exigerSansErreur(interpreterCsv(texte, ENTETES_CSV_MODELES, ligneCsvModeleSchema));
-  const fabricants = await prisma().fabricant.findMany({
+  const fabricants = await base(acteur).fabricant.findMany({
     where: { organisationId: acteur.organisationId },
     select: { id: true, nom: true },
   });
@@ -587,7 +587,7 @@ export async function importerAccessoiresCsv(
   acteur: UtilisateurConnecte,
   texte: string,
 ): Promise<BilanImportCsv> {
-  verifierRole(acteur, 'ADMIN');
+  verifierRole(acteur, 'ADMIN_CLIENT');
   const lignes = exigerSansErreur(
     interpreterCsv(texte, ENTETES_CSV_ACCESSOIRES, ligneCsvAccessoireSchema),
   );

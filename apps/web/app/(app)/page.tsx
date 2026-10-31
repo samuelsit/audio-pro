@@ -9,7 +9,7 @@ export default async function Accueil() {
   const { acteur, perimetre, centres } = await perimetreCourant();
   const centreCourant =
     perimetre.type === 'tous'
-      ? 'Tous les centres'
+      ? 'Tous mes centres'
       : (centres.find((c) => c.id === perimetre.centreId)?.nom ?? '');
 
   return (

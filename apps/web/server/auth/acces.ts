@@ -1,22 +1,38 @@
-import { prisma } from '@ha/db';
+import { clientPlateforme } from '@ha/db';
 import {
+  clientPeutSeConnecter,
   peutAccederAuCentre,
+  peutChoisirTousLesCentres,
   resoudrePerimetre,
+  ROLE_SUPERADMIN,
   type Perimetre,
   type ProfilAcces,
   type Role,
 } from '@ha/domain';
 
-/** Utilisateur authentifié, rechargé depuis la base à chaque requête. */
-export interface UtilisateurConnecte extends ProfilAcces {
+import { base } from '../chiffrement';
+
+interface IdentiteCompte {
   readonly id: string;
-  readonly organisationId: string;
   readonly prenom: string;
   readonly nom: string;
   readonly email: string;
   readonly twoFactorEnabled: boolean;
   readonly doitChangerMotDePasse: boolean;
 }
+
+/** Utilisateur d'un client, rechargé depuis la base à chaque requête. */
+export interface UtilisateurConnecte extends ProfilAcces, IdentiteCompte {
+  readonly organisationId: string;
+}
+
+/** Compte de la console éditeur, hors de toute organisation : aucun service métier ne le reçoit. */
+export interface SuperadminConnecte extends IdentiteCompte {
+  readonly role: typeof ROLE_SUPERADMIN;
+  readonly organisationId: null;
+}
+
+export type CompteConnecte = UtilisateurConnecte | SuperadminConnecte;
 
 /** Refus d'accès. Le message reste générique : on ne révèle pas l'existence d'une ressource. */
 export class AccesRefuseError extends Error {
@@ -26,28 +42,46 @@ export class AccesRefuseError extends Error {
   }
 }
 
-/** Charge l'utilisateur et ses rattachements à des centres actifs ; `null` s'il est absent ou désactivé. */
-export async function chargerUtilisateurConnecte(
-  utilisateurId: string,
-): Promise<UtilisateurConnecte | null> {
-  const u = await prisma().utilisateur.findUnique({
+/**
+ * Charge le compte et ses rattachements à des centres actifs ; `null` s'il est absent, désactivé ou si son
+ * client est suspendu. Lecture sur le rôle plateforme : l'organisation n'est pas encore connue.
+ */
+export async function chargerCompteConnecte(utilisateurId: string): Promise<CompteConnecte | null> {
+  const u = await clientPlateforme().utilisateur.findUnique({
     where: { id: utilisateurId },
-    include: { centres: { where: { centre: { actif: true } }, select: { centreId: true } } },
+    include: {
+      centres: { where: { centre: { actif: true } }, select: { centreId: true } },
+      organisation: { select: { statut: true } },
+    },
   });
-  if (!u?.actif) {
+  if (!u?.actif || !clientPeutSeConnecter(u.organisation?.statut ?? null)) {
     return null;
   }
-  return {
+  const identite = {
     id: u.id,
-    organisationId: u.organisationId,
     prenom: u.prenom,
     nom: u.nom,
     email: u.email,
-    role: u.role,
-    centreIds: u.centres.map((c) => c.centreId),
     twoFactorEnabled: u.twoFactorEnabled,
     doitChangerMotDePasse: u.doitChangerMotDePasse,
   };
+  if (u.role === ROLE_SUPERADMIN || u.organisationId === null) {
+    return { ...identite, role: ROLE_SUPERADMIN, organisationId: null };
+  }
+  return {
+    ...identite,
+    organisationId: u.organisationId,
+    role: u.role,
+    centreIds: u.centres.map((c) => c.centreId),
+  };
+}
+
+/** Comme `chargerCompteConnecte`, pour un utilisateur d'un client : `null` pour un SUPERADMIN. */
+export async function chargerUtilisateurConnecte(
+  utilisateurId: string,
+): Promise<UtilisateurConnecte | null> {
+  const compte = await chargerCompteConnecte(utilisateurId);
+  return compte === null || compte.role === ROLE_SUPERADMIN ? null : compte;
 }
 
 export function verifierRole(acteur: UtilisateurConnecte, ...roles: readonly Role[]): void {
@@ -65,7 +99,9 @@ export function verifierAccesCentre(acteur: UtilisateurConnecte, centreId: strin
 /** Un périmètre fourni par l'appelant n'est jamais cru sur parole. */
 export function verifierPerimetre(acteur: UtilisateurConnecte, perimetre: Perimetre): void {
   if (perimetre.type === 'tous') {
-    verifierRole(acteur, 'ADMIN');
+    if (!peutChoisirTousLesCentres(acteur.role)) {
+      throw new AccesRefuseError();
+    }
   } else {
     verifierAccesCentre(acteur, perimetre.centreId);
   }
@@ -80,11 +116,11 @@ export interface CentreSelectionnable {
 export async function centresSelectionnables(
   acteur: UtilisateurConnecte,
 ): Promise<CentreSelectionnable[]> {
-  return prisma().centre.findMany({
+  return base(acteur).centre.findMany({
     where: {
       organisationId: acteur.organisationId,
       actif: true,
-      ...(acteur.role === 'ADMIN' ? {} : { id: { in: [...acteur.centreIds] } }),
+      ...(acteur.role === 'ADMIN_CLIENT' ? {} : { id: { in: [...acteur.centreIds] } }),
     },
     select: { id: true, nom: true },
     orderBy: { nom: 'asc' },

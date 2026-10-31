@@ -5,12 +5,12 @@ import {
   VALEUR_MASQUEE,
   type ActionAudit,
   type ChampModifie,
-  type Role,
+  type RoleCompte,
   type TypeEntite,
 } from '@ha/domain';
 
-import type { UtilisateurConnecte } from '../auth/acces';
-import { base, type ClientTransaction } from '../chiffrement';
+import type { CompteConnecte, UtilisateurConnecte } from '../auth/acces';
+import { enTransaction, type ClientTransaction } from '../chiffrement';
 
 /** Une ligne du journal à écrire. Les champs et détails sont assainis (NIR masqué) avant écriture. */
 export interface EvenementAudit {
@@ -29,16 +29,23 @@ export interface EvenementAudit {
 export interface AuteurAudit {
   readonly utilisateurId: string | null;
   readonly libelle: string;
-  readonly role: Role | null;
+  readonly role: RoleCompte | null;
   readonly organisationId: string | null;
 }
 
-export function auteurDepuisActeur(acteur: UtilisateurConnecte): AuteurAudit {
+export function auteurDepuisActeur(acteur: CompteConnecte): AuteurAudit {
   return {
     utilisateurId: acteur.id,
     libelle: `${acteur.prenom} ${acteur.nom} <${acteur.email}>`,
     role: acteur.role,
     organisationId: acteur.organisationId,
+  };
+}
+
+/** Tout client capable d'écrire le journal : transaction, client du contexte ou rôle plateforme. */
+export interface ClientJournal {
+  readonly journalAudit: {
+    createMany(args: { data: Prisma.JournalAuditCreateManyInput[] }): PromiseLike<unknown>;
   };
 }
 
@@ -53,11 +60,12 @@ function json(valeur: unknown): Prisma.InputJsonValue {
 }
 
 /**
- * Écrit une ou plusieurs lignes avec le client fourni (transaction en cours, ou `base()`).
- * Bas niveau : les services passent par `withAudit` ; seules les connexions l'appellent directement.
+ * Écrit une ou plusieurs lignes avec le client fourni (transaction en cours, `base(acteur)` ou plateforme).
+ * Bas niveau : les services passent par `withAudit` ; seuls les connexions, la console et les exports
+ * l'appellent directement.
  */
 export async function journaliser(
-  client: Pick<ClientTransaction, 'journalAudit'>,
+  client: ClientJournal,
   auteur: AuteurAudit,
   evenements: Evenements,
 ): Promise<void> {
@@ -92,7 +100,7 @@ export async function withAudit<T>(
   operation: (tx: ClientTransaction) => Promise<T>,
   evenement: Evenements | ((resultat: T) => Evenements),
 ): Promise<T> {
-  return base().$transaction(async (tx) => {
+  return enTransaction(acteur, async (tx) => {
     const resultat = await operation(tx);
     const evenements = typeof evenement === 'function' ? evenement(resultat) : evenement;
     await journaliser(tx, auteurDepuisActeur(acteur), evenements);

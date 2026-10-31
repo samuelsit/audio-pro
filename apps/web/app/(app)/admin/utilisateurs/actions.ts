@@ -28,7 +28,7 @@ export async function creerUtilisateurAction(
   _: EtatFormulaire,
   formData: FormData,
 ): Promise<EtatFormulaire> {
-  const acteur = await requireRole('ADMIN');
+  const acteur = await requireRole('ADMIN_CLIENT');
   const donnees = saisie(formData);
   const erreur = await executer(
     () => creerUtilisateur(acteur, donnees, texte(formData, 'motDePasse')),
@@ -47,7 +47,7 @@ export async function modifierUtilisateurAction(
   _: EtatFormulaire,
   formData: FormData,
 ): Promise<EtatFormulaire> {
-  const acteur = await requireRole('ADMIN');
+  const acteur = await requireRole('ADMIN_CLIENT');
   const donnees = saisie(formData);
   const erreur = await executer(() => modifierUtilisateur(acteur, utilisateurId, donnees), donnees);
   if (erreur) {
@@ -63,7 +63,7 @@ export async function reinitialiserMotDePasseAction(
   _: EtatFormulaire,
   formData: FormData,
 ): Promise<EtatFormulaire> {
-  const acteur = await requireRole('ADMIN');
+  const acteur = await requireRole('ADMIN_CLIENT');
   const erreur = await executer(() =>
     reinitialiserMotDePasse(acteur, utilisateurId, texte(formData, 'motDePasse')),
   );

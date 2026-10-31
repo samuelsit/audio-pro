@@ -28,7 +28,7 @@ export async function creerFabricantAction(
   _: EtatFormulaire,
   formData: FormData,
 ): Promise<EtatFormulaire> {
-  const acteur = await requireRole('ADMIN');
+  const acteur = await requireRole('ADMIN_CLIENT');
   const donnees = saisie(formData);
   const erreur = await executer(() => creerFabricant(acteur, donnees), donnees);
   return erreur ?? terminer();
@@ -39,7 +39,7 @@ export async function modifierFabricantAction(
   _: EtatFormulaire,
   formData: FormData,
 ): Promise<EtatFormulaire> {
-  const acteur = await requireRole('ADMIN');
+  const acteur = await requireRole('ADMIN_CLIENT');
   const donnees = saisie(formData);
   const erreur = await executer(() => modifierFabricant(acteur, fabricantId, donnees), donnees);
   return erreur ?? terminer();

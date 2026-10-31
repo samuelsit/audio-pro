@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 
-import { verifierBaseJetable } from '@ha/db';
+import { urlDuRole, verifierBaseJetable } from '@ha/db/admin';
 
 /** Charge le .env racine s'il existe (absent en CI, où les variables sont fournies). */
 export function chargerEnvRacine(): void {
@@ -20,6 +20,16 @@ export function urlBaseJetable(variable: 'DATABASE_URL_TEST' | 'DATABASE_URL_E2E
   }
   verifierBaseJetable(url);
   return url;
+}
+
+/** Variables de connexion de l'application sur une base jetable : un rôle par usage (ADR-016). */
+export function urlsDesRoles(urlAdmin: string) {
+  return {
+    DATABASE_URL_ADMIN: urlAdmin,
+    DATABASE_URL: urlDuRole(urlAdmin, 'ha_app'),
+    DATABASE_URL_PLATEFORME: urlDuRole(urlAdmin, 'ha_plateforme'),
+    DATABASE_URL_JOBS: urlDuRole(urlAdmin, 'ha_jobs'),
+  };
 }
 
 /**

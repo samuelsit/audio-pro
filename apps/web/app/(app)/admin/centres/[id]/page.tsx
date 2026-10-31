@@ -11,7 +11,7 @@ export const metadata: Metadata = { title: 'Centre – HA-Gestion' };
 
 export default async function PageCentre({ params }: PageProps<'/admin/centres/[id]'>) {
   const { id } = await params;
-  const acteur = await requireRole('ADMIN');
+  const acteur = await requireRole('ADMIN_CLIENT');
   const centre = await ouIntrouvable(obtenirCentre(acteur, id));
   return (
     <div className="grid gap-6">

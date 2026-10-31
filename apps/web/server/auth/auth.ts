@@ -1,5 +1,9 @@
-import { prisma } from '@ha/db';
-import { LONGUEUR_MAX_MOT_DE_PASSE, LONGUEUR_MIN_MOT_DE_PASSE } from '@ha/domain';
+import { clientPlateforme } from '@ha/db';
+import {
+  clientPeutSeConnecter,
+  LONGUEUR_MAX_MOT_DE_PASSE,
+  LONGUEUR_MIN_MOT_DE_PASSE,
+} from '@ha/domain';
 import { betterAuth } from 'better-auth';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
 import { nextCookies } from 'better-auth/next-js';
@@ -11,13 +15,13 @@ const DOUZE_HEURES = 12 * 60 * 60;
 
 /**
  * Better Auth est appelé uniquement depuis les server actions (`auth().api.*`) : aucun handler HTTP
- * `/api/auth/*` n'est exposé (voir ADR-002). Pas d'inscription publique : l'ADMIN crée les comptes.
+ * `/api/auth/*` n'est exposé (voir ADR-002). Pas d'inscription publique : l'ADMIN_CLIENT crée les comptes.
  */
 function creerAuth() {
   return betterAuth({
     appName: 'HA-Gestion',
     telemetry: { enabled: false },
-    database: prismaAdapter(prisma(), { provider: 'postgresql' }),
+    database: prismaAdapter(clientPlateforme(), { provider: 'postgresql' }),
     emailAndPassword: {
       enabled: true,
       disableSignUp: true,
@@ -40,13 +44,16 @@ function creerAuth() {
     databaseHooks: {
       session: {
         create: {
-          // Un compte désactivé ne peut plus ouvrir de session.
+          // Un compte désactivé, ou d'un client suspendu, ne peut plus ouvrir de session.
           before: async (session) => {
-            const utilisateur = await prisma().utilisateur.findUnique({
+            const utilisateur = await clientPlateforme().utilisateur.findUnique({
               where: { id: session.userId },
-              select: { actif: true },
+              select: { actif: true, organisation: { select: { statut: true } } },
             });
-            return utilisateur?.actif === true;
+            return (
+              utilisateur?.actif === true &&
+              clientPeutSeConnecter(utilisateur.organisation?.statut ?? null)
+            );
           },
         },
       },

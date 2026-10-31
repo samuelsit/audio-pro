@@ -4,7 +4,7 @@ import type { UtilisateurConnecte } from './auth/acces';
 
 /**
  * Ids des centres visibles dans le périmètre : `null` signifie « tous les centres de l'organisation »
- * (ADMIN uniquement, déjà vérifié par `verifierPerimetre`).
+ * (ADMIN_CLIENT uniquement). Pour un responsable, « tous » s'arrête à ses rattachements.
  */
 export function centresDuPerimetre(
   acteur: UtilisateurConnecte,
@@ -13,7 +13,7 @@ export function centresDuPerimetre(
   if (perimetre.type === 'centre') {
     return [perimetre.centreId];
   }
-  return acteur.role === 'ADMIN' ? null : acteur.centreIds;
+  return acteur.role === 'ADMIN_CLIENT' ? null : acteur.centreIds;
 }
 
 /** Clause Prisma « rattaché à un centre du périmètre » pour une relation n–n vers Centre. */

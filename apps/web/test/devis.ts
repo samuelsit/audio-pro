@@ -1,4 +1,4 @@
-import { prisma } from '@ha/db';
+import { prisma } from '@ha/db/admin';
 
 import type { UtilisateurConnecte } from '@/server/auth/acces';
 import { base } from '@/server/chiffrement';
@@ -97,7 +97,7 @@ export async function creerPatientDevis(
       prenomsRecherche: 'CAMILLE',
     },
   });
-  await base().couvertureAmo.create({
+  await base({ organisationId: d.organisation.id }).couvertureAmo.create({
     data: {
       patientId: patient.id,
       nir: NIR,

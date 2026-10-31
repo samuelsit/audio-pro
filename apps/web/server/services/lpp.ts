@@ -1,5 +1,5 @@
 import { SystemClock } from '@ha/adapters';
-import { prisma } from '@ha/db';
+import { referentielLpp } from '@ha/db';
 import {
   CODES_LPP_TARIFS_AUDIO,
   tarifEnVigueur,
@@ -34,7 +34,7 @@ function dateIso(date: Date): string {
 
 /** Dernière version importée, ou `null` si la base LPP n'a jamais été importée. */
 export async function derniereVersionLpp(): Promise<number | null> {
-  const version = await prisma().lppVersion.findFirst({
+  const version = await referentielLpp().lppVersion.findFirst({
     orderBy: { numero: 'desc' },
     select: { numero: true },
   });
@@ -55,11 +55,11 @@ export async function decrireCodesLpp(
     version === null
       ? [[], []]
       : await Promise.all([
-          prisma().lppFiche.findMany({
+          referentielLpp().lppFiche.findMany({
             where: { versionNumero: version, code: { in: [...codes] } },
             select: { code: true, libelle: true, dateFin: true, codeGenerique: true },
           }),
-          prisma().lppTarif.findMany({
+          referentielLpp().lppTarif.findMany({
             where: { versionNumero: version, code: { in: [...codes] } },
             select: {
               code: true,
@@ -115,7 +115,7 @@ export async function tarifsConsommablesEnVigueur(
 
 /** Codes de la liste absents du référentiel. */
 export async function codesLppInconnus(codes: readonly string[]): Promise<string[]> {
-  const connus = await prisma().lppCode.findMany({
+  const connus = await referentielLpp().lppCode.findMany({
     where: { code: { in: [...codes] } },
     select: { code: true },
   });

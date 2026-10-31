@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { prisma, type Prisma } from '@ha/db';
+import type { Prisma } from '@ha/db';
 import {
   abandonDossierSaisieSchema,
   CODES_CONTROLE,
@@ -169,7 +169,7 @@ export async function donneesCreationDossier(
   fiche: Pick<PatientDetail, 'centre'>,
 ): Promise<DonneesCreationDossier> {
   const centres = await centresSelectionnables(acteur);
-  const exercices = await prisma().praticienCentre.findMany({
+  const exercices = await base(acteur).praticienCentre.findMany({
     where: {
       centreId: { in: centres.map((c) => c.id) },
       praticien: { utilisateur: { actif: true, organisationId: acteur.organisationId } },
@@ -309,11 +309,11 @@ export async function listerDossiersDuPatient(
   acteur: UtilisateurConnecte,
   patientId: string,
 ): Promise<DossierResume[]> {
-  const dossiers = await base().dossier.findMany({
+  const dossiers = await base(acteur).dossier.findMany({
     where: {
       patientId,
       organisationId: acteur.organisationId,
-      ...(acteur.role === 'ADMIN' ? {} : { centreId: { in: [...acteur.centreIds] } }),
+      ...(acteur.role === 'ADMIN_CLIENT' ? {} : { centreId: { in: [...acteur.centreIds] } }),
     },
     select: selectionResume,
     orderBy: [{ dateOuverture: 'desc' }, { id: 'desc' }],
@@ -386,7 +386,7 @@ export async function obtenirDossier(
   acteur: UtilisateurConnecte,
   dossierId: string,
 ): Promise<DossierDetail> {
-  const client = base();
+  const client = base(acteur);
   const dossierLu = await lireDossier(client, acteur, dossierId);
   const [resume, chiffre, transitions, prescriptions, fiche] = await Promise.all([
     client.dossier.findUniqueOrThrow({ where: { id: dossierId }, select: selectionResume }),
@@ -516,7 +516,7 @@ async function preparerPrescription(
   donnees: PrescriptionSaisie,
   jour: string,
 ): Promise<PrescriptionPreparee> {
-  const client = base();
+  const client = base(acteur);
   const dossier = await lireDossier(client, acteur, dossierId);
   verifierStatutPrescription(dossier, donnees.statutAttendu);
   const [prescripteur, patient, delivrances] = await Promise.all([

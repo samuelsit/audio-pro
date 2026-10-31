@@ -1,4 +1,4 @@
-import { prisma } from '@ha/db';
+import { clientPlateforme } from '@ha/db';
 
 export interface RegleLimitation {
   /** Nombre maximal de tentatives dans la fenêtre. */
@@ -21,7 +21,7 @@ export async function enregistrerTentative(
   maintenant: number = Date.now(),
 ): Promise<boolean> {
   const debutFenetre = BigInt(maintenant - regle.fenetreSecondes * 1000);
-  const ligne = await prisma().$transaction(async (tx) => {
+  const ligne = await clientPlateforme().$transaction(async (tx) => {
     const existante = await tx.limitationDebit.findUnique({ where: { key: cle } });
     if (!existante || existante.lastRequest < debutFenetre) {
       return tx.limitationDebit.upsert({
@@ -40,5 +40,5 @@ export async function enregistrerTentative(
 
 /** Réinitialise un compteur (connexion réussie). */
 export async function reinitialiserTentatives(cle: string): Promise<void> {
-  await prisma().limitationDebit.deleteMany({ where: { key: cle } });
+  await clientPlateforme().limitationDebit.deleteMany({ where: { key: cle } });
 }

@@ -47,7 +47,7 @@ export async function modifierPrescripteurAction(
   _: EtatFormulaire,
   formData: FormData,
 ): Promise<EtatFormulaire> {
-  const acteur = await requireRole('ADMIN');
+  const acteur = await requireRole('ADMIN_CLIENT');
   const donnees = saisie(formData);
   const erreur = await executer(
     () => modifierPrescripteur(acteur, prescripteurId, donnees),
@@ -65,7 +65,7 @@ export async function changerActivationPrescripteurAction(
   prescripteurId: string,
   actif: boolean,
 ): Promise<void> {
-  const acteur = await requireRole('ADMIN');
+  const acteur = await requireRole('ADMIN_CLIENT');
   await changerActivationPrescripteur(acteur, prescripteurId, actif);
   revalidatePath('/prescripteurs');
   await notifier(actif ? 'Prescripteur réactivé.' : 'Prescripteur désactivé.');

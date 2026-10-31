@@ -1,4 +1,4 @@
-import { prisma } from '@ha/db';
+import { prisma } from '@ha/db/admin';
 import { AucunCentreAccessibleError } from '@ha/domain';
 import { beforeEach, describe, expect, it } from 'vitest';
 
@@ -88,7 +88,7 @@ describe('un ASSISTANT du centre A ne voit rien du centre B', () => {
   });
 });
 
-describe('ADMIN et « Tous les centres »', () => {
+describe('ADMIN_CLIENT et « Tous mes centres »', () => {
   it('voit les centres A, B et C (et les centres inactifs)', async () => {
     const { perimetre, centres } = await resoudrePerimetreActeur(d.acteurs.admin, 'tous');
     expect(perimetre).toEqual({ type: 'tous' });

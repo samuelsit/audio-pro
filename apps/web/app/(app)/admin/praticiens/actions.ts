@@ -22,7 +22,7 @@ export async function creerPraticienAction(
   _: EtatFormulaire,
   formData: FormData,
 ): Promise<EtatFormulaire> {
-  const acteur = await requireRole('ADMIN');
+  const acteur = await requireRole('ADMIN_CLIENT');
   const donnees = saisie(formData);
   const erreur = await executer(() => creerPraticien(acteur, donnees), donnees);
   if (erreur) {
@@ -38,7 +38,7 @@ export async function modifierPraticienAction(
   _: EtatFormulaire,
   formData: FormData,
 ): Promise<EtatFormulaire> {
-  const acteur = await requireRole('ADMIN');
+  const acteur = await requireRole('ADMIN_CLIENT');
   const donnees = saisie(formData);
   const erreur = await executer(() => modifierPraticien(acteur, praticienId, donnees), donnees);
   if (erreur) {

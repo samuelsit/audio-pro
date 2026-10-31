@@ -1,7 +1,7 @@
 import path from 'node:path';
 
 import type { FakeDocumentStore, FakePdfRenderer } from '@ha/adapters';
-import { prisma } from '@ha/db';
+import { prisma } from '@ha/db/admin';
 import { ajouterJours } from '@ha/domain';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -833,7 +833,7 @@ describe('stock piloté par le dossier', () => {
 });
 
 describe('droits et cloisonnement', () => {
-  it('réserve l’achat à l’ADMIN et à l’AUDIO', async () => {
+  it('réserve l’achat à l’ADMIN_CLIENT et à l’AUDIO', async () => {
     await essaiDemarre();
     await terminerPeriodeEssai(audio, dossierId);
     await signer();
@@ -923,6 +923,6 @@ describe('journal', () => {
 it('chiffre aussi via le client applicatif', async () => {
   await essaiDemarre();
   await ajouterRdv(audio, dossierId, rdv());
-  const ligne = await base().essaiRdv.findFirstOrThrow();
+  const ligne = await base(audio).essaiRdv.findFirstOrThrow();
   expect(ligne.compteRendu).toBe('Bonne adaptation');
 });

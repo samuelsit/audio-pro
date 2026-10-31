@@ -108,7 +108,7 @@ export default async function PageJournal({
         <EntetePage titre="Journal d’audit">
           {perimetre.type === 'tous'
             ? 'Toutes les actions tracées du réseau, les plus récentes d’abord.'
-            : 'Actions rattachées au centre courant (les comptes et les connexions apparaissent avec « Tous les centres »).'}
+            : 'Actions rattachées au centre courant (les comptes et les connexions apparaissent avec « Tous mes centres »).'}
         </EntetePage>
         {etat.erreurs ? null : (
           <Button asChild variant="outline">

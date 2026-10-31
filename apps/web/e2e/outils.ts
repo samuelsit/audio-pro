@@ -1,6 +1,6 @@
 import { base32 } from '@better-auth/utils/base32';
 import { createOTP } from '@better-auth/utils/otp';
-import { prisma } from '@ha/db';
+import { prisma } from '@ha/db/admin';
 import { expect, type Page } from '@playwright/test';
 
 import { urlBaseJetable } from '../test/env';

@@ -1,4 +1,4 @@
-import { prisma } from '@ha/db';
+import { prisma } from '@ha/db/admin';
 import { verifyPassword } from 'better-auth/crypto';
 import { beforeEach, describe, expect, it } from 'vitest';
 
@@ -96,7 +96,7 @@ describe('creerUtilisateur', () => {
     expect(erreur.erreurs[champ]).toHaveLength(1);
   });
 
-  it('est réservé à l’ADMIN', async () => {
+  it('est réservé à l’ADMIN_CLIENT', async () => {
     await expect(
       creerUtilisateur(
         d.acteurs.assistantA,
@@ -137,7 +137,7 @@ describe('modifierUtilisateur', () => {
     expect(await prisma().session.count({ where: { userId: id } })).toBe(0);
   });
 
-  it('l’ADMIN ne peut ni se rétrograder ni se désactiver', async () => {
+  it('l’ADMIN_CLIENT ne peut ni se rétrograder ni se désactiver', async () => {
     const erreur = await erreurDe(
       modifierUtilisateur(d.acteurs.admin, d.utilisateurs.admin.id, {
         prenom: 'Admin',

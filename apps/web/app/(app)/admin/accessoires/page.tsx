@@ -26,7 +26,7 @@ import { importerAccessoiresAction } from './actions';
 export const metadata: Metadata = { title: 'Accessoires et piles – HA-Gestion' };
 
 export default async function PageAccessoires() {
-  const acteur = await requireRole('ADMIN');
+  const acteur = await requireRole('ADMIN_CLIENT');
   const accessoires = await listerAccessoires(acteur);
   return (
     <div className="grid gap-6">

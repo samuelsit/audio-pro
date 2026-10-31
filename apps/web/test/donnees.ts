@@ -1,9 +1,9 @@
-import { prisma, viderBaseJetable } from '@ha/db';
+import { prisma, viderBaseJetable } from '@ha/db/admin';
 
 import { chargerUtilisateurConnecte, type UtilisateurConnecte } from '@/server/auth/acces';
 
 export async function viderBase(): Promise<void> {
-  await viderBaseJetable(process.env.DATABASE_URL ?? '');
+  await viderBaseJetable(process.env.DATABASE_URL_ADMIN ?? '');
 }
 
 function centre(organisationId: string, nom: string) {
@@ -23,7 +23,7 @@ function centre(organisationId: string, nom: string) {
 function utilisateur(
   organisationId: string,
   prenom: string,
-  role: 'ADMIN' | 'AUDIO' | 'ASSISTANT',
+  role: 'ADMIN_CLIENT' | 'RESPONSABLE_CENTRE' | 'AUDIO' | 'ASSISTANT',
   centreIds: string[],
 ) {
   return prisma().utilisateur.create({
@@ -41,11 +41,11 @@ function utilisateur(
 }
 
 /**
- * Jeu de données fictif : centres A, B, C ; un ADMIN ; un AUDIO rattaché à A et B (praticien à A et B) ;
+ * Jeu de données fictif : centres A, B, C ; un ADMIN_CLIENT ; un AUDIO rattaché à A et B (praticien à A et B) ;
  * un AUDIO rattaché à C (praticien à C) ; un ASSISTANT à A ; un ASSISTANT à B ; un ASSISTANT sans centre actif.
  */
 export async function creerJeuDeDonnees() {
-  const org = await prisma().organisation.create({ data: { nom: 'Réseau Test' } });
+  const org = await prisma().organisation.create({ data: { raisonSociale: 'Réseau Test' } });
   const [a, b, c, ferme] = await Promise.all([
     centre(org.id, 'Centre A'),
     centre(org.id, 'Centre B'),
@@ -54,7 +54,7 @@ export async function creerJeuDeDonnees() {
   ]);
   await prisma().centre.update({ where: { id: ferme.id }, data: { actif: false } });
 
-  const admin = await utilisateur(org.id, 'Admin', 'ADMIN', []);
+  const admin = await utilisateur(org.id, 'Admin', 'ADMIN_CLIENT', []);
   const audioAB = await utilisateur(org.id, 'Audioab', 'AUDIO', [a.id, b.id]);
   const audioC = await utilisateur(org.id, 'Audioc', 'AUDIO', [c.id]);
   const assistantA = await utilisateur(org.id, 'Assistanta', 'ASSISTANT', [a.id]);

@@ -12,7 +12,7 @@ import {
   type VitaleReadResult,
   type VitaleReader,
 } from '@ha/domain';
-import { prisma } from '@ha/db';
+import { prisma } from '@ha/db/admin';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { creerJeuDeDonnees, viderBase, type JeuDeDonnees } from '@/test/donnees';
@@ -52,10 +52,10 @@ function lecteur(simulation: SimulationVitale, instant = formaterInstantParis(ne
 
 const carte = (fichier: string): SimulationVitale => ({ type: 'carte', fichier });
 
-/** « Tous les centres » pour l'ADMIN, sinon le premier centre de l'acteur. */
+/** « Tous mes centres » pour l'ADMIN_CLIENT, sinon le premier centre de l'acteur. */
 function perimetreDe(acteur: UtilisateurConnecte) {
   const premier = acteur.centreIds[0];
-  return acteur.role === 'ADMIN' || premier === undefined ? tous : centre(premier);
+  return acteur.role === 'ADMIN_CLIENT' || premier === undefined ? tous : centre(premier);
 }
 
 async function jeton(acteur: UtilisateurConnecte, fichier: string): Promise<string> {

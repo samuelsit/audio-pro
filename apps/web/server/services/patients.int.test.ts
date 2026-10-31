@@ -1,5 +1,5 @@
 import { ErreurChampChiffre } from '@ha/adapters';
-import { prisma } from '@ha/db';
+import { prisma } from '@ha/db/admin';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { creerJeuDeDonnees, viderBase, type JeuDeDonnees } from '@/test/donnees';
@@ -145,9 +145,9 @@ describe('creerPatient et obtenirPatient', () => {
   });
 
   it('refuse un filtre sur un champ chiffré (extension active sur le modèle)', async () => {
-    await expect(base().couvertureAmo.findFirst({ where: { nir: NIR_JEANNE } })).rejects.toThrow(
-      ErreurChampChiffre,
-    );
+    await expect(
+      base(d.acteurs.admin).couvertureAmo.findFirst({ where: { nir: NIR_JEANNE } }),
+    ).rejects.toThrow(ErreurChampChiffre);
   });
 
   it('la base refuse un NIR écrit en clair', async () => {
@@ -336,7 +336,7 @@ describe('cloisonnement par centre', () => {
     expect(deplacement.erreurs.centreId).toBeDefined();
   });
 
-  it('l’AUDIO de A et B voit A et B ; le périmètre « centre » restreint ; l’ADMIN voit tout', async () => {
+  it('l’AUDIO de A et B voit A et B ; le périmètre « centre » restreint ; l’ADMIN_CLIENT voit tout', async () => {
     expect(await ids(d.acteurs.audioAB, centre(d.centres.b.id))).toEqual([patientB]);
     expect((await ouvrir(d.acteurs.audioAB, patientA)).id).toBe(patientA);
     expect(await ids(d.acteurs.admin, tous)).toEqual([patientA, patientB].sort());

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
 import { PageCentree } from '@/components/page-centree';
-import { requireSession } from '@/server/auth/gardes';
+import { requireCompte } from '@/server/auth/gardes';
 
 import { ActivationDeuxFacteurs } from './activation';
 import { DesactivationDeuxFacteurs } from './desactivation';
@@ -12,7 +12,7 @@ import { DesactivationDeuxFacteurs } from './desactivation';
 export const metadata: Metadata = { title: 'Vérification en deux étapes – HA-Gestion' };
 
 export default async function PageCompteDeuxFacteurs() {
-  const utilisateur = await requireSession({ etapesObligatoires: false });
+  const utilisateur = await requireCompte({ etapesObligatoires: false });
   if (utilisateur.doitChangerMotDePasse) {
     redirect('/compte/mot-de-passe');
   }
@@ -37,7 +37,7 @@ export default async function PageCompteDeuxFacteurs() {
       titre="Activer la vérification en deux étapes"
       description={
         obligatoire
-          ? 'Obligatoire pour les administrateurs avant d’accéder à l’application.'
+          ? 'Obligatoire pour ce compte avant d’accéder à l’application.'
           : 'Recommandée : elle protège votre compte si votre mot de passe est compromis.'
       }
     >

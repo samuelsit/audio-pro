@@ -6,7 +6,7 @@ import {
   extensionChampsChiffres,
   type ConfigurationChampsChiffres,
 } from '@ha/adapters';
-import { prisma } from '@ha/db';
+import { clientApplication, clientOrganisation, poserContexte } from '@ha/db';
 import { nirSansCle, type Nir } from '@ha/domain';
 
 /**
@@ -42,19 +42,56 @@ export function empreinteNir(nir: Nir): string {
   return instanceEmpreinte.calculer(nirSansCle(nir), 'couverture_amo.nir');
 }
 
-function creerBase() {
-  return prisma().$extends(extensionChampsChiffres(chiffreur(), CHAMPS_CHIFFRES));
+function creerBase(organisationId: string) {
+  return clientOrganisation(organisationId).$extends(
+    extensionChampsChiffres(chiffreur(), CHAMPS_CHIFFRES),
+  );
 }
 
-let instanceBase: ReturnType<typeof creerBase> | undefined;
+const instancesBase = new Map<string, ReturnType<typeof creerBase>>();
 
-/** Client Prisma qui chiffre et déchiffre les champs de CHAMPS_CHIFFRES. */
-export function base(): ReturnType<typeof creerBase> {
-  instanceBase ??= creerBase();
-  return instanceBase;
+/** Ce qui désigne le client de l'éditeur : en pratique, l'acteur connecté. */
+export interface ContexteClient {
+  readonly organisationId: string;
 }
 
-/** Client reçu dans une transaction interactive de `base()`. */
+/**
+ * Client Prisma du client de l'acteur, soumis à la RLS (ADR-016), qui chiffre et déchiffre les champs de
+ * CHAMPS_CHIFFRES. C'est le seul accès des services aux données métier.
+ */
+export function base(contexte: ContexteClient): ReturnType<typeof creerBase> {
+  let instance = instancesBase.get(contexte.organisationId);
+  if (!instance) {
+    instance = creerBase(contexte.organisationId);
+    instancesBase.set(contexte.organisationId, instance);
+  }
+  return instance;
+}
+
+function creerClientTransactions() {
+  return clientApplication().$extends(extensionChampsChiffres(chiffreur(), CHAMPS_CHIFFRES));
+}
+
+let instanceTransactions: ReturnType<typeof creerClientTransactions> | undefined;
+
+/** Client des transactions interactives : toujours avec `poserContexte`, voir `enTransaction`. */
+export function clientTransactions(): ReturnType<typeof creerClientTransactions> {
+  instanceTransactions ??= creerClientTransactions();
+  return instanceTransactions;
+}
+
+/** Client reçu dans une transaction interactive. */
 export type ClientTransaction = Parameters<
-  Parameters<ReturnType<typeof creerBase>['$transaction']>[0]
+  Parameters<ReturnType<typeof creerClientTransactions>['$transaction']>[0]
 >[0];
+
+/** Transaction interactive dans le contexte du client : `withAudit` passe par ici. */
+export function enTransaction<T>(
+  contexte: ContexteClient,
+  operation: (tx: ClientTransaction) => Promise<T>,
+): Promise<T> {
+  return clientTransactions().$transaction(async (tx) => {
+    await poserContexte(tx, contexte.organisationId);
+    return operation(tx);
+  });
+}

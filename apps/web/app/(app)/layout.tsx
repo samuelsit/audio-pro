@@ -1,4 +1,9 @@
-import { AucunCentreAccessibleError, LIBELLES_ROLES, type Perimetre } from '@ha/domain';
+import {
+  AucunCentreAccessibleError,
+  LIBELLES_ROLES,
+  peutChoisirTousLesCentres,
+  type Perimetre,
+} from '@ha/domain';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
@@ -36,7 +41,7 @@ export default async function LayoutApplication({ children }: { children: ReactN
     throw erreur;
   }
   const { acteur, perimetre, centres } = contexte;
-  const estAdmin = acteur.role === 'ADMIN';
+  const estAdmin = acteur.role === 'ADMIN_CLIENT';
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -49,7 +54,7 @@ export default async function LayoutApplication({ children }: { children: ReactN
           <SelecteurCentre
             centres={centres}
             valeur={valeurSelecteur(perimetre)}
-            tousLesCentres={estAdmin}
+            tousLesCentres={peutChoisirTousLesCentres(acteur.role)}
             choisir={choisirCentre}
           />
           <div className="ml-auto">

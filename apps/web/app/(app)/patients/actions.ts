@@ -83,7 +83,7 @@ export async function fusionnerPatientsAction(
   _: EtatFormulaire,
   formData: FormData,
 ): Promise<EtatFormulaire> {
-  const acteur = await requireRole('ADMIN', 'AUDIO');
+  const acteur = await requireRole('ADMIN_CLIENT', 'RESPONSABLE_CENTRE', 'AUDIO');
   const choix = Object.fromEntries(
     CHAMPS_FUSION.flatMap((champ) => {
       const valeur = texte(formData, `choix.${champ}`);

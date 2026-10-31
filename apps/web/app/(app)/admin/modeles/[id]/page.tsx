@@ -24,7 +24,7 @@ const montant = (valeur: number | null | undefined) =>
 
 export default async function PageModele({ params }: PageProps<'/admin/modeles/[id]'>) {
   const { id } = await params;
-  const acteur = await requireRole('ADMIN');
+  const acteur = await requireRole('ADMIN_CLIENT');
   const [modele, fabricants] = await Promise.all([
     ouIntrouvable(obtenirModele(acteur, id)),
     listerFabricants(acteur),

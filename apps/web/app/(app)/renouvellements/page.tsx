@@ -14,7 +14,7 @@ export default async function PageRenouvellements() {
         Patients dont l’appareillage arrive au délai de renouvellement.
       </EntetePage>
       <EtatVide titre="Écran en préparation">
-        Disponible à l’étape 14 du plan de réalisation.
+        Disponible à l’étape 20 du plan de réalisation.
       </EtatVide>
     </div>
   );

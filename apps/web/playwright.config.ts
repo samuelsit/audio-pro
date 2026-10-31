@@ -1,6 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 
-import { CHIFFREMENT_TEST, urlBaseJetable } from './test/env';
+import { CHIFFREMENT_TEST, urlBaseJetable, urlsDesRoles } from './test/env';
 
 const port = 3100;
 const baseURL = `http://localhost:${port}`;
@@ -24,7 +24,7 @@ export default defineConfig({
     // Toujours un serveur dédié, branché sur la base E2E (jamais la base de dev).
     reuseExistingServer: false,
     env: {
-      DATABASE_URL: databaseUrl,
+      ...urlsDesRoles(databaseUrl),
       BETTER_AUTH_URL: baseURL,
       VITALE_LECTEUR: 'simulation',
       ...CHIFFREMENT_TEST,

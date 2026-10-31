@@ -1,4 +1,4 @@
-import { prisma } from '@ha/db';
+import { prisma } from '@ha/db/admin';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { creerJeuDeDonnees, viderBase, type JeuDeDonnees } from '@/test/donnees';
@@ -124,7 +124,7 @@ describe('recherche de prescripteur', () => {
   });
 
   it('est cloisonnée par organisation', async () => {
-    const autre = await prisma().organisation.create({ data: { nom: 'Autre réseau' } });
+    const autre = await prisma().organisation.create({ data: { raisonSociale: 'Autre réseau' } });
     await prisma().prescripteur.create({
       data: {
         organisationId: autre.id,
@@ -139,7 +139,7 @@ describe('recherche de prescripteur', () => {
     expect(resultats.map((p) => p.prenom)).toEqual(['Héloïse']);
   });
 
-  it('la liste pagine et filtre ; les inactifs ne sont vus que par l’ADMIN', async () => {
+  it('la liste pagine et filtre ; les inactifs ne sont vus que par l’ADMIN_CLIENT', async () => {
     const { prescripteurs, pagination, q } = await listerPrescripteurs(d.acteurs.audioAB, {
       q: 'Mart',
     });
@@ -155,7 +155,7 @@ describe('recherche de prescripteur', () => {
 });
 
 describe('modifierPrescripteur', () => {
-  it('l’ADMIN modifie la fiche et les formes de recherche', async () => {
+  it('l’ADMIN_CLIENT modifie la fiche et les formes de recherche', async () => {
     const { id } = await creerPrescripteur(d.acteurs.admin, ORL);
 
     await modifierPrescripteur(d.acteurs.admin, id, { ...ORL, nom: 'Renard' });

@@ -1,4 +1,4 @@
-import { prisma } from '@ha/db';
+import { prisma } from '@ha/db/admin';
 import { VALEUR_MASQUEE } from '@ha/domain';
 import { beforeEach, describe, expect, it } from 'vitest';
 

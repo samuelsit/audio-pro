@@ -11,7 +11,7 @@ import { FormulairePraticien } from '../formulaire-praticien';
 export const metadata: Metadata = { title: 'Nouvelle fiche praticien – HA-Gestion' };
 
 export default async function PageNouveauPraticien() {
-  const acteur = await requireRole('ADMIN');
+  const acteur = await requireRole('ADMIN_CLIENT');
   const [centres, audios] = await Promise.all([
     listerCentres(acteur, { type: 'tous' }),
     listerAudiosSansFiche(acteur),

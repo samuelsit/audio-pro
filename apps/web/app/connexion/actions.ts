@@ -6,7 +6,7 @@ import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 
 import { texte, type EtatFormulaire } from '@/lib/formulaire';
-import { chargerUtilisateurConnecte } from '@/server/auth/acces';
+import { chargerCompteConnecte } from '@/server/auth/acces';
 import { auth } from '@/server/auth/auth';
 import {
   enregistrerTentative,
@@ -18,7 +18,7 @@ import { journaliserConnexion, journaliserEchecConnexion } from '@/server/servic
 
 /** Journalise une connexion complète (mot de passe, puis second facteur s'il est exigé). */
 async function journaliserConnexionDe(utilisateurId: string): Promise<void> {
-  const acteur = await chargerUtilisateurConnecte(utilisateurId);
+  const acteur = await chargerCompteConnecte(utilisateurId);
   if (acteur) {
     await journaliserConnexion(acteur);
   }

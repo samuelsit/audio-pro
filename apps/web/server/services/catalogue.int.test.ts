@@ -1,4 +1,4 @@
-import { prisma } from '@ha/db';
+import { prisma } from '@ha/db/admin';
 import { ENTETES_CSV_ACCESSOIRES, ENTETES_CSV_MODELES } from '@ha/domain';
 import { beforeEach, describe, expect, it } from 'vitest';
 
@@ -105,13 +105,13 @@ describe('fabricants', () => {
     expect(encore.erreurs['nom']).toBeDefined();
   });
 
-  it('masque les fabricants inactifs hors ADMIN', async () => {
+  it('masque les fabricants inactifs hors ADMIN_CLIENT', async () => {
     await modifierFabricant(d.acteurs.admin, fabricantId, { nom: 'Acoustia', actif: false });
     expect(await listerFabricants(d.acteurs.audioAB)).toEqual([]);
     expect(await listerFabricants(d.acteurs.admin)).toHaveLength(1);
   });
 
-  it('écriture réservée à l’ADMIN, lecture cloisonnée', async () => {
+  it('écriture réservée à l’ADMIN_CLIENT, lecture cloisonnée', async () => {
     await expect(creerFabricant(d.acteurs.audioAB, { nom: 'Sonora', actif: true })).rejects.toThrow(
       AccesRefuseError,
     );
@@ -194,7 +194,7 @@ describe('modèles', () => {
     expect(encore.erreurs['nom']).toBeDefined();
   });
 
-  it('écriture réservée à l’ADMIN, inactifs masqués hors ADMIN', async () => {
+  it('écriture réservée à l’ADMIN_CLIENT, inactifs masqués hors ADMIN_CLIENT', async () => {
     await expect(creerModele(d.acteurs.audioAB, modele())).rejects.toThrow(AccesRefuseError);
     const id = await creerModele(d.acteurs.admin, modele({ actif: false }));
     await expect(modifierModele(d.acteurs.audioAB, id, modele())).rejects.toThrow(AccesRefuseError);
@@ -234,7 +234,7 @@ describe('accessoires', () => {
     expect(encore.erreurs['nom']).toBeDefined();
   });
 
-  it('écriture réservée à l’ADMIN, inactifs masqués hors ADMIN', async () => {
+  it('écriture réservée à l’ADMIN_CLIENT, inactifs masqués hors ADMIN_CLIENT', async () => {
     await expect(creerAccessoire(d.acteurs.audioAB, ACCESSOIRE)).rejects.toThrow(AccesRefuseError);
     const id = await creerAccessoire(d.acteurs.admin, { ...ACCESSOIRE, actif: false });
     await expect(modifierAccessoire(d.acteurs.audioAB, id, ACCESSOIRE)).rejects.toThrow(
@@ -308,7 +308,7 @@ describe('import CSV des modèles', () => {
     expect(erreurs[0]?.message).toContain('En-tête attendu');
   });
 
-  it('réservé à l’ADMIN', async () => {
+  it('réservé à l’ADMIN_CLIENT', async () => {
     await expect(importerModelesCsv(d.acteurs.audioAB, fichier())).rejects.toThrow(
       AccesRefuseError,
     );
@@ -349,7 +349,7 @@ describe('import CSV des accessoires', () => {
     expect(await listerAccessoires(d.acteurs.admin)).toEqual([]);
   });
 
-  it('réservé à l’ADMIN', async () => {
+  it('réservé à l’ADMIN_CLIENT', async () => {
     await expect(importerAccessoiresCsv(d.acteurs.assistantA, fichier())).rejects.toThrow(
       AccesRefuseError,
     );

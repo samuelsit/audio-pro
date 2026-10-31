@@ -1,5 +1,6 @@
 'use server';
 
+import { JOURS_SEMAINE, PLAGES_PAR_JOUR, type HorairesOuverture } from '@ha/domain';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
@@ -9,7 +10,26 @@ import { requireRole } from '@/server/auth/gardes';
 import { notifier } from '@/server/notifications';
 import { creerCentre, modifierCentre } from '@/server/services/centres';
 
-function saisie(formData: FormData) {
+/** Plages renseignées de la grille des horaires ; une plage incomplète est refusée par le domaine. */
+function horaires(formData: FormData) {
+  const plages = (jour: keyof HorairesOuverture) =>
+    Array.from({ length: PLAGES_PAR_JOUR }, (_, i) => ({
+      debut: texte(formData, `${jour}-${i}-debut`),
+      fin: texte(formData, `${jour}-${i}-fin`),
+    })).filter((plage) => plage.debut !== '' || plage.fin !== '');
+  return Object.fromEntries(JOURS_SEMAINE.map((jour) => [jour, plages(jour)]));
+}
+
+/** Heures saisies, pour les réafficher si le formulaire est refusé. */
+function heuresSaisies(formData: FormData): Record<string, string> {
+  return Object.fromEntries(
+    [...formData.entries()].flatMap(([nom, valeur]) =>
+      /-(debut|fin)$/.test(nom) && typeof valeur === 'string' ? [[nom, valeur]] : [],
+    ),
+  );
+}
+
+function champs(formData: FormData) {
   return {
     nom: texte(formData, 'nom'),
     adresseLigne1: texte(formData, 'adresseLigne1'),
@@ -28,13 +48,21 @@ function saisie(formData: FormData) {
   };
 }
 
+function saisie(formData: FormData) {
+  return { ...champs(formData), horairesOuverture: horaires(formData) };
+}
+
+function valeurs(formData: FormData) {
+  return { ...champs(formData), ...heuresSaisies(formData) };
+}
+
 export async function creerCentreAction(
   _: EtatFormulaire,
   formData: FormData,
 ): Promise<EtatFormulaire> {
-  const acteur = await requireRole('ADMIN');
+  const acteur = await requireRole('ADMIN_CLIENT');
   const donnees = saisie(formData);
-  const erreur = await executer(() => creerCentre(acteur, donnees), donnees);
+  const erreur = await executer(() => creerCentre(acteur, donnees), valeurs(formData));
   if (erreur) {
     return erreur;
   }
@@ -48,9 +76,9 @@ export async function modifierCentreAction(
   _: EtatFormulaire,
   formData: FormData,
 ): Promise<EtatFormulaire> {
-  const acteur = await requireRole('ADMIN');
+  const acteur = await requireRole('ADMIN_CLIENT');
   const donnees = saisie(formData);
-  const erreur = await executer(() => modifierCentre(acteur, centreId, donnees), donnees);
+  const erreur = await executer(() => modifierCentre(acteur, centreId, donnees), valeurs(formData));
   if (erreur) {
     return erreur;
   }

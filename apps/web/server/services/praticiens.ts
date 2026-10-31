@@ -1,4 +1,4 @@
-import { prisma, type Prisma } from '@ha/db';
+import type { Prisma } from '@ha/db';
 import {
   centresExerciceHorsRattachement,
   differencesAuditees,
@@ -8,6 +8,7 @@ import {
   type Perimetre,
 } from '@ha/domain';
 
+import { base } from '../chiffrement';
 import {
   AccesRefuseError,
   verifierPerimetre,
@@ -61,18 +62,18 @@ function versResume(acteur: UtilisateurConnecte, p: LignePraticien): PraticienRe
   };
 }
 
-/** Praticiens exerçant dans un centre du périmètre (inactifs visibles par l'ADMIN seulement). */
+/** Praticiens exerçant dans un centre du périmètre (inactifs visibles par l'ADMIN_CLIENT seulement). */
 export async function listerPraticiens(
   acteur: UtilisateurConnecte,
   perimetre: Perimetre,
 ): Promise<PraticienResume[]> {
   verifierPerimetre(acteur, perimetre);
   const centres = filtreParCentre(acteur, perimetre);
-  const lignes = await prisma().praticien.findMany({
+  const lignes = await base(acteur).praticien.findMany({
     where: {
       utilisateur: {
         organisationId: acteur.organisationId,
-        ...(acteur.role === 'ADMIN' ? {} : { actif: true }),
+        ...(acteur.role === 'ADMIN_CLIENT' ? {} : { actif: true }),
       },
       ...(centres ? { centres } : {}),
     },
@@ -86,8 +87,8 @@ export async function obtenirPraticien(
   acteur: UtilisateurConnecte,
   praticienId: string,
 ): Promise<PraticienDetail> {
-  verifierRole(acteur, 'ADMIN');
-  const p = await prisma().praticien.findFirst({
+  verifierRole(acteur, 'ADMIN_CLIENT');
+  const p = await base(acteur).praticien.findFirst({
     where: { id: praticienId, utilisateur: { organisationId: acteur.organisationId } },
     select: selectionPraticien,
   });
@@ -101,8 +102,8 @@ export async function obtenirPraticien(
 export async function listerAudiosSansFiche(
   acteur: UtilisateurConnecte,
 ): Promise<{ id: string; prenom: string; nom: string }[]> {
-  verifierRole(acteur, 'ADMIN');
-  return prisma().utilisateur.findMany({
+  verifierRole(acteur, 'ADMIN_CLIENT');
+  return base(acteur).utilisateur.findMany({
     where: { organisationId: acteur.organisationId, role: 'AUDIO', praticien: null },
     select: { id: true, prenom: true, nom: true },
     orderBy: [{ nom: 'asc' }, { prenom: 'asc' }],
@@ -112,7 +113,7 @@ export async function listerAudiosSansFiche(
 /** Contrôle l'utilisateur cible et ses centres d'exercice ; renvoie la saisie validée. */
 async function validerSaisie(acteur: UtilisateurConnecte, saisie: unknown) {
   const donnees = valider(praticienSaisieSchema, saisie);
-  const utilisateur = await prisma().utilisateur.findFirst({
+  const utilisateur = await base(acteur).utilisateur.findFirst({
     where: { id: donnees.utilisateurId, organisationId: acteur.organisationId },
     select: { role: true, centres: { select: { centreId: true } } },
   });
@@ -139,8 +140,14 @@ async function validerSaisie(acteur: UtilisateurConnecte, saisie: unknown) {
 }
 
 const MESSAGES_DOUBLON = {
-  praticien_rpps_key: ['rpps', 'Ce numéro RPPS est déjà enregistré pour un autre praticien.'],
-  praticien_adeli_key: ['adeli', 'Ce numéro ADELI est déjà enregistré pour un autre praticien.'],
+  praticien_organisation_id_rpps_key: [
+    'rpps',
+    'Ce numéro RPPS est déjà enregistré pour un autre praticien.',
+  ],
+  praticien_organisation_id_adeli_key: [
+    'adeli',
+    'Ce numéro ADELI est déjà enregistré pour un autre praticien.',
+  ],
   praticien_utilisateur_id_key: ['utilisateurId', 'Cet utilisateur a déjà une fiche praticien.'],
 } as const;
 
@@ -148,7 +155,7 @@ export async function creerPraticien(
   acteur: UtilisateurConnecte,
   saisie: unknown,
 ): Promise<string> {
-  verifierRole(acteur, 'ADMIN');
+  verifierRole(acteur, 'ADMIN_CLIENT');
   const donnees = await validerSaisie(acteur, saisie);
   try {
     const p = await withAudit(
@@ -182,7 +189,7 @@ export async function modifierPraticien(
   praticienId: string,
   saisie: unknown,
 ): Promise<void> {
-  verifierRole(acteur, 'ADMIN');
+  verifierRole(acteur, 'ADMIN_CLIENT');
   const actuel = await obtenirPraticien(acteur, praticienId);
   const donnees = await validerSaisie(acteur, {
     ...(typeof saisie === 'object' ? saisie : {}),

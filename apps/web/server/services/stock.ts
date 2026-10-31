@@ -1,5 +1,5 @@
 import { SystemClock } from '@ha/adapters';
-import { prisma, type Prisma } from '@ha/db';
+import type { Prisma } from '@ha/db';
 import {
   annulationVenteSaisieSchema,
   calculerPagination,
@@ -315,7 +315,7 @@ export async function transfererAppareil(
   );
 }
 
-/** VENDU → EN_STOCK : seule voie de retour d'un appareil vendu, réservée à l'ADMIN, motif obligatoire. */
+/** VENDU → EN_STOCK : seule voie de retour d'un appareil vendu, réservée à l'ADMIN_CLIENT, motif obligatoire. */
 export async function annulerVente(
   acteur: UtilisateurConnecte,
   appareilId: string,
@@ -359,7 +359,7 @@ async function lireModeleActif(
   acteur: UtilisateurConnecte,
   modeleId: string,
 ): Promise<{ id: string; fabricantId: string }> {
-  const modele = await prisma().modeleAideAuditive.findFirst({
+  const modele = await base(acteur).modeleAideAuditive.findFirst({
     where: { id: modeleId, organisationId: acteur.organisationId, actif: true },
     select: { id: true, fabricantId: true },
   });
@@ -385,11 +385,11 @@ export async function recevoirAppareils(
   if (!dateReceptionValide(donnees.dateReception, horloge.now().slice(0, 10))) {
     throw ErreurSaisie.surChamp('dateReception', 'La date de réception ne peut pas être future.');
   }
-  await verifierCentreActif(base(), acteur, donnees.centreId, 'centreId');
+  await verifierCentreActif(base(acteur), acteur, donnees.centreId, 'centreId');
   const modele = await lireModeleActif(acteur, donnees.modeleId);
   const { numerosSerie, dateReception, ...communs } = donnees;
 
-  const existants = await prisma().appareil.findMany({
+  const existants = await base(acteur).appareil.findMany({
     where: { fabricantId: modele.fabricantId, numeroSerie: { in: numerosSerie } },
     select: { numeroSerie: true },
     orderBy: { numeroSerie: 'asc' },
@@ -458,7 +458,7 @@ const DOUBLON_CORRECTION = {
 } as const;
 
 /**
- * Références d'achat (la facture arrive après le bon de livraison) et, pour l'ADMIN, prix d'achat.
+ * Références d'achat (la facture arrive après le bon de livraison) et, pour l'ADMIN_CLIENT, prix d'achat.
  * Le numéro de série et le modèle ne se corrigent que tant que l'appareil n'a connu que sa réception :
  * au-delà, ils figurent dans des documents.
  */
@@ -559,7 +559,7 @@ export async function rechercherParNumeroSerie(
   if (numeroSerie === '') {
     return [];
   }
-  const lignes = await prisma().appareil.findMany({
+  const lignes = await base(acteur).appareil.findMany({
     where: { organisationId: acteur.organisationId, numeroSerie },
     select: {
       id: true,
@@ -675,7 +675,7 @@ export async function obtenirFicheAppareil(
     async () => {
       // Lecture sur le client, pas sur la connexion de la transaction : Prisma charge ces relations en
       // parallèle. Rien n'est renvoyé si le journal échoue.
-      const client = base();
+      const client = base(acteur);
       const a = await client.appareil.findFirst({
         where: { id: appareilId, organisationId: acteur.organisationId },
         include: {
@@ -823,9 +823,9 @@ export async function listerStock(
   verifierPerimetre(acteur, perimetre);
   const filtre = valider(filtreStockSchema, saisie);
   const where = clauseStock(acteur, perimetre, filtre);
-  const total = await prisma().appareil.count({ where });
+  const total = await base(acteur).appareil.count({ where });
   const pagination = calculerPagination(filtre.page, LIGNES_PAR_PAGE_STOCK, total);
-  const lignes = await prisma().appareil.findMany({
+  const lignes = await base(acteur).appareil.findMany({
     where,
     select: selectionListe,
     orderBy: ORDRE_STOCK,
@@ -850,7 +850,7 @@ export async function listerStock(
   };
 }
 
-/** Export CSV journalisé, produit par lots. Aucune identité de patient ; prix réservé à l'ADMIN. */
+/** Export CSV journalisé, produit par lots. Aucune identité de patient ; prix réservé à l'ADMIN_CLIENT. */
 export async function exporterStock(
   acteur: UtilisateurConnecte,
   perimetre: Perimetre,
@@ -860,7 +860,7 @@ export async function exporterStock(
   const filtre = valider(filtreStockSchema, saisie);
   const avecPrix = peutVoirPrixAchat(acteur.role);
   const filtres = Object.fromEntries(Object.entries(filtre).filter(([cle]) => cle !== 'page'));
-  await journaliser(base(), auteurDepuisActeur(acteur), {
+  await journaliser(base(acteur), auteurDepuisActeur(acteur), {
     action: 'EXPORT',
     entiteType: 'APPAREIL',
     centreId: perimetre.type === 'centre' ? perimetre.centreId : null,
@@ -872,7 +872,7 @@ export async function exporterStock(
     yield ligneCsv(entetesCsvStock(avecPrix));
     let curseur: string | undefined;
     for (;;) {
-      const lot = await prisma().appareil.findMany({
+      const lot = await base(acteur).appareil.findMany({
         where,
         select: selectionListe,
         orderBy: ORDRE_STOCK,
@@ -913,7 +913,7 @@ export async function centresDeDestination(
   acteur: UtilisateurConnecte,
   centreId: string | null,
 ): Promise<{ id: string; nom: string }[]> {
-  return prisma().centre.findMany({
+  return base(acteur).centre.findMany({
     where: {
       organisationId: acteur.organisationId,
       actif: true,
@@ -950,7 +950,7 @@ async function verifierAccessoire(
   acteur: UtilisateurConnecte,
   accessoireId: string,
 ): Promise<void> {
-  const accessoire = await prisma().accessoire.findFirst({
+  const accessoire = await base(acteur).accessoire.findFirst({
     where: { id: accessoireId, organisationId: acteur.organisationId },
     select: { id: true },
   });
@@ -1033,7 +1033,7 @@ export async function entreeAccessoire(
 ): Promise<void> {
   const operation = valider(mouvementAccessoireSaisieSchema, saisie);
   verifierAccesCentre(acteur, operation.centreId);
-  await verifierCentreActif(base(), acteur, operation.centreId, 'centreId');
+  await verifierCentreActif(base(acteur), acteur, operation.centreId, 'centreId');
   await verifierAccessoire(acteur, operation.accessoireId);
   await withAudit(
     acteur,
@@ -1068,7 +1068,7 @@ export async function transfererAccessoire(
 ): Promise<void> {
   const { centreDestinationId, ...operation } = valider(transfertAccessoireSaisieSchema, saisie);
   verifierAccesCentre(acteur, operation.centreId);
-  await verifierCentreActif(base(), acteur, centreDestinationId, 'centreDestinationId');
+  await verifierCentreActif(base(acteur), acteur, centreDestinationId, 'centreDestinationId');
   await verifierAccessoire(acteur, operation.accessoireId);
   const arrivee = { ...operation, centreId: centreDestinationId };
   await withAudit(
@@ -1091,7 +1091,7 @@ export async function listerStockAccessoires(
 ): Promise<LigneStockAccessoire[]> {
   verifierPerimetre(acteur, perimetre);
   const centres = centresDuPerimetre(acteur, perimetre);
-  const lignes = await prisma().stockAccessoire.findMany({
+  const lignes = await base(acteur).stockAccessoire.findMany({
     where: {
       accessoire: { organisationId: acteur.organisationId },
       ...(centres === null ? {} : { centreId: { in: [...centres] } }),
@@ -1120,7 +1120,7 @@ export async function exporterStockAccessoires(
   perimetre: Perimetre,
 ): Promise<AsyncGenerator<string>> {
   const stock = await listerStockAccessoires(acteur, perimetre);
-  await journaliser(base(), auteurDepuisActeur(acteur), {
+  await journaliser(base(acteur), auteurDepuisActeur(acteur), {
     action: 'EXPORT',
     entiteType: 'STOCK_ACCESSOIRE',
     centreId: perimetre.type === 'centre' ? perimetre.centreId : null,
@@ -1143,7 +1143,7 @@ export async function historiqueAccessoire(
 ): Promise<MouvementAccessoireAffiche[]> {
   verifierPerimetre(acteur, perimetre);
   const centres = centresDuPerimetre(acteur, perimetre);
-  const lignes = await base().mouvementAccessoire.findMany({
+  const lignes = await base(acteur).mouvementAccessoire.findMany({
     where: {
       organisationId: acteur.organisationId,
       accessoireId,

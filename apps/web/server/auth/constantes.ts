@@ -7,3 +7,4 @@ export const PREFIXE_COOKIES = 'ha';
 export const COOKIE_CENTRE_COURANT = 'ha_centre';
 
 export const CHEMIN_CONNEXION = '/connexion';
+export const CHEMIN_CONSOLE = '/console';

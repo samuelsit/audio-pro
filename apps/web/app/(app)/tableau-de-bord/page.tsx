@@ -12,7 +12,7 @@ export default async function PageTableauDeBord() {
     <div className="grid gap-6">
       <EntetePage titre="Tableau de bord">Indicateurs du réseau et des centres.</EntetePage>
       <EtatVide titre="Écran en préparation">
-        Disponible à l’étape 14 du plan de réalisation.
+        Disponible à l’étape 20 du plan de réalisation.
       </EtatVide>
     </div>
   );

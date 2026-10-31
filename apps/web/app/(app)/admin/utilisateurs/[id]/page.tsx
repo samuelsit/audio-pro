@@ -14,7 +14,7 @@ export const metadata: Metadata = { title: 'Utilisateur – HA-Gestion' };
 
 export default async function PageUtilisateur({ params }: PageProps<'/admin/utilisateurs/[id]'>) {
   const { id } = await params;
-  const acteur = await requireRole('ADMIN');
+  const acteur = await requireRole('ADMIN_CLIENT');
   const [utilisateur, centres] = await Promise.all([
     ouIntrouvable(obtenirUtilisateur(acteur, id)),
     listerCentres(acteur, { type: 'tous' }),

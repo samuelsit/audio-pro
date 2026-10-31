@@ -2,9 +2,9 @@ import { execFileSync } from 'node:child_process';
 import { writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
-import { preparerBaseJetable, viderBaseJetable } from '@ha/db';
+import { preparerBaseJetable, viderBaseJetable } from '@ha/db/admin';
 
-import { CHIFFREMENT_TEST, urlBaseJetable } from '../test/env';
+import { CHIFFREMENT_TEST, urlBaseJetable, urlsDesRoles } from '../test/env';
 
 // Usage : pnpm demo:devis <sortie.pdf>
 // Rejoue le parcours avec les vrais services et Chromium, sur la base jetable E2E repartie de zéro :
@@ -27,16 +27,15 @@ async function main(): Promise<void> {
   await viderBaseJetable(url);
   execFileSync('pnpm', ['run', 'seed'], {
     cwd: path.join(RACINE, 'packages/db'),
-    env: { ...process.env, DATABASE_URL: url, ...CHIFFREMENT_TEST },
+    env: { ...process.env, ...urlsDesRoles(url), ...CHIFFREMENT_TEST },
     stdio: 'pipe',
   });
-  Object.assign(process.env, CHIFFREMENT_TEST, {
-    DATABASE_URL: url,
+  Object.assign(process.env, CHIFFREMENT_TEST, urlsDesRoles(url), {
     DOCUMENTS_STOCKAGE: 'memoire',
   });
 
-  // Après l'environnement : le client Prisma lit DATABASE_URL au premier appel.
-  const { prisma } = await import('@ha/db');
+  // Après l'environnement : les clients Prisma lisent leur URL au premier appel.
+  const { prisma } = await import('@ha/db/admin');
   const { chargerUtilisateurConnecte } = await import('../server/auth/acces');
   const { fermerConnexionsLpp, importerLpp } = await import('../server/lpp/importer');
   const { creerDevis, emettreDevis, imprimerDevis } = await import('../server/services/devis');

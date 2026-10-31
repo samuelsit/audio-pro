@@ -1,4 +1,10 @@
-import { formaterNir, LIBELLES_ORIGINE, LIBELLES_QUALITE, LIBELLES_SEXE } from '@ha/domain';
+import {
+  formaterNir,
+  LIBELLES_ORIGINE,
+  LIBELLES_QUALITE,
+  LIBELLES_SEXE,
+  peutActerAppareillage,
+} from '@ha/domain';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
@@ -55,7 +61,7 @@ export default async function PageFichePatient({ params }: PageProps<'/patients/
   }
   const { fiche } = ouverture;
   const doublons = await doublonsDeLaFiche(acteur, fiche);
-  const peutFusionner = acteur.role === 'ADMIN' || acteur.role === 'AUDIO';
+  const peutFusionner = peutActerAppareillage(acteur.role);
   const { amo, amc } = fiche;
 
   return (

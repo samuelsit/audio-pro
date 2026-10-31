@@ -37,7 +37,7 @@ export async function creerAccessoireAction(
   _: EtatFormulaire,
   formData: FormData,
 ): Promise<EtatFormulaire> {
-  const acteur = await requireRole('ADMIN');
+  const acteur = await requireRole('ADMIN_CLIENT');
   const donnees = saisie(formData);
   const erreur = await executer(() => creerAccessoire(acteur, donnees), donnees);
   return erreur ?? terminer();
@@ -48,7 +48,7 @@ export async function modifierAccessoireAction(
   _: EtatFormulaire,
   formData: FormData,
 ): Promise<EtatFormulaire> {
-  const acteur = await requireRole('ADMIN');
+  const acteur = await requireRole('ADMIN_CLIENT');
   const donnees = saisie(formData);
   const erreur = await executer(() => modifierAccessoire(acteur, accessoireId, donnees), donnees);
   return erreur ?? terminer();
@@ -58,7 +58,7 @@ export async function importerAccessoiresAction(
   _: EtatImportCsv,
   formData: FormData,
 ): Promise<EtatImportCsv> {
-  const acteur = await requireRole('ADMIN');
+  const acteur = await requireRole('ADMIN_CLIENT');
   const etat = await executerImportCsv(formData, (t) => importerAccessoiresCsv(acteur, t));
   revalidatePath('/admin/accessoires');
   return etat;

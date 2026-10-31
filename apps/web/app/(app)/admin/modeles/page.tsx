@@ -27,7 +27,7 @@ import { importerModelesAction } from './actions';
 export const metadata: Metadata = { title: 'Modèles – HA-Gestion' };
 
 export default async function PageModeles() {
-  const acteur = await requireRole('ADMIN');
+  const acteur = await requireRole('ADMIN_CLIENT');
   const modeles = await listerModeles(acteur);
   return (
     <div className="grid gap-6">

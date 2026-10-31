@@ -28,7 +28,7 @@ export default async function PageUtilisateurs() {
       >
         {perimetre.type === 'tous'
           ? 'Tous les comptes du réseau.'
-          : 'Comptes rattachés au centre courant (les administrateurs apparaissent avec « Tous les centres »).'}
+          : 'Comptes rattachés au centre courant (les administrateurs apparaissent avec « Tous mes centres »).'}
       </EntetePage>
       <Table>
         <TableHeader>
@@ -55,7 +55,7 @@ export default async function PageUtilisateurs() {
               <TableCell>{u.email}</TableCell>
               <TableCell>{LIBELLES_ROLES[u.role]}</TableCell>
               <TableCell>
-                {u.role === 'ADMIN' ? 'Tous' : u.centres.map((c) => c.nom).join(', ')}
+                {u.role === 'ADMIN_CLIENT' ? 'Tous' : u.centres.map((c) => c.nom).join(', ')}
               </TableCell>
               <TableCell>{u.deuxFacteursActif ? 'Activée' : '—'}</TableCell>
               <TableCell>

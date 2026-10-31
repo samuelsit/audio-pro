@@ -5,7 +5,7 @@ import { perimetreCourant } from '@/server/auth/gardes';
 import { reponseCsv } from '@/server/csv';
 import { exporterJournal } from '@/server/services/journal';
 
-/** Export CSV du journal d'audit (ADMIN), mêmes filtres que l'écran. Journalisé par le service. */
+/** Export CSV du journal d'audit (ADMIN_CLIENT), mêmes filtres que l'écran. Journalisé par le service. */
 export async function GET(requete: NextRequest): Promise<Response> {
   const jour = new SystemClock().now().slice(0, 10);
   return reponseCsv(`journal-audit-${jour}.csv`, async () => {

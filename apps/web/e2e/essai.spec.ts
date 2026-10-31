@@ -169,7 +169,7 @@ test('un essai va de la pose à l’achat, avec une prolongation et un changemen
   await page.getByLabel('Date', { exact: true }).fill(new Date().toISOString().slice(0, 10));
   await page.getByLabel(/^Justificatif/).setInputFiles(PDF_FICTIF);
   await page.getByRole('button', { name: 'Enregistrer la prise en charge' }).click();
-  await expect(page.getByText('Prêt à exporter')).toBeVisible();
+  await expect(page.getByText('Prêt à facturer')).toBeVisible();
   await expect(page.getByRole('link', { name: 'Ouvrir le justificatif' })).toBeVisible();
 
   await page.goto('/a-facturer');

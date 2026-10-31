@@ -43,7 +43,7 @@ export async function creerModeleAction(
   _: EtatFormulaire,
   formData: FormData,
 ): Promise<EtatFormulaire> {
-  const acteur = await requireRole('ADMIN');
+  const acteur = await requireRole('ADMIN_CLIENT');
   const donnees = saisie(formData);
   const erreur = await executer(() => creerModele(acteur, donnees), donnees);
   return erreur ?? terminer();
@@ -54,7 +54,7 @@ export async function modifierModeleAction(
   _: EtatFormulaire,
   formData: FormData,
 ): Promise<EtatFormulaire> {
-  const acteur = await requireRole('ADMIN');
+  const acteur = await requireRole('ADMIN_CLIENT');
   const donnees = saisie(formData);
   const erreur = await executer(() => modifierModele(acteur, modeleId, donnees), donnees);
   return erreur ?? terminer();
@@ -64,7 +64,7 @@ export async function importerModelesAction(
   _: EtatImportCsv,
   formData: FormData,
 ): Promise<EtatImportCsv> {
-  const acteur = await requireRole('ADMIN');
+  const acteur = await requireRole('ADMIN_CLIENT');
   const etat = await executerImportCsv(formData, (t) => importerModelesCsv(acteur, t));
   revalidatePath('/admin/modeles');
   return etat;

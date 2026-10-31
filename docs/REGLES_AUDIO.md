@@ -179,7 +179,7 @@ Piles : `PIL`. Accessoires : `APA`.
 - Le délai concerne la prise en charge, pas la vente.
 - Notre historique ne voit que nos délivrances. Le téléservice de l'Assurance Maladie fait foi (art. 22 § 1) : un résultat « éligible » reste indicatif.
 
-**Décision** (2026-10-31, ADR-011) : à l'enregistrement de la prescription, le délai s'apprécie à la première délivrance possible (jour + 30 jours d'essai, `controlePrescription`), sur chaque oreille du dossier et quel que soit son type déclaré. Un délai non écoulé est une erreur, qu'un ADMIN peut forcer avec un motif. La date de comparaison est À VÉRIFIER : aucun texte ne la fixe avant la délivrance réelle.
+**Décision** (2026-10-31, ADR-011) : à l'enregistrement de la prescription, le délai s'apprécie à la première délivrance possible (jour + 30 jours d'essai, `controlePrescription`), sur chaque oreille du dossier et quel que soit son type déclaré. Un délai non écoulé est une erreur, qu'un ADMIN_CLIENT peut forcer avec un motif. La date de comparaison est À VÉRIFIER : aucun texte ne la fixe avant la délivrance réelle.
 
 **Cas limites** : jour anniversaire (éligible le jour même, retenu, À VÉRIFIER) ; oreilles à des dates différentes ; premier appareillage (éligible) ; plusieurs délivrances (la plus récente) ; 29 février.
 
@@ -385,9 +385,9 @@ Le reste n'est pas dans les tests : il est calculé. Dans ces cas de tiers payan
 
 **Écart** : les tests FR 201 de 2021 facturent les codes génériques, que la LPP 908 marque `RJT` depuis le 07/07/2023.
 
-**Aucune numérotation ni encaissement** : voir ADR-014.
+**Aucune numérotation ni encaissement** avant les étapes 14 et 15 : voir ADR-015.
 
-## R22 – Contrôles avant export (`controlerFacture`, `couvertureAmoAJour`)
+## R22 – Contrôles avant facturation (`controlerFacture`, `couvertureAmoAJour`)
 
 **Statut : Confirmé avec écart.** Une erreur bloque, un avertissement n'empêche rien. L'état se recalcule à chaque lecture.
 
@@ -396,7 +396,7 @@ Le reste n'est pas dans les tests : il est calculé. Dans ces cas de tiers payan
 | Couverture AMO absente ou à confirmer                                 | Convention art. 27, p. 26 ; délai À VÉRIFIER |
 | Droits non ouverts à la date de délivrance                            | Convention art. 27, p. 26                    |
 | Prescription absente, postérieure au devis, oreille non prescrite     | Devis p. 1 ; convention art. 28, p. 26       |
-| Renouvellement avant 4 ans à la délivrance réelle, sauf forçage ADMIN | Convention art. 22 § 1, p. 22                |
+| Renouvellement avant 4 ans à la délivrance réelle, sauf forçage ADMIN_CLIENT | Convention art. 22 § 1, p. 22                |
 | Devis non signé ou sans offre retenue                                 | Devis p. 2 § 5                               |
 | Numéro de série manquant                                              | Convention art. 21, p. 21                    |
 | Ventilation incohérente                                               | Contrôle de cohérence (R13)                  |

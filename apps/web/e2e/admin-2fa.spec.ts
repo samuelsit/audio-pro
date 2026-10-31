@@ -17,7 +17,7 @@ const PDF_FICTIF = {
 
 let secret = '';
 
-test('l’ADMIN doit activer la 2FA, puis la saisir à chaque connexion', async ({ page }) => {
+test('l’ADMIN_CLIENT doit activer la 2FA, puis la saisir à chaque connexion', async ({ page }) => {
   await seConnecter(page, COMPTES.admin);
 
   // Première connexion : activation forcée avant tout accès.
@@ -34,10 +34,10 @@ test('l’ADMIN doit activer la 2FA, puis la saisir à chaque connexion', async 
   await page.getByRole('button', { name: 'Activer' }).click();
   await expect(page.getByRole('heading', { name: 'Bonjour Alex' })).toBeVisible();
 
-  // « Tous les centres » est proposé à l'ADMIN et affiche les trois centres.
-  await expect(page.getByTestId('centre-courant')).toHaveText('Tous les centres');
+  // « Tous mes centres » est proposé à l'ADMIN_CLIENT et affiche les trois centres.
+  await expect(page.getByTestId('centre-courant')).toHaveText('Tous mes centres');
   expect(await ouvrirSelecteurCentre(page)).toEqual([
-    'Tous les centres',
+    'Tous mes centres',
     'Centre Démo Centre',
     'Centre Démo Nord',
     'Centre Démo Sud',
@@ -160,7 +160,7 @@ test('l’ADMIN doit activer la 2FA, puis la saisir à chaque connexion', async 
   expect(csv).toContain('Export;Journal d’audit');
 });
 
-test('l’ADMIN force un renouvellement refusé, avec un motif et sans rechoisir le fichier', async ({
+test('l’ADMIN_CLIENT force un renouvellement refusé, avec un motif et sans rechoisir le fichier', async ({
   page,
 }) => {
   await seConnecter(page, COMPTES.admin);
