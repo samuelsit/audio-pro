@@ -147,6 +147,24 @@ describe('actions sur un devis', () => {
     expect(debutEssaiSaisieSchema.safeParse({ statutAttendu: 'EMIS' }).success).toBe(false);
   });
 
+  it('normalise les numéros de série de l’essai, une oreille pouvant rester vide', () => {
+    expect(
+      debutEssaiSaisieSchema.parse({
+        statutAttendu: 'EMIS',
+        offreEssai: 'OFFRE_100_SANTE',
+        numeroSerieDroite: ' ab 123 ',
+        numeroSerieGauche: '',
+      }),
+    ).toMatchObject({ numeroSerieDroite: 'AB123', numeroSerieGauche: null });
+    expect(
+      debutEssaiSaisieSchema.safeParse({
+        statutAttendu: 'EMIS',
+        offreEssai: 'OFFRE_100_SANTE',
+        numeroSerieDroite: 'a',
+      }).success,
+    ).toBe(false);
+  });
+
   it.each([
     { signe: true, valide: true },
     { signe: false, valide: false },

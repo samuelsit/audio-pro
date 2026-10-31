@@ -22,12 +22,13 @@ export const LIBELLES_STATUTS_APPAREIL: Readonly<Record<StatutAppareil, string>>
 /**
  * Transitions autorisées, hors annulation de vente (voir `verifierAnnulationVente`).
  * VENDU ne s'atteint que depuis EN_ESSAI : l'essai précède la vente. Les retours en VENDU depuis SAV
- * ou RETOUR_FABRICANT rendent au patient l'appareil qu'il a acheté.
+ * ou RETOUR_FABRICANT rendent au patient l'appareil qu'il a acheté. EN_ESSAI → RESERVE : l'achat est
+ * confirmé, l'appareil reste réservé au patient jusqu'à la facturation (ADR-013).
  */
 const TRANSITIONS: Readonly<Record<StatutAppareil, readonly StatutAppareil[]>> = {
   EN_STOCK: ['RESERVE', 'EN_ESSAI', 'PRET', 'SAV', 'RETOUR_FABRICANT'],
   RESERVE: ['EN_STOCK', 'EN_ESSAI'],
-  EN_ESSAI: ['EN_STOCK', 'VENDU', 'SAV'],
+  EN_ESSAI: ['EN_STOCK', 'RESERVE', 'VENDU', 'SAV'],
   PRET: ['EN_STOCK', 'SAV'],
   VENDU: ['SAV'],
   SAV: ['RETOUR_FABRICANT', 'EN_STOCK', 'VENDU'],
@@ -53,6 +54,7 @@ export const CODES_REFUS_TRANSITION = [
   'PATIENT_REQUIS',
   'APPAREIL_DU_PATIENT',
   'APPAREIL_NON_VENDU',
+  'PILOTE_PAR_DOSSIER',
 ] as const;
 export type CodeRefusTransition = (typeof CODES_REFUS_TRANSITION)[number];
 
@@ -63,6 +65,7 @@ export const MESSAGES_REFUS_TRANSITION: Readonly<Record<CodeRefusTransition, str
   APPAREIL_DU_PATIENT:
     'Cet appareil a été vendu à un patient : il lui revient, il ne peut pas retourner en stock.',
   APPAREIL_NON_VENDU: 'Cet appareil n’a pas été vendu : il ne peut que retourner en stock.',
+  PILOTE_PAR_DOSSIER: 'L’essai se pilote depuis le dossier du patient.',
 };
 
 export type ResultatTransition =
@@ -112,9 +115,20 @@ export function verifierTransition(
   return { autorisee: true, effetPatient: effet };
 }
 
-/** Statuts atteignables depuis cet état (un patient sera demandé si le statut l'exige). */
+/** Changement saisi sur la fiche d'un appareil : l'entrée en essai et l'achat passent par le dossier. */
+export function verifierTransitionManuelle(
+  etat: EtatAppareil,
+  vers: StatutAppareil,
+  patientFourni: boolean,
+): ResultatTransition {
+  const resultat = verifierTransition(etat, vers, patientFourni);
+  const pilote = vers === 'EN_ESSAI' || (etat.statut === 'EN_ESSAI' && vers === 'RESERVE');
+  return resultat.autorisee && pilote ? refus('PILOTE_PAR_DOSSIER') : resultat;
+}
+
+/** Statuts atteignables depuis la fiche (un patient sera demandé si le statut l'exige). */
 export function transitionsPossibles(etat: EtatAppareil): StatutAppareil[] {
-  return STATUTS_APPAREIL.filter((vers) => verifierTransition(etat, vers, true).autorisee);
+  return STATUTS_APPAREIL.filter((vers) => verifierTransitionManuelle(etat, vers, true).autorisee);
 }
 
 /** Le patient doit être choisi pour passer à ce statut. */

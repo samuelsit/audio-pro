@@ -10,6 +10,7 @@ import {
   transitionsPossibles,
   verifierAnnulationVente,
   verifierTransition,
+  verifierTransitionManuelle,
   type CodeRefusTransition,
   type EffetPatient,
   type StatutAppareil,
@@ -44,7 +45,7 @@ const MATRICE: Readonly<Record<StatutAppareil, Readonly<Record<StatutAppareil, A
   },
   EN_ESSAI: {
     EN_STOCK: 'DETACHER',
-    RESERVE: INTERDIT,
+    RESERVE: 'CONSERVER',
     EN_ESSAI: INTERDIT,
     VENDU: 'CONSERVER',
     RETOUR_FABRICANT: INTERDIT,
@@ -146,14 +147,31 @@ describe('verifierTransition', () => {
   });
 });
 
+describe('verifierTransitionManuelle', () => {
+  it.each([
+    { statut: 'EN_STOCK', patientRattache: false, vers: 'EN_ESSAI' },
+    { statut: 'RESERVE', patientRattache: true, vers: 'EN_ESSAI' },
+    { statut: 'EN_ESSAI', patientRattache: true, vers: 'RESERVE' },
+  ] as const)('$statut → $vers passe par le dossier', ({ vers, ...etat }) => {
+    expect(resume(verifierTransitionManuelle(etat, vers, true))).toBe('PILOTE_PAR_DOSSIER');
+  });
+
+  it('laisse passer les autres changements et garde leur refus propre', () => {
+    const enStock = { statut: 'EN_STOCK', patientRattache: false } as const;
+    expect(resume(verifierTransitionManuelle(enStock, 'RESERVE', true))).toBe('RATTACHER');
+    expect(resume(verifierTransitionManuelle(enStock, 'RESERVE', false))).toBe('PATIENT_REQUIS');
+    expect(resume(verifierTransitionManuelle(enStock, 'VENDU', true))).toBe(INTERDIT);
+  });
+});
+
 describe('transitionsPossibles', () => {
   it.each([
     {
       statut: 'EN_STOCK',
       patientRattache: false,
-      attendu: ['RESERVE', 'EN_ESSAI', 'RETOUR_FABRICANT', 'SAV', 'PRET'],
+      attendu: ['RESERVE', 'RETOUR_FABRICANT', 'SAV', 'PRET'],
     },
-    { statut: 'RESERVE', patientRattache: true, attendu: ['EN_STOCK', 'EN_ESSAI'] },
+    { statut: 'RESERVE', patientRattache: true, attendu: ['EN_STOCK'] },
     { statut: 'EN_ESSAI', patientRattache: true, attendu: ['EN_STOCK', 'VENDU', 'SAV'] },
     { statut: 'VENDU', patientRattache: true, attendu: ['SAV'] },
     { statut: 'PRET', patientRattache: true, attendu: ['EN_STOCK', 'SAV'] },

@@ -6,6 +6,7 @@ import { dateCalendaireSchema } from '../commun/date';
 import { texteObligatoire, texteOptionnelSchema } from '../commun/texte';
 import { STATUTS_DOSSIER } from '../dossier/etats';
 import { centimes, centimesDepuisSaisieEuros, type Centimes } from '../money';
+import { numeroSerieSchema } from '../stock/numero-serie';
 import { STATUTS_DEVIS } from './etats';
 
 const identifiantSchema = (message: string) => z.uuid({ error: message });
@@ -112,8 +113,13 @@ export const actionDevisSaisieSchema = z.object({
 });
 export type ActionDevisSaisie = z.output<typeof actionDevisSaisieSchema>;
 
+const numeroSerieOptionnelSchema = texteOptionnelSchema.pipe(numeroSerieSchema.nullable());
+
+/** Les numéros de série se contrôlent oreille par oreille contre le dossier, côté service. */
 export const debutEssaiSaisieSchema = actionDevisSaisieSchema.extend({
   offreEssai: z.enum(RUBRIQUES_OFFRE, { error: 'Choisir l’offre retenue pour l’essai.' }),
+  numeroSerieDroite: numeroSerieOptionnelSchema,
+  numeroSerieGauche: numeroSerieOptionnelSchema,
 });
 export type DebutEssaiSaisie = z.output<typeof debutEssaiSaisieSchema>;
 

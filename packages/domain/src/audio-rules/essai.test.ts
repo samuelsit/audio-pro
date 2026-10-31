@@ -108,7 +108,20 @@ describe('etatEssai', () => {
         joursRestants: -8,
         rdvRealises: 1,
         facturable: false,
-        alertes: ['ECHEANCE_ATTEINTE', 'RDV_INSUFFISANTS'],
+        alertes: ['ECHEANCE_DEPASSEE', 'RDV_INSUFFISANTS'],
+      },
+    },
+    {
+      cas: 'lendemain de l’échéance : dépassement, l’essai reste facturable',
+      rdvs: DEUX_RDV,
+      aujourdhui: '2026-11-01',
+      attendu: {
+        joursEcoules: 31,
+        echeance: '2026-10-31',
+        joursRestants: -1,
+        rdvRealises: 2,
+        facturable: true,
+        alertes: ['ECHEANCE_DEPASSEE'],
       },
     },
     {

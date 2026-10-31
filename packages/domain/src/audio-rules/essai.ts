@@ -11,6 +11,7 @@ export const ALERTES_ESSAI = [
   'PROLONGATION_EXCESSIVE',
   'ECHEANCE_PROCHE',
   'ECHEANCE_ATTEINTE',
+  'ECHEANCE_DEPASSEE',
   'RDV_INSUFFISANTS',
 ] as const;
 export type AlerteEssai = (typeof ALERTES_ESSAI)[number];
@@ -21,6 +22,7 @@ export const LIBELLES_ALERTES_ESSAI: Readonly<Record<AlerteEssai, string>> = {
   PROLONGATION_EXCESSIVE: 'La prolongation est limitée à 15 jours, soit 45 jours d’essai au total.',
   ECHEANCE_PROCHE: 'La fin de l’essai approche.',
   ECHEANCE_ATTEINTE: 'La période d’essai minimale est écoulée : l’essai est à conclure.',
+  ECHEANCE_DEPASSEE: 'L’échéance est dépassée : l’essai reste à conclure.',
   RDV_INSUFFISANTS: 'L’essai doit comporter au moins 2 rendez-vous.',
 };
 
@@ -75,7 +77,9 @@ export function etatEssai({ debut, prolongation, rdvs, aujourdhui }: EntreeEssai
   if (prolongation && prolongation.jours > ESSAI_PROLONGATION_MAX_JOURS.valeur) {
     alertes.push('PROLONGATION_EXCESSIVE');
   }
-  if (joursRestants <= 0) {
+  if (joursRestants < 0) {
+    alertes.push('ECHEANCE_DEPASSEE');
+  } else if (joursRestants === 0) {
     alertes.push('ECHEANCE_ATTEINTE');
   } else if (joursRestants <= ESSAI_SEUIL_ALERTE_JOURS.valeur) {
     alertes.push('ECHEANCE_PROCHE');

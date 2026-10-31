@@ -59,7 +59,7 @@ export function echapperHtml(texte: string): string {
     .replace(/'/g, '&#39;');
 }
 
-function dateFr(date: string | null): string {
+export function dateFr(date: string | null): string {
   if (date === null) {
     return '…/…/……';
   }

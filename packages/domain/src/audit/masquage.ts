@@ -80,6 +80,7 @@ export const CHAMPS_VISIBLES_AUDIT: Readonly<Record<TypeEntite, readonly string[
   DOSSIER: [],
   PRESCRIPTION: [],
   DEVIS: [],
+  ESSAI: [],
   FABRICANT: ['nom', 'adresse', 'mandataire', 'actif'],
   MODELE_AIDE_AUDITIVE: [
     'fabricantId',
