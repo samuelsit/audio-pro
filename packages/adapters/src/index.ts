@@ -15,6 +15,8 @@ export {
 export { chargerCleEmpreinte, EmpreinteHmac } from './crypto/empreinte';
 export { chargerTrousseau, type Trousseau } from './crypto/trousseau';
 export { ErreurDbf, lireDbf, type ChampDbf, type TableDbf } from './lpp/lecteur-dbf';
+export { ChromiumPdfRenderer } from './pdf/chromium-pdf-renderer';
+export { FakePdfRenderer } from './pdf/fake-pdf-renderer';
 export { DocumentStoreChiffre } from './storage/document-store-chiffre';
 export { FakeDocumentStore } from './storage/fake-document-store';
 export {

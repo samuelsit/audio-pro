@@ -1,3 +1,6 @@
 # Adaptateurs pdf
 
-Port : `PdfRenderer`. Implémentation (réelle + Fake) prévue à l'étape 9 (devis normalisé), voir docs/PLAN.md.
+Port : `PdfRenderer`.
+
+- `ChromiumPdfRenderer` : Chromium sans tête via `playwright-core`. `PDF_CHROMIUM_CHEMIN` désigne le binaire en production ; à défaut, celui installé par Playwright.
+- `FakePdfRenderer` : rendu simulé, sélectionné par `PDF_RENDU=simulation` hors production.
