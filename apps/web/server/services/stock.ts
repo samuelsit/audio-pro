@@ -27,7 +27,7 @@ import {
   transfertSaisieSchema,
   transitionsPossibles,
   verifierAnnulationVente,
-  verifierTransition,
+  verifierTransitionManuelle,
   type Clock,
   type FiltreStock,
   type NatureAccessoire,
@@ -74,7 +74,7 @@ export class ErreurConflitStock extends ErreurSaisie {
 
 // --- Écriture : chemin unique d'un changement de statut ou de centre ---------------------------
 
-const selectionAppareil = {
+export const selectionAppareil = {
   id: true,
   organisationId: true,
   centreId: true,
@@ -89,7 +89,7 @@ const selectionAppareil = {
   enConsignation: true,
 } as const;
 
-type AppareilLu = Prisma.AppareilGetPayload<{ select: typeof selectionAppareil }>;
+export type AppareilLu = Prisma.AppareilGetPayload<{ select: typeof selectionAppareil }>;
 
 /** Lit l'appareil dans la transaction et vérifie le droit sur son centre actuel. */
 async function lireAppareil(
@@ -108,12 +108,14 @@ async function lireAppareil(
   return appareil;
 }
 
-interface Mouvement {
+export interface Mouvement {
   readonly type: 'CHANGEMENT_STATUT' | 'TRANSFERT' | 'ANNULATION_VENTE';
   readonly statut: StatutAppareil;
   readonly centreId: string;
   readonly patientId: string | null;
   readonly motif: string;
+  /** Dossier qui provoque le mouvement : essai, puis vente (étape 11). */
+  readonly dossierId?: string;
 }
 
 /**
@@ -121,7 +123,7 @@ interface Mouvement {
  * depuis sa lecture et ajoute le mouvement dans la même transaction. Sur un conflit, le perdant attend le
  * verrou de la ligne, le `where` est réévalué et aucune ligne ne correspond : tout est annulé.
  */
-async function appliquerMouvement(
+export async function appliquerMouvement(
   tx: ClientTransaction,
   acteur: UtilisateurConnecte,
   appareil: AppareilLu,
@@ -152,13 +154,14 @@ async function appliquerMouvement(
       centreApresId: centreId,
       // Un appareil rendu garde dans son historique le patient qui le détenait.
       patientId: patientId ?? appareil.patientId,
+      dossierId: mouvement.dossierId ?? null,
       motif,
     },
   });
 }
 
 /** Le motif n'entre jamais dans le journal : texte libre, chiffré dans le mouvement. */
-function evenementMouvement(
+export function evenementMouvement(
   appareil: AppareilLu,
   mouvement: Mouvement,
   centreId: string,
@@ -209,6 +212,15 @@ async function verifierCentreActif(
   }
 }
 
+/** Le lien reste actif après l'achat, jusqu'à la vente : c'est le dossier qui pilote l'appareil. */
+async function appareilTenuParEssai(
+  client: Pick<ClientTransaction, 'essaiAppareil'>,
+  appareilId: string,
+): Promise<boolean> {
+  const liens = await client.essaiAppareil.count({ where: { appareilId, retireLe: null } });
+  return liens > 0;
+}
+
 export async function changerStatut(
   acteur: UtilisateurConnecte,
   appareilId: string,
@@ -222,7 +234,13 @@ export async function changerStatut(
       if (appareil.statut !== statutAttendu) {
         throw new ErreurConflitStock();
       }
-      const transition = verifierTransition(
+      if (await appareilTenuParEssai(tx, appareilId)) {
+        throw ErreurSaisie.surChamp(
+          'statut',
+          'Cet appareil est suivi par un essai : passer par le dossier du patient.',
+        );
+      }
+      const transition = verifierTransitionManuelle(
         { statut: appareil.statut, patientRattache: appareil.patientId !== null },
         statut,
         patientId !== null,
@@ -608,6 +626,8 @@ export interface FicheAppareil {
   enConsignation: boolean;
   mouvements: MouvementAffiche[];
   transitions: { statut: StatutAppareil; patientAChoisir: boolean }[];
+  /** Dossier dont l'essai tient l'appareil : les changements de statut passent par lui. */
+  dossierEssaiId: string | null;
   transferable: boolean;
   annulable: boolean;
   corrigeable: boolean;
@@ -697,6 +717,10 @@ export async function obtenirFicheAppareil(
       });
       const etat = { statut: a.statut, patientRattache: a.patientId !== null };
       const voitPrix = peutVoirPrixAchat(acteur.role);
+      const lienEssai = await client.essaiAppareil.findFirst({
+        where: { appareilId, retireLe: null },
+        select: { essai: { select: { dossierId: true } } },
+      });
       const fiche: FicheAppareil = {
         id: a.id,
         numeroSerie: a.numeroSerie,
@@ -713,10 +737,13 @@ export async function obtenirFicheAppareil(
         prixAchatCentimes: voitPrix ? a.prixAchatCentimes : null,
         enConsignation: a.enConsignation,
         mouvements,
-        transitions: transitionsPossibles(etat).map((statut) => ({
-          statut,
-          patientAChoisir: patientAChoisir(etat, statut),
-        })),
+        transitions: lienEssai
+          ? []
+          : transitionsPossibles(etat).map((statut) => ({
+              statut,
+              patientAChoisir: patientAChoisir(etat, statut),
+            })),
+        dossierEssaiId: lienEssai?.essai.dossierId ?? null,
         transferable: peutTransferer(a.statut),
         annulable: verifierAnnulationVente(a.statut) && peutAnnulerVente(acteur.role),
         corrigeable: lignes.length === 1 && peutCorrigerIdentite(acteur.role),

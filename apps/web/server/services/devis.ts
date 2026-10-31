@@ -4,6 +4,7 @@ import type { Prisma } from '@ha/db';
 import {
   actionDevisSaisieSchema,
   ajouterMois,
+  blocagesSignature,
   calculerDevis,
   centimes,
   controlerDevis,
@@ -16,6 +17,7 @@ import {
   devisSaisieSchema,
   dossierAccepteDevis,
   extensionDocument,
+  MESSAGES_BLOCAGE_SIGNATURE,
   nouvelleVersionPossible,
   oreillesDuDossier,
   peutEmettreDevis,
@@ -66,6 +68,13 @@ import {
   versDate,
   type DossierLu,
 } from './dossiers';
+import {
+  appareilsActifs,
+  etatDeLEssai,
+  evenementEssai,
+  lireEssaiOuvert,
+  poserAppareil,
+} from './essais-socle';
 import { tarifsAudioEnVigueur, tarifsConsommablesEnVigueur } from './lpp';
 import { aujourdhui, lireFiche, type Client, type PatientDetail } from './patients';
 
@@ -905,16 +914,37 @@ function exigerOffre(devis: DevisLu, rubrique: RubriqueOffre, champ: string): vo
   }
 }
 
+function offreDe(devis: DevisLu, rubrique: RubriqueOffre): OffreLue | undefined {
+  return devis.offres.find((offre) => offre.rubrique === rubrique);
+}
+
+/** Modèle prévu par l'offre pour chaque oreille appareillée. */
+function modelesDeLOffre(offre: OffreLue | undefined): Partial<Record<Oreille, string>> {
+  const modeles: Partial<Record<Oreille, string>> = {};
+  for (const { oreille, modeleId } of offre?.lignes ?? []) {
+    if (oreille !== null && modeleId !== null) {
+      modeles[oreille] = modeleId;
+    }
+  }
+  return modeles;
+}
+
 /**
- * Passe le dossier en essai avec l'offre retenue pour l'essai (modèle p. 2 § 3).
- * Le suivi de l'essai relève de l'étape 10.
+ * Passe le dossier en essai avec l'offre retenue (modèle p. 2 § 3) et confie un appareil par oreille :
+ * le modèle est celui de la ligne de l'offre, pris dans le stock du centre du dossier.
  */
 export async function demarrerEssai(
   acteur: UtilisateurConnecte,
   devisId: string,
   saisie: unknown,
 ): Promise<void> {
-  const { statutAttendu, offreEssai } = valider(debutEssaiSaisieSchema, saisie);
+  const { statutAttendu, offreEssai, numeroSerieDroite, numeroSerieGauche } = valider(
+    debutEssaiSaisieSchema,
+    saisie,
+  );
+  const numeros = { DROITE: numeroSerieDroite, GAUCHE: numeroSerieGauche };
+  const champs = { DROITE: 'numeroSerieDroite', GAUCHE: 'numeroSerieGauche' } as const;
+  const jour = aujourdhui();
   await withAudit(
     acteur,
     async (tx) => {
@@ -932,11 +962,45 @@ export async function demarrerEssai(
         throw new ErreurConflitDossier();
       }
       await appliquerTransition(tx, acteur, dossier, 'EN_ESSAI');
-      return dossier;
+      const essai = await tx.essai.create({
+        data: {
+          organisationId: acteur.organisationId,
+          dossierId: dossier.id,
+          dateDebut: versDate(jour),
+          createdById: acteur.id,
+        },
+        select: { id: true },
+      });
+      const modeles = modelesDeLOffre(offreDe(devis, offreEssai));
+      const evenements: EvenementAudit[] = [];
+      for (const { oreille } of oreillesDuDossier(dossier)) {
+        const numeroSerie = numeros[oreille];
+        const modeleAttendu = modeles[oreille];
+        if (numeroSerie === null) {
+          throw ErreurSaisie.surChamp(champs[oreille], 'Saisir le numéro de série.');
+        }
+        if (modeleAttendu === undefined) {
+          throw ErreurSaisie.surChamp('offreEssai', 'Cette offre ne couvre pas cette oreille.');
+        }
+        evenements.push(
+          await poserAppareil(tx, acteur, dossier, {
+            essaiId: essai.id,
+            oreille,
+            numeroSerie,
+            modeleAttendu,
+            champ: champs[oreille],
+            jour,
+            motif: 'Mise en essai',
+          }),
+        );
+      }
+      return { dossier, essaiId: essai.id, evenements };
     },
-    (dossier): EvenementAudit[] => [
+    ({ dossier, essaiId, evenements }): EvenementAudit[] => [
       evenementDevis('UPDATE', devisId, dossier, { offreEssai }),
       evenementTransition(dossier, 'EN_ESSAI'),
+      evenementEssai('CREATE', essaiId, dossier),
+      ...evenements,
     ],
   );
 }
@@ -1020,6 +1084,7 @@ export async function enregistrerSignature(
       exigerStatut(devis, donnees.statutAttendu);
       exigerSignaturePossible(devis, dossier);
       exigerOffre(devis, donnees.offreRetenue, 'offreRetenue');
+      const essai = await lireEssaiOuvert(tx, dossier.id);
       const { dateEmission, dateFinValidite, scanSigneCle, scanSigneType, scanSigneTaille } = devis;
       if (scanSigneCle === null) {
         throw ErreurSaisie.surChamp('scan', 'Déposer d’abord le devis signé scanné.');
@@ -1035,6 +1100,14 @@ export async function enregistrerSignature(
           'dateSignature',
           'La date de signature doit se situer entre l’émission et aujourd’hui.',
         );
+      }
+      const blocages = blocagesSignature({
+        etat: essai && (await etatDeLEssai(tx, essai, donnees.dateSignature)),
+        appareils: essai ? await appareilsActifs(tx, essai.id) : [],
+        modelesOffre: modelesDeLOffre(offreDe(devis, donnees.offreRetenue)),
+      });
+      if (blocages.length > 0) {
+        throw new ErreurSaisie({}, blocages.map((c) => MESSAGES_BLOCAGE_SIGNATURE[c]).join(' '));
       }
       const { count } = await tx.devis.updateMany({
         where: { id: devisId, statut: 'EMIS' },
@@ -1134,6 +1207,7 @@ export interface DevisDetail extends DevisResume {
   dossierId: string;
   patientId: string;
   statutDossier: StatutDossier;
+  oreilles: readonly Oreille[];
   numeroAffiche: string;
   lieuEmission: string;
   validiteMois: number;
@@ -1198,6 +1272,7 @@ export async function obtenirDevis(
     dossierId: dossier.id,
     patientId: dossier.patientId,
     statutDossier: dossier.statut,
+    oreilles: oreillesDuDossier(dossier).map((o) => o.oreille),
     numeroAffiche: numeroAffiche(devis),
     lieuEmission: devis.lieuEmission,
     validiteMois: devis.validiteMois,

@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { creerJeuDeDonnees, viderBase, type JeuDeDonnees } from '@/test/donnees';
 
 import { AccesRefuseError, type UtilisateurConnecte } from '../auth/acces';
+import { base } from '../chiffrement';
 import { ErreurSaisie } from '../erreurs';
 import { modifierModele } from './catalogue';
 import { fusionnerPatients } from './patients';
@@ -107,8 +108,36 @@ async function recevoirUn(numero = 'SN0001'): Promise<string> {
 
 async function amener(id: string, statuts: string[], patientId: string | null = patientA) {
   for (const statut of statuts) {
-    const { statut: statutAttendu } = await prisma().appareil.findUniqueOrThrow({ where: { id } });
-    await changerStatut(admin, id, { statut, statutAttendu, patientId, motif: 'Préparation' });
+    const avant = await prisma().appareil.findUniqueOrThrow({ where: { id } });
+    if (statut === 'EN_ESSAI') {
+      // L'essai se pilote depuis le dossier : la fiche refuse ce changement.
+      const patientEssai = avant.patientId ?? patientId;
+      await prisma().appareil.update({
+        where: { id },
+        data: { statut: 'EN_ESSAI', patientId: patientEssai },
+      });
+      await base().mouvementAppareil.create({
+        data: {
+          organisationId: avant.organisationId,
+          appareilId: id,
+          type: 'CHANGEMENT_STATUT',
+          utilisateurId: admin.id,
+          statutAvant: avant.statut,
+          statutApres: 'EN_ESSAI',
+          centreAvantId: avant.centreId,
+          centreApresId: avant.centreId,
+          patientId: patientEssai,
+          motif: 'Préparation',
+        },
+      });
+      continue;
+    }
+    await changerStatut(admin, id, {
+      statut,
+      statutAttendu: avant.statut,
+      patientId,
+      motif: 'Préparation',
+    });
   }
 }
 

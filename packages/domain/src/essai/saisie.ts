@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { OREILLES } from '../audio-rules/code-prestation';
 import { ESSAI_PROLONGATION_MAX_JOURS } from '../audio-rules/constantes';
 import { dateCalendaireSchema } from '../commun/date';
+import { pageSchema } from '../commun/pagination';
 import { texteObligatoire } from '../commun/texte';
 import { STATUTS_DOSSIER } from '../dossier/etats';
 import { numeroSerieSchema } from '../stock/numero-serie';
@@ -64,3 +65,7 @@ export type ChangementAppareilSaisie = z.output<typeof changementAppareilSaisieS
 
 export const achatEssaiSaisieSchema = z.object({ statutAttendu: statutAttenduSchema });
 export type AchatEssaiSaisie = z.output<typeof achatEssaiSaisieSchema>;
+
+/** Paramètres d'URL de l'écran « Essais en cours ». Le centre vient du périmètre courant. */
+export const filtreEssaisSchema = z.object({ page: pageSchema });
+export type FiltreEssais = z.output<typeof filtreEssaisSchema>;

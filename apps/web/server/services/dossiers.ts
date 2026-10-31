@@ -42,6 +42,7 @@ import { withAudit, type EvenementAudit } from '../audit/journal';
 import { base, type ClientTransaction } from '../chiffrement';
 import { documents } from '../documents';
 import { ErreurSaisie, valider, type ErreursChamps } from '../erreurs';
+import { abandonnerEssaiOuvert } from './essais-socle';
 import { aujourdhui, lireFiche, type Client, type PatientDetail } from './patients';
 
 export function versDate(iso: string): Date {
@@ -663,7 +664,10 @@ export async function enregistrerPrescription(
 
 // --- Abandon -------------------------------------------------------------------------------------
 
-/** Renvoie le patient du dossier, vers lequel l'écran revient. */
+/**
+ * Renvoie le patient du dossier, vers lequel l'écran revient. Un essai ouvert est clos dans la même
+ * transaction et ses appareils reviennent en stock.
+ */
 export async function abandonnerDossier(
   acteur: UtilisateurConnecte,
   dossierId: string,
@@ -681,9 +685,12 @@ export async function abandonnerDossier(
         throw new ErreurConflitDossier();
       }
       await appliquerTransition(tx, acteur, dossier, 'ABANDONNE', motif);
-      return dossier;
+      return { ...dossier, evenements: await abandonnerEssaiOuvert(tx, acteur, dossier) };
     },
-    (dossier) => evenementTransition(dossier, 'ABANDONNE'),
+    (dossier): EvenementAudit[] => [
+      evenementTransition(dossier, 'ABANDONNE'),
+      ...dossier.evenements,
+    ],
   );
   return patientId;
 }

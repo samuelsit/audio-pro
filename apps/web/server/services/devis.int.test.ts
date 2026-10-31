@@ -4,10 +4,21 @@ import type { FakeDocumentStore, FakePdfRenderer } from '@ha/adapters';
 import { prisma } from '@ha/db';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import {
+  creerCatalogueDevis,
+  creerDossierPret as creerDossierEssaiPret,
+  creerPatientDevis,
+  demarrerAvecAppareil,
+  NIR,
+  offre100 as offre100Catalogue,
+  saisieDevis as saisieDevisCatalogue,
+  SCAN,
+  terminerPeriodeEssai,
+  type CatalogueDevis,
+} from '@/test/devis';
 import { creerJeuDeDonnees, viderBase, type JeuDeDonnees } from '@/test/donnees';
 
 import { AccesRefuseError, type UtilisateurConnecte } from '../auth/acces';
-import { base } from '../chiffrement';
 import { stockageBrut } from '../documents';
 import { ErreurSaisie } from '../erreurs';
 import { importerLpp } from '../lpp/importer';
@@ -30,16 +41,12 @@ import {
 } from './devis';
 import {
   creerDossier,
-  enregistrerPrescription,
   ErreurConflitDossier,
   obtenirDossier,
 } from './dossiers';
 import { aujourdhui } from './patients';
 
 const V908 = path.join(import.meta.dirname, '../../../../fixtures/lpp/908');
-const SCAN = Buffer.from('%PDF-1.7 document fictif', 'utf8');
-const NIR = '150037500000042';
-const CODE_PILES = '2332976';
 
 let d: JeuDeDonnees;
 let admin: UtilisateurConnecte;
@@ -48,182 +55,21 @@ let assistantA: UtilisateurConnecte;
 let assistantB: UtilisateurConnecte;
 let patientId: string;
 let dossierId: string;
+let catalogue: CatalogueDevis;
 let classeI: string;
-let classeII: string;
-let piles: string;
-let kit: string;
 
 const stockage = () => stockageBrut() as FakeDocumentStore;
 const rendu = () => rendeurPdf() as FakePdfRenderer;
 
-async function creerCatalogue() {
-  const fabricant = await prisma().fabricant.create({
-    data: {
-      organisationId: d.organisation.id,
-      nom: 'Acoustia Démo',
-      adresse: '1 rue de l’Exemple, 75000 Paris',
-    },
-  });
-  const fiche = {
-    organisationId: d.organisation.id,
-    fabricantId: fabricant.id,
-    gamme: 'Aurore',
-    type: 'CONTOUR',
-    prixConseilleCentimes: 95_000,
-    marque: 'Acoustia',
-    referenceCommerciale: 'AU-1',
-    nombreCanaux: 12,
-    connectivite: 'Bluetooth',
-    antiLarsen: true,
-    reducteurAcouphenes: true,
-    bobineT: true,
-  } as const;
-  const [i, ii, p, k] = await Promise.all([
-    prisma().modeleAideAuditive.create({
-      data: {
-        ...fiche,
-        nom: 'Essentiel',
-        classe: 'CLASSE_I',
-        options: ['REDUCTEUR_ACOUPHENE', 'CONNECTIVITE_SANS_FIL', 'REDUCTEUR_BRUIT_VENT'],
-      },
-    }),
-    prisma().modeleAideAuditive.create({ data: { ...fiche, nom: 'Premium', classe: 'CLASSE_II' } }),
-    prisma().accessoire.create({
-      data: {
-        organisationId: d.organisation.id,
-        nom: 'Piles 13',
-        nature: 'PILE',
-        codeLpp: CODE_PILES,
-        prixCentimes: 150,
-        marque: 'Rayonac',
-        referenceCommerciale: 'RAY-13',
-      },
-    }),
-    prisma().accessoire.create({
-      data: {
-        organisationId: d.organisation.id,
-        nom: 'Kit d’entretien',
-        nature: 'ACCESSOIRE',
-        prixCentimes: 1_500,
-        marque: 'Acoustia',
-        referenceCommerciale: 'KIT-1',
-      },
-    }),
-  ]);
-  classeI = i.id;
-  classeII = ii.id;
-  piles = p.id;
-  kit = k.id;
-}
-
-async function creerPatient(surcharge: { dateNaissance?: string; c2s?: boolean } = {}) {
-  const { dateNaissance = '1950-03-15', c2s = false } = surcharge;
-  const patient = await prisma().patient.create({
-    data: {
-      organisationId: d.organisation.id,
-      centreId: d.centres.a.id,
-      civilite: 'MME',
-      nomNaissance: 'Essai',
-      prenoms: 'Camille',
-      dateNaissance: new Date(`${dateNaissance}T00:00:00.000Z`),
-      sexe: 'FEMININ',
-      nomNaissanceRecherche: 'ESSAI',
-      prenomsRecherche: 'CAMILLE',
-    },
-  });
-  await base().couvertureAmo.create({
-    data: {
-      patientId: patient.id,
-      nir: NIR,
-      nirEmpreinte: patient.id.replace(/-/g, '').padEnd(64, '0').slice(0, 64),
-      rangNaissance: 1,
-      qualite: 'ASSURE',
-      c2s,
-      ald: 'NON',
-      origine: 'SAISIE',
-    },
-  });
-  return patient.id;
-}
-
-async function creerDossierPret(id: string, oreilles: 'DROITE' | 'LES_DEUX' = 'DROITE') {
-  const dossier = await creerDossier(audio, id, {
-    centreId: d.centres.a.id,
-    praticienId: d.praticiens.praticienAB.id,
-    oreilles,
-    typeDroite: 'PRIMO',
-    typeGauche: oreilles === 'LES_DEUX' ? 'PRIMO' : '',
-    surdicecite: false,
-  });
-  const prescripteur = await prisma().prescripteur.create({
-    data: {
-      organisationId: d.organisation.id,
-      nom: 'Démo',
-      prenom: 'Agathe',
-      specialite: 'ORL',
-      nomRecherche: 'DEMO',
-      prenomRecherche: 'AGATHE',
-    },
-  });
-  await enregistrerPrescription(
-    audio,
-    dossier,
-    {
-      prescripteurId: prescripteur.id,
-      datePrescription: aujourdhui(),
-      oreilles,
-      mentionRenouvellement: false,
-      statutAttendu: 'BROUILLON',
-      forcer: false,
-      motifForcage: '',
-    },
-    SCAN,
-  );
-  return dossier;
-}
-
-function offre100(surcharge: Record<string, unknown> = {}) {
-  return {
-    rubrique: 'OFFRE_100_SANTE',
-    aideDroite: { modeleId: classeI, prixAvantRemise: '950,00', prix: '950,00' },
-    aideGauche: null,
-    consommables: [{ accessoireId: piles, quantite: 4, prixAvantRemise: '1,50', prix: '1,50' }],
-    amcDroite: '710,00',
-    amcGauche: null,
-    amcConsommables: '2,40',
-    ...surcharge,
-  };
-}
-
-function autreOffre() {
-  return {
-    rubrique: 'AUTRE_OFFRE',
-    aideDroite: { modeleId: classeII, prixAvantRemise: '1 900,00', prix: '1 800,00' },
-    aideGauche: null,
-    consommables: [{ accessoireId: kit, quantite: 1, prixAvantRemise: '15,00', prix: '15,00' }],
-    amcDroite: null,
-    amcGauche: null,
-    amcConsommables: null,
-  };
-}
-
-function saisieDevis(surcharge: Record<string, unknown> = {}) {
-  return {
-    lieuEmission: 'Paris',
-    validiteMois: 2,
-    tauxAmo: 60,
-    refusOffreC2S: false,
-    contratResponsable: true,
-    bobineTPresentee: true,
-    ficheTechniqueJointe: true,
-    depotGarantie: '',
-    datePrecedentDroite: '',
-    datePrecedentGauche: '',
-    offres: [offre100(), autreOffre()],
-    statutAttendu: 'PRESCRIPTION_OK',
-    ...surcharge,
-  };
-}
+const creerPatient = (surcharge: { dateNaissance?: string; c2s?: boolean } = {}) =>
+  creerPatientDevis(d, surcharge);
+const creerDossierPret = (id: string, oreilles?: 'DROITE' | 'LES_DEUX') =>
+  creerDossierEssaiPret(d, audio, id, oreilles);
+const offre100 = (surcharge?: Record<string, unknown>) => offre100Catalogue(catalogue, surcharge);
+const saisieDevis = (surcharge?: Record<string, unknown>) =>
+  saisieDevisCatalogue(catalogue, surcharge);
+const essai = (devisId: string, acteur = audio) =>
+  demarrerAvecAppareil(d, acteur, devisId, classeI);
 
 async function devisEmis(acteur = audio) {
   const devisId = await creerDevis(acteur, dossierId, saisieDevis());
@@ -233,7 +79,8 @@ async function devisEmis(acteur = audio) {
 
 async function devisSigne() {
   const devisId = await devisEmis();
-  await demarrerEssai(audio, devisId, { statutAttendu: 'EMIS', offreEssai: 'OFFRE_100_SANTE' });
+  await essai(devisId);
+  await terminerPeriodeEssai(audio, dossierId);
   await deposerScanDevis(assistantA, devisId, { statutAttendu: 'EMIS' }, SCAN);
   await enregistrerSignature(audio, devisId, {
     statutAttendu: 'EMIS',
@@ -280,7 +127,8 @@ beforeEach(async () => {
     },
   });
   await importerLpp(V908);
-  await creerCatalogue();
+  catalogue = await creerCatalogueDevis(d);
+  classeI = catalogue.classeI;
   patientId = await creerPatient();
   dossierId = await creerDossierPret(patientId);
 });
@@ -463,10 +311,7 @@ describe('droits et cloisonnement', () => {
     });
 
     await emettreDevis(admin, devisId, { statutAttendu: 'BROUILLON' });
-    await demarrerEssai(assistantA, devisId, {
-      statutAttendu: 'EMIS',
-      offreEssai: 'OFFRE_100_SANTE',
-    });
+    await essai(devisId, assistantA);
     await deposerScanDevis(assistantA, devisId, { statutAttendu: 'EMIS' }, SCAN);
     expect((await obtenirDevis(assistantA, devisId)).actions.signer).toBe(false);
     await expect(
@@ -811,7 +656,7 @@ describe('essai et signature', () => {
 
   it('démarre l’essai sur l’offre choisie', async () => {
     const devisId = await devisEmis();
-    await demarrerEssai(audio, devisId, { statutAttendu: 'EMIS', offreEssai: 'AUTRE_OFFRE' });
+    await demarrerAvecAppareil(d, audio, devisId, catalogue.classeII, 'AUTRE_OFFRE');
 
     expect(await statutDossier()).toBe('EN_ESSAI');
     expect((await obtenirDevis(audio, devisId)).offreEssai).toBe('AUTRE_OFFRE');
@@ -830,7 +675,7 @@ describe('essai et signature', () => {
 
   it('exige le scan, la case signé et une date cohérente', async () => {
     const devisId = await devisEmis();
-    await demarrerEssai(audio, devisId, { statutAttendu: 'EMIS', offreEssai: 'OFFRE_100_SANTE' });
+    await essai(devisId);
     const saisie = {
       statutAttendu: 'EMIS',
       offreRetenue: 'OFFRE_100_SANTE',
@@ -853,7 +698,7 @@ describe('essai et signature', () => {
 
   it('un nouveau dépôt remplace le scan précédent', async () => {
     const devisId = await devisEmis();
-    await demarrerEssai(audio, devisId, { statutAttendu: 'EMIS', offreEssai: 'OFFRE_100_SANTE' });
+    await essai(devisId);
     await deposerScanDevis(audio, devisId, { statutAttendu: 'EMIS' }, SCAN);
     await deposerScanDevis(audio, devisId, { statutAttendu: 'EMIS' }, SCAN);
     const cles = [...stockage().objets.keys()].filter((c) => c.startsWith('devis-signes/'));
@@ -862,7 +707,7 @@ describe('essai et signature', () => {
 
   it('refuse un fichier qui n’est pas un scan', async () => {
     const devisId = await devisEmis();
-    await demarrerEssai(audio, devisId, { statutAttendu: 'EMIS', offreEssai: 'OFFRE_100_SANTE' });
+    await essai(devisId);
     await expect(
       deposerScanDevis(audio, devisId, { statutAttendu: 'EMIS' }, new Uint8Array(0)),
     ).rejects.toThrow('Joindre le devis signé scanné.');
@@ -896,7 +741,7 @@ describe('essai et signature', () => {
 
   it('refuse la signature d’un devis échu : il faut une nouvelle version', async () => {
     const devisId = await devisEmis();
-    await demarrerEssai(audio, devisId, { statutAttendu: 'EMIS', offreEssai: 'OFFRE_100_SANTE' });
+    await essai(devisId);
     await deposerScanDevis(audio, devisId, { statutAttendu: 'EMIS' }, SCAN);
     const { dateFinValidite } = await obtenirDevis(audio, devisId);
 
