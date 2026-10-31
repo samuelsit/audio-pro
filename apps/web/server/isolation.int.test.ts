@@ -12,13 +12,21 @@ import { base } from './chiffrement';
 import { importerLpp } from './lpp/importer';
 import { obtenirAccessoire, obtenirFabricant, obtenirModele } from './services/catalogue';
 import { modifierCentre, obtenirCentre } from './services/centres';
-import { annulerRdv, deplacerRdv, lireAgenda, lireRdv, lireSalleAttente } from './services/agenda';
+import {
+  annulerRdv,
+  deplacerRdv,
+  lireAgenda,
+  lireRdv,
+  lireSalleAttente,
+  listerDemandesEnLigne,
+} from './services/agenda';
 import {
   changerActivationCabine,
   listerCabines,
   listerExceptions,
   modifierTypeRdv,
 } from './services/agenda-parametres';
+import { lireParametresReservation } from './services/reservation-parametres';
 import { imprimerDevis, lireScanDevis, obtenirDevis } from './services/devis';
 import { lireScan, obtenirDossier } from './services/dossiers';
 import { compteRenduEssai, lireJustificatif, obtenirEssai } from './services/essais';
@@ -60,7 +68,9 @@ const TABLES_ISOLEES = [
   'modele_code_lpp',
   'mouvement_accessoire',
   'mouvement_appareil',
+  'notification',
   'organisation',
+  'parametres_reservation',
   'patient',
   'praticien',
   'praticien_centre',
@@ -69,11 +79,13 @@ const TABLES_ISOLEES = [
   'prise_en_charge',
   'prolongation_essai',
   'rendez_vous',
+  'reservation_en_ligne',
   'session',
   'signature_devis',
   'stock_accessoire',
   'transition_dossier',
   'type_rdv',
+  'type_rdv_en_ligne',
   'utilisateur',
   'utilisateur_centre',
 ] as const;
@@ -217,6 +229,24 @@ describe('garde-fou sur le catalogue PostgreSQL', () => {
       WHERE grantee = 'ha_plateforme' AND table_name = 'evenement_domaine'
         AND privilege_type = 'SELECT'`;
     expect(colonnes.map((c) => c.column_name).sort()).toEqual(['diffuse_le', 'organisation_id']);
+  });
+
+  it('ha_plateforme ne lit des notifications ni le destinataire ni les paramètres', async () => {
+    const colonnes = await prisma().$queryRaw<{ column_name: string }[]>`
+      SELECT column_name FROM information_schema.column_privileges
+      WHERE grantee = 'ha_plateforme' AND table_name = 'notification' AND privilege_type = 'SELECT'`;
+    expect(colonnes.map((c) => c.column_name).sort()).toEqual([
+      'organisation_id',
+      'prochain_essai_le',
+      'statut',
+    ]);
+  });
+
+  it('ha_plateforme ne lit rien des réservations en ligne', async () => {
+    const colonnes = await prisma().$queryRaw<{ column_name: string }[]>`
+      SELECT column_name FROM information_schema.column_privileges
+      WHERE grantee = 'ha_plateforme' AND table_name = 'reservation_en_ligne'`;
+    expect(colonnes).toEqual([]);
   });
 
   it.each(Object.entries(TABLES_GLOBALES))('table globale %s : droits %s', async (table, droit) => {
@@ -432,6 +462,14 @@ describe('identifiant d’un autre client forcé dans l’URL', () => {
       appel: (x, c) => rejeterSiVide(historiqueAccessoire(x, { type: 'tous' }, c.catalogue.piles)),
     },
     { entite: 'rendez-vous', appel: (x, c) => lireRdv(x, c.rdvId) },
+    {
+      entite: 'réglages de réservation',
+      appel: (x, c) => lireParametresReservation(x, c.d.centres.a.id),
+    },
+    {
+      entite: 'demandes en ligne',
+      appel: (x, c) => listerDemandesEnLigne(x, c.d.centres.a.id),
+    },
     {
       entite: 'agenda',
       appel: (x, c) => lireAgenda(x, c.d.centres.a.id, '2030-01-07', '2030-01-07'),

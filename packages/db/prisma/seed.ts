@@ -3,7 +3,7 @@ import { hashPassword } from 'better-auth/crypto';
 import { creerPrismaClient } from '../src/client';
 import type { PrismaClient } from '../src/generated/prisma/client';
 import type { Role } from '../src/generated/prisma/enums';
-import { seedAgenda, seedTypesRdv } from './seed-agenda';
+import { seedAgenda, seedReservationEnLigne, seedTypesRdv } from './seed-agenda';
 import {
   NOMBRE_FABRICANTS_DEMO,
   NOMBRE_MODELES_DEMO,
@@ -16,7 +16,7 @@ import { nombreAppareilsDemo, seedStock } from './seed-stock';
 
 // Seed idempotent de démonstration. Toutes les données sont fictives (domaine exemple.test,
 // RPPS et NIR inventés). Les patients de démonstration sont dans seed-patients.ts.
-const SCHEMA_VERSION = '6';
+const SCHEMA_VERSION = '7';
 
 // Deux clients fictifs : un réseau de 3 centres et un centre indépendant (ADR-016).
 const ORGANISATION_ID = '019a3000-0000-7000-8000-000000000001';
@@ -26,6 +26,7 @@ const ORGANISATIONS = [
   {
     id: ORGANISATION_ID,
     raisonSociale: 'Réseau Démo Audition',
+    slug: 'reseau-demo',
     siren: '000000001',
     adresseLigne1: '1 rue de l’Exemple',
     codePostal: '59000',
@@ -35,6 +36,7 @@ const ORGANISATIONS = [
   {
     id: ORGANISATION_INDEPENDANTE_ID,
     raisonSociale: 'Audition Indépendante Démo',
+    slug: 'audition-independante-demo',
     siren: '000000002',
     adresseLigne1: '4 place Fictive',
     codePostal: '35000',
@@ -53,6 +55,7 @@ const CENTRES = [
   {
     id: '019a3000-0000-7000-8000-0000000000a1',
     nom: 'Centre Démo Nord',
+    slug: 'nord',
     adresseLigne1: '1 rue de l’Exemple',
     codePostal: '59000',
     ville: 'Lille',
@@ -65,6 +68,7 @@ const CENTRES = [
   {
     id: '019a3000-0000-7000-8000-0000000000b1',
     nom: 'Centre Démo Centre',
+    slug: 'centre',
     adresseLigne1: '2 avenue Fictive',
     codePostal: '45000',
     ville: 'Orléans',
@@ -77,6 +81,7 @@ const CENTRES = [
   {
     id: '019a3000-0000-7000-8000-0000000000c1',
     nom: 'Centre Démo Sud',
+    slug: 'sud',
     adresseLigne1: '3 boulevard Imaginaire',
     codePostal: '13000',
     ville: 'Marseille',
@@ -93,6 +98,7 @@ const [NORD, CENTRE, SUD] = CENTRES.map((centre) => centre.id) as [string, strin
 const CENTRE_INDEPENDANT = {
   id: '019a3000-0000-7000-8000-0000000000d1',
   nom: 'Centre Démo Rennes',
+  slug: 'rennes',
   adresseLigne1: '4 place Fictive',
   codePostal: '35000',
   ville: 'Rennes',
@@ -357,6 +363,7 @@ async function main(): Promise<void> {
     );
     await seedCatalogueIndependant(db, ORGANISATION_INDEPENDANTE_ID);
     await seedTypesRdv(db, ORGANISATION_INDEPENDANTE_ID);
+    await seedReservationEnLigne(db, ORGANISATION_ID, NORD);
     await seedAgenda(db, ORGANISATION_ID, {
       centres: [NORD, CENTRE, SUD],
       centrePrincipal: NORD,

@@ -4,6 +4,8 @@ import {
   differencesAuditees,
   HORAIRES_VIDES,
   horairesOuvertureSchema,
+  slugDepuisNom,
+  slugDisponible,
   type HorairesOuverture,
   type Perimetre,
 } from '@ha/domain';
@@ -120,8 +122,13 @@ export async function creerCentre(acteur: UtilisateurConnecte, saisie: unknown):
     return await withAudit(
       acteur,
       async (tx) => {
+        const pris = await tx.centre.findMany({ select: { slug: true } });
+        const slug = slugDisponible(
+          slugDepuisNom(donnees.nom, 'centre'),
+          new Set(pris.map((c) => c.slug)),
+        );
         const centre = await tx.centre.create({
-          data: { ...donnees, organisationId: acteur.organisationId },
+          data: { ...donnees, slug, organisationId: acteur.organisationId },
           select: { id: true },
         });
         return centre.id;

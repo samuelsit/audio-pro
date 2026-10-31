@@ -36,100 +36,112 @@ enum StatutOrganisation {
 
 /// Un client : réseau de centres ou centre indépendant. Chaque donnée métier lui est rattachée (ADR-016).
 model Organisation {
-  id                   String                @id @default(uuid(7))
-  raisonSociale        String                @map("raison_sociale")
+  id                    String                  @id @default(uuid(7))
+  raisonSociale         String                  @map("raison_sociale")
   /// Vide pour une organisation antérieure au SaaS ; exigé à la création depuis la console.
-  siren                String?               @unique @db.Char(9)
-  adresseLigne1        String?               @map("adresse_ligne1")
-  adresseLigne2        String?               @map("adresse_ligne2")
-  codePostal           String?               @map("code_postal")
-  ville                String?
-  statut               StatutOrganisation    @default(ESSAI)
-  parametres           Json                  @default("{}")
-  createdAt            DateTime              @default(now()) @map("created_at")
-  updatedAt            DateTime              @updatedAt @map("updated_at")
-  centres              Centre[]
-  utilisateurs         Utilisateur[]
-  patients             Patient[]
-  lecturesVitale       LectureVitale[]
-  fabricants           Fabricant[]
-  modeles              ModeleAideAuditive[]
-  accessoires          Accessoire[]
-  prescripteurs        Prescripteur[]
-  appareils            Appareil[]
-  mouvementsAppareil   MouvementAppareil[]
-  mouvementsAccessoire MouvementAccessoire[]
-  dossiers             Dossier[]
-  delivrances          Delivrance[]
-  devis                Devis[]
-  compteursDevis       CompteurDevis[]
-  essais               Essai[]
-  facturesPreparees    FacturePreparee[]
-  journalAudit         JournalAudit[]
-  utilisateursCentres  UtilisateurCentre[]
-  praticiens           Praticien[]
-  praticiensCentres    PraticienCentre[]
-  couverturesAmo       CouvertureAmo[]
-  couverturesAmc       CouvertureAmc[]
-  modelesCodesLpp      ModeleCodeLpp[]
-  stocksAccessoires    StockAccessoire[]
-  transitionsDossier   TransitionDossier[]
-  prescriptions        Prescription[]
-  prisesEnCharge       PriseEnCharge[]
-  devisOffres          DevisOffre[]
-  devisLignes          DevisLigne[]
-  signaturesDevis      SignatureDevis[]
-  essaisAppareils      EssaiAppareil[]
-  essaisRdv            EssaiRdv[]
-  prolongationsEssai   ProlongationEssai[]
-  cabines              Cabine[]
-  typesRdv             TypeRdv[]
-  exceptionsAgenda     ExceptionAgenda[]
-  rendezVous           RendezVous[]
-  evenementsDomaine    EvenementDomaine[]
+  siren                 String?                 @unique @db.Char(9)
+  /// Segment client de l'URL publique de réservation (`/rdv/<slug>/<centre>`).
+  slug                  String                  @unique @default(dbgenerated("slug_provisoire()"))
+  adresseLigne1         String?                 @map("adresse_ligne1")
+  adresseLigne2         String?                 @map("adresse_ligne2")
+  codePostal            String?                 @map("code_postal")
+  ville                 String?
+  statut                StatutOrganisation      @default(ESSAI)
+  parametres            Json                    @default("{}")
+  createdAt             DateTime                @default(now()) @map("created_at")
+  updatedAt             DateTime                @updatedAt @map("updated_at")
+  centres               Centre[]
+  utilisateurs          Utilisateur[]
+  patients              Patient[]
+  lecturesVitale        LectureVitale[]
+  fabricants            Fabricant[]
+  modeles               ModeleAideAuditive[]
+  accessoires           Accessoire[]
+  prescripteurs         Prescripteur[]
+  appareils             Appareil[]
+  mouvementsAppareil    MouvementAppareil[]
+  mouvementsAccessoire  MouvementAccessoire[]
+  dossiers              Dossier[]
+  delivrances           Delivrance[]
+  devis                 Devis[]
+  compteursDevis        CompteurDevis[]
+  essais                Essai[]
+  facturesPreparees     FacturePreparee[]
+  journalAudit          JournalAudit[]
+  utilisateursCentres   UtilisateurCentre[]
+  praticiens            Praticien[]
+  praticiensCentres     PraticienCentre[]
+  couverturesAmo        CouvertureAmo[]
+  couverturesAmc        CouvertureAmc[]
+  modelesCodesLpp       ModeleCodeLpp[]
+  stocksAccessoires     StockAccessoire[]
+  transitionsDossier    TransitionDossier[]
+  prescriptions         Prescription[]
+  prisesEnCharge        PriseEnCharge[]
+  devisOffres           DevisOffre[]
+  devisLignes           DevisLigne[]
+  signaturesDevis       SignatureDevis[]
+  essaisAppareils       EssaiAppareil[]
+  essaisRdv             EssaiRdv[]
+  prolongationsEssai    ProlongationEssai[]
+  cabines               Cabine[]
+  typesRdv              TypeRdv[]
+  exceptionsAgenda      ExceptionAgenda[]
+  rendezVous            RendezVous[]
+  evenementsDomaine     EvenementDomaine[]
+  parametresReservation ParametresReservation[]
+  typesRdvEnLigne       TypeRdvEnLigne[]
+  reservationsEnLigne   ReservationEnLigne[]
+  notifications         Notification[]
 
   @@map("organisation")
 }
 
 /// Centre (établissement). On ne supprime pas un centre : on le désactive.
 model Centre {
-  id                    String                @id @default(uuid(7))
-  organisationId        String                @map("organisation_id")
+  id                    String                 @id @default(uuid(7))
+  organisationId        String                 @map("organisation_id")
   nom                   String
-  adresseLigne1         String                @map("adresse_ligne1")
-  adresseLigne2         String?               @map("adresse_ligne2")
-  codePostal            String                @map("code_postal")
+  /// Segment centre de l'URL publique de réservation, unique dans le client.
+  slug                  String                 @default(dbgenerated("slug_provisoire()"))
+  adresseLigne1         String                 @map("adresse_ligne1")
+  adresseLigne2         String?                @map("adresse_ligne2")
+  codePostal            String                 @map("code_postal")
   ville                 String
   finess                String?
   /// Identifiant de facturation Assurance Maladie, attribué par établissement.
-  numeroFacturationAm   String?               @map("numero_facturation_am")
+  numeroFacturationAm   String?                @map("numero_facturation_am")
   /// Identification de l'entreprise, au pied du devis normalisé (p. 2).
-  raisonSociale         String?               @map("raison_sociale")
+  raisonSociale         String?                @map("raison_sociale")
   siret                 String?
   rcs                   String?
-  tvaIntracommunautaire String?               @map("tva_intracommunautaire")
+  tvaIntracommunautaire String?                @map("tva_intracommunautaire")
   email                 String
   telephone             String
   /// Plages par jour, validées par `horairesOuvertureSchema`.
-  horairesOuverture     Json?                 @map("horaires_ouverture")
-  actif                 Boolean               @default(true)
-  createdAt             DateTime              @default(now()) @map("created_at")
-  updatedAt             DateTime              @updatedAt @map("updated_at")
-  organisation          Organisation          @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  horairesOuverture     Json?                  @map("horaires_ouverture")
+  actif                 Boolean                @default(true)
+  createdAt             DateTime               @default(now()) @map("created_at")
+  updatedAt             DateTime               @updatedAt @map("updated_at")
+  organisation          Organisation           @relation(fields: [organisationId], references: [id], onDelete: Restrict)
   utilisateurs          UtilisateurCentre[]
   praticiens            PraticienCentre[]
   patients              Patient[]
   lecturesVitale        LectureVitale[]
   appareils             Appareil[]
-  mouvementsDepart      MouvementAppareil[]   @relation("MouvementCentreAvant")
-  mouvementsArrivee     MouvementAppareil[]   @relation("MouvementCentreApres")
+  mouvementsDepart      MouvementAppareil[]    @relation("MouvementCentreAvant")
+  mouvementsArrivee     MouvementAppareil[]    @relation("MouvementCentreApres")
   stockAccessoires      StockAccessoire[]
   mouvementsAccessoire  MouvementAccessoire[]
   cabines               Cabine[]
   exceptionsAgenda      ExceptionAgenda[]
   rendezVous            RendezVous[]
   dossiers              Dossier[]
+  parametresReservation ParametresReservation?
+  typesRdvEnLigne       TypeRdvEnLigne[]
+  reservationsEnLigne   ReservationEnLigne[]
 
+  @@unique([organisationId, slug])
   @@unique([organisationId, nom])
   @@unique([organisationId, finess])
   @@unique([organisationId, numeroFacturationAm])
@@ -205,19 +217,20 @@ model UtilisateurCentre {
 
 /// Audioprothésiste : fiche liée à un utilisateur de rôle AUDIO (contrôlé par le service).
 model Praticien {
-  id             String            @id @default(uuid(7))
-  organisationId String            @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
-  utilisateurId  String            @unique @map("utilisateur_id")
-  rpps           String            @db.Char(11)
-  adeli          String?           @db.Char(9)
-  createdAt      DateTime          @default(now()) @map("created_at")
-  updatedAt      DateTime          @updatedAt @map("updated_at")
-  utilisateur    Utilisateur       @relation(fields: [utilisateurId], references: [id], onDelete: Restrict)
-  centres        PraticienCentre[]
-  dossiers       Dossier[]
-  rendezVous     RendezVous[]
-  exceptions     ExceptionAgenda[]
-  organisation   Organisation      @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  id                  String               @id @default(uuid(7))
+  organisationId      String               @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  utilisateurId       String               @unique @map("utilisateur_id")
+  rpps                String               @db.Char(11)
+  adeli               String?              @db.Char(9)
+  createdAt           DateTime             @default(now()) @map("created_at")
+  updatedAt           DateTime             @updatedAt @map("updated_at")
+  utilisateur         Utilisateur          @relation(fields: [utilisateurId], references: [id], onDelete: Restrict)
+  centres             PraticienCentre[]
+  dossiers            Dossier[]
+  rendezVous          RendezVous[]
+  exceptions          ExceptionAgenda[]
+  organisation        Organisation         @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  reservationsEnLigne ReservationEnLigne[]
 
   @@unique([organisationId, rpps])
   @@unique([organisationId, adeli])
@@ -1465,17 +1478,18 @@ enum OrigineRdv {
 
 /// Salle insonorisée d'un centre. L'autre ressource de l'agenda est le praticien, qui suit ses centres.
 model Cabine {
-  id             String            @id @default(uuid(7))
-  organisationId String            @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
-  centreId       String            @map("centre_id")
-  nom            String
-  actif          Boolean           @default(true)
-  createdAt      DateTime          @default(now()) @map("created_at")
-  updatedAt      DateTime          @updatedAt @map("updated_at")
-  centre         Centre            @relation(fields: [centreId], references: [id], onDelete: Restrict)
-  rendezVous     RendezVous[]
-  exceptions     ExceptionAgenda[]
-  organisation   Organisation      @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  id                  String               @id @default(uuid(7))
+  organisationId      String               @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  centreId            String               @map("centre_id")
+  nom                 String
+  actif               Boolean              @default(true)
+  createdAt           DateTime             @default(now()) @map("created_at")
+  updatedAt           DateTime             @updatedAt @map("updated_at")
+  centre              Centre               @relation(fields: [centreId], references: [id], onDelete: Restrict)
+  rendezVous          RendezVous[]
+  exceptions          ExceptionAgenda[]
+  organisation        Organisation         @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  reservationsEnLigne ReservationEnLigne[]
 
   @@unique([centreId, nom])
   @@index([organisationId])
@@ -1484,21 +1498,23 @@ model Cabine {
 
 /// Type de rendez-vous, par client. `natureEssai` relie le type à la trace d'essai correspondante (étape 13).
 model TypeRdv {
-  id                  String        @id @default(uuid(7))
-  organisationId      String        @map("organisation_id")
+  id                  String               @id @default(uuid(7))
+  organisationId      String               @map("organisation_id")
   nom                 String
-  dureeMinutes        Int           @map("duree_minutes")
+  dureeMinutes        Int                  @map("duree_minutes")
   couleur             String
-  requierePraticien   Boolean       @map("requiere_praticien")
-  requiereCabine      Boolean       @map("requiere_cabine")
-  reservableEnLigne   Boolean       @default(false) @map("reservable_en_ligne")
-  delaiMinimalMinutes Int           @default(0) @map("delai_minimal_minutes")
-  natureEssai         TypeRdvEssai? @map("nature_essai")
-  actif               Boolean       @default(true)
-  createdAt           DateTime      @default(now()) @map("created_at")
-  updatedAt           DateTime      @updatedAt @map("updated_at")
+  requierePraticien   Boolean              @map("requiere_praticien")
+  requiereCabine      Boolean              @map("requiere_cabine")
+  reservableEnLigne   Boolean              @default(false) @map("reservable_en_ligne")
+  delaiMinimalMinutes Int                  @default(0) @map("delai_minimal_minutes")
+  natureEssai         TypeRdvEssai?        @map("nature_essai")
+  actif               Boolean              @default(true)
+  createdAt           DateTime             @default(now()) @map("created_at")
+  updatedAt           DateTime             @updatedAt @map("updated_at")
   rendezVous          RendezVous[]
-  organisation        Organisation  @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  organisation        Organisation         @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  centresEnLigne      TypeRdvEnLigne[]
+  reservationsEnLigne ReservationEnLigne[]
 
   @@unique([organisationId, nom])
   @@map("type_rdv")
@@ -1529,40 +1545,42 @@ model ExceptionAgenda {
 /// Rendez-vous. Deux contraintes d'exclusion, en SQL, interdisent la double réservation d'un praticien ou
 /// d'une cabine. `arriveLe`, `priseEnChargeLe` et `termineLe` alimentent la salle d'attente.
 model RendezVous {
-  id                String       @id @default(uuid(7))
-  organisationId    String       @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
-  centreId          String       @map("centre_id")
-  typeRdvId         String       @map("type_rdv_id")
-  patientId         String?      @map("patient_id")
+  id                 String              @id @default(uuid(7))
+  organisationId     String              @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  centreId           String              @map("centre_id")
+  typeRdvId          String              @map("type_rdv_id")
+  patientId          String?             @map("patient_id")
   /// Prospect : effacé à la conversion en patient.
-  prospectNom       String?      @map("prospect_nom")
-  prospectTelephone String?      @map("prospect_telephone")
+  prospectNom        String?             @map("prospect_nom")
+  prospectTelephone  String?             @map("prospect_telephone")
   /// Lien vers le dossier d'appareillage : les RDV d'essai alimenteront l'essai à l'étape 13.
-  dossierId         String?      @map("dossier_id")
-  praticienId       String?      @map("praticien_id")
-  cabineId          String?      @map("cabine_id")
-  debut             DateTime     @db.Timestamptz(3)
-  fin               DateTime     @db.Timestamptz(3)
-  statut            StatutRdv    @default(PLANIFIE)
-  origine           OrigineRdv
+  dossierId          String?             @map("dossier_id")
+  praticienId        String?             @map("praticien_id")
+  cabineId           String?             @map("cabine_id")
+  debut              DateTime            @db.Timestamptz(3)
+  fin                DateTime            @db.Timestamptz(3)
+  statut             StatutRdv           @default(PLANIFIE)
+  origine            OrigineRdv
   /// Chiffré (contexte « rendez_vous.notes ») : données de santé possibles.
-  notes             String?
-  arriveLe          DateTime?    @map("arrive_le") @db.Timestamptz(3)
-  priseEnChargeLe   DateTime?    @map("prise_en_charge_le") @db.Timestamptz(3)
-  termineLe         DateTime?    @map("termine_le") @db.Timestamptz(3)
+  notes              String?
+  arriveLe           DateTime?           @map("arrive_le") @db.Timestamptz(3)
+  priseEnChargeLe    DateTime?           @map("prise_en_charge_le") @db.Timestamptz(3)
+  termineLe          DateTime?           @map("termine_le") @db.Timestamptz(3)
   /// Verrou optimiste : toute écriture est conditionnée à la version lue, puis l'incrémente.
-  version           Int          @default(1)
-  createdById       String       @map("created_by_id")
-  createdAt         DateTime     @default(now()) @map("created_at")
-  updatedAt         DateTime     @updatedAt @map("updated_at")
-  centre            Centre       @relation(fields: [centreId], references: [id], onDelete: Restrict)
-  typeRdv           TypeRdv      @relation(fields: [typeRdvId], references: [id], onDelete: Restrict)
-  patient           Patient?     @relation(fields: [patientId], references: [id], onDelete: Restrict)
-  dossier           Dossier?     @relation(fields: [dossierId], references: [id], onDelete: Restrict)
-  praticien         Praticien?   @relation(fields: [praticienId], references: [id], onDelete: Restrict)
-  cabine            Cabine?      @relation(fields: [cabineId], references: [id], onDelete: Restrict)
-  createdBy         Utilisateur  @relation("RendezVousCreateur", fields: [createdById], references: [id], onDelete: Restrict)
-  organisation      Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  version            Int                 @default(1)
+  /// `null` : réservé en ligne par le patient, sans utilisateur (ADR-021).
+  createdById        String?             @map("created_by_id")
+  createdAt          DateTime            @default(now()) @map("created_at")
+  updatedAt          DateTime            @updatedAt @map("updated_at")
+  centre             Centre              @relation(fields: [centreId], references: [id], onDelete: Restrict)
+  typeRdv            TypeRdv             @relation(fields: [typeRdvId], references: [id], onDelete: Restrict)
+  patient            Patient?            @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  dossier            Dossier?            @relation(fields: [dossierId], references: [id], onDelete: Restrict)
+  praticien          Praticien?          @relation(fields: [praticienId], references: [id], onDelete: Restrict)
+  cabine             Cabine?             @relation(fields: [cabineId], references: [id], onDelete: Restrict)
+  createdBy          Utilisateur?        @relation("RendezVousCreateur", fields: [createdById], references: [id], onDelete: Restrict)
+  organisation       Organisation        @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  reservationEnLigne ReservationEnLigne?
 
   @@index([centreId, debut])
   @@index([patientId, debut])
@@ -1585,4 +1603,142 @@ model EvenementDomaine {
 
   @@index([organisationId])
   @@map("evenement_domaine")
+}
+
+enum ValidationReservation {
+  AUTOMATIQUE
+  MANUELLE
+}
+
+enum StatutReservation {
+  VERROU
+  FINALISEE
+}
+
+enum CanalNotification {
+  SMS
+  EMAIL
+}
+
+enum GabaritNotification {
+  RDV_CONFIRME
+  RDV_DEMANDE_RECUE
+  RDV_ACCEPTE
+  RDV_REFUSE
+  RDV_DEPLACE
+  RDV_ANNULE
+}
+
+enum StatutNotification {
+  A_ENVOYER
+  ENVOYEE
+  ABANDONNEE
+}
+
+/// Réservation en ligne d'un centre. Sans ligne ou inactive, la page publique répond 404.
+model ParametresReservation {
+  id                      String                @id @default(uuid(7))
+  organisationId          String                @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  centreId                String                @unique @map("centre_id")
+  actif                   Boolean               @default(false)
+  delaiMinimalMinutes     Int                   @map("delai_minimal_minutes")
+  horizonJours            Int                   @map("horizon_jours")
+  validation              ValidationReservation
+  /// Le patient annule ou déplace par son lien jusqu'à ce délai avant le rendez-vous.
+  delaiModificationHeures Int                   @map("delai_modification_heures")
+  createdAt               DateTime              @default(now()) @map("created_at")
+  updatedAt               DateTime              @updatedAt @map("updated_at")
+  centre                  Centre                @relation(fields: [centreId], references: [id], onDelete: Restrict)
+  organisation            Organisation          @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+
+  @@index([organisationId])
+  @@map("parametres_reservation")
+}
+
+/// Types proposés en ligne par un centre, parmi ceux que le client déclare réservables.
+model TypeRdvEnLigne {
+  id             String       @id @default(uuid(7))
+  organisationId String       @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  centreId       String       @map("centre_id")
+  typeRdvId      String       @map("type_rdv_id")
+  centre         Centre       @relation(fields: [centreId], references: [id], onDelete: Restrict)
+  typeRdv        TypeRdv      @relation(fields: [typeRdvId], references: [id], onDelete: Restrict)
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+
+  @@unique([centreId, typeRdvId])
+  @@index([organisationId])
+  @@map("type_rdv_en_ligne")
+}
+
+/// Parcours d'un patient, du verrou du créneau au rendez-vous. Tant que le statut est `VERROU`, deux contraintes
+/// d'exclusion, en SQL, réservent le créneau face aux autres patients (ADR-021). L'identité s'efface dès qu'elle
+/// a servi : au rapprochement d'une fiche, ou à la conversion du prospect.
+model ReservationEnLigne {
+  id                  String            @id @default(uuid(7))
+  organisationId      String            @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  centreId            String            @map("centre_id")
+  typeRdvId           String            @map("type_rdv_id")
+  praticienId         String?           @map("praticien_id")
+  cabineId            String?           @map("cabine_id")
+  debut               DateTime          @db.Timestamptz(3)
+  fin                 DateTime          @db.Timestamptz(3)
+  statut              StatutReservation @default(VERROU)
+  expireLe            DateTime          @map("expire_le") @db.Timestamptz(3)
+  /// Empreinte du jeton de parcours, porté par le formulaire du navigateur.
+  jetonEmpreinte      String            @unique @map("jeton_empreinte")
+  nom                 String?
+  prenom              String?
+  dateNaissance       DateTime?         @map("date_naissance") @db.Date
+  telephone           String?
+  email               String?
+  /// Chiffré (contexte « reservation_en_ligne.motif ») : données de santé possibles.
+  motif               String?
+  consentementRgpdLe  DateTime?         @map("consentement_rgpd_le") @db.Timestamptz(3)
+  consentementSmsLe   DateTime?         @map("consentement_sms_le") @db.Timestamptz(3)
+  versionConsentement String?           @map("version_consentement")
+  /// Empreinte du code SMS, jamais le code.
+  codeEmpreinte       String?           @map("code_empreinte")
+  codeExpireLe        DateTime?         @map("code_expire_le") @db.Timestamptz(3)
+  codeTentatives      Int               @default(0) @map("code_tentatives")
+  codeEnvois          Int               @default(0) @map("code_envois")
+  rendezVousId        String?           @unique @map("rendez_vous_id")
+  createdAt           DateTime          @default(now()) @map("created_at")
+  updatedAt           DateTime          @updatedAt @map("updated_at")
+  centre              Centre            @relation(fields: [centreId], references: [id], onDelete: Restrict)
+  typeRdv             TypeRdv           @relation(fields: [typeRdvId], references: [id], onDelete: Restrict)
+  praticien           Praticien?        @relation(fields: [praticienId], references: [id], onDelete: Restrict)
+  cabine              Cabine?           @relation(fields: [cabineId], references: [id], onDelete: Restrict)
+  rendezVous          RendezVous?       @relation(fields: [rendezVousId], references: [id], onDelete: Restrict)
+  organisation        Organisation      @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  notifications       Notification[]
+
+  @@index([organisationId, statut, expireLe])
+  @@index([centreId, debut])
+  @@map("reservation_en_ligne")
+}
+
+/// Message à envoyer au patient, écrit dans la transaction du métier et envoyé par `packages/jobs` (ADR-021).
+/// Le code SMS n'y passe jamais.
+model Notification {
+  id              String              @id @default(uuid(7))
+  organisationId  String              @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  reservationId   String              @map("reservation_id")
+  canal           CanalNotification
+  /// Chiffré (contexte « notification.destinataire »).
+  destinataire    String
+  gabarit         GabaritNotification
+  /// Validés par `parametresGabaritSchema` : ni type de rendez-vous, ni motif, ni nom.
+  parametres      Json
+  cleIdempotence  String              @map("cle_idempotence")
+  statut          StatutNotification  @default(A_ENVOYER)
+  tentatives      Int                 @default(0)
+  prochainEssaiLe DateTime            @default(now()) @map("prochain_essai_le") @db.Timestamptz(3)
+  envoyeeLe       DateTime?           @map("envoyee_le") @db.Timestamptz(3)
+  createdAt       DateTime            @default(now()) @map("created_at")
+  reservation     ReservationEnLigne  @relation(fields: [reservationId], references: [id], onDelete: Restrict)
+  organisation    Organisation        @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+
+  @@unique([organisationId, cleIdempotence])
+  @@index([reservationId])
+  @@map("notification")
 }

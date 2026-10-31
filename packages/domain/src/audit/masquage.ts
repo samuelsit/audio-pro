@@ -153,6 +153,15 @@ export const CHAMPS_VISIBLES_AUDIT: Readonly<Record<TypeEntite, readonly string[
     'actif',
   ],
   CABINE: ['centreId', 'nom', 'actif'],
+  PARAMETRES_RESERVATION: [
+    'actif',
+    'delaiMinimalMinutes',
+    'horizonJours',
+    'validation',
+    'delaiModificationHeures',
+    'typeRdvIds',
+    'slug',
+  ],
   EXCEPTION_AGENDA: ['type', 'praticienId', 'cabineId', 'centreId', 'debut', 'fin'],
   STOCK_ACCESSOIRE: [],
 };

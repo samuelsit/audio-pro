@@ -4,6 +4,7 @@ import {
   JOURS_SEMAINE,
   localDepuisInstant,
   instantSaisi,
+  PARAMETRES_RESERVATION_DEFAUT,
   TYPES_RDV_DEFAUT,
   type HorairesOuverture,
   type JourSemaine,
@@ -45,6 +46,8 @@ export async function seedAgenda(
   { centres, centrePrincipal, praticiens, horaires, creePar }: OptionsAgenda,
 ): Promise<void> {
   await seedTypesRdv(db, organisationId);
+  await db.notification.deleteMany({ where: { organisationId } });
+  await db.reservationEnLigne.deleteMany({ where: { organisationId } });
   await db.rendezVous.deleteMany({ where: { organisationId } });
 
   const cabines = new Map<string, string>();
@@ -147,5 +150,27 @@ export async function seedAgenda(
       origine: 'TELEPHONE',
       createdById: creePar,
     },
+  });
+}
+
+/** Ouvre la réservation en ligne d'un centre de démonstration, avec les types réservables du client. */
+export async function seedReservationEnLigne(
+  db: PrismaClient,
+  organisationId: string,
+  centreId: string,
+): Promise<void> {
+  const reglages = { ...PARAMETRES_RESERVATION_DEFAUT, actif: true, delaiMinimalMinutes: 60 };
+  await db.parametresReservation.upsert({
+    where: { centreId },
+    create: { ...reglages, organisationId, centreId },
+    update: reglages,
+  });
+  const types = await db.typeRdv.findMany({
+    where: { organisationId, reservableEnLigne: true },
+    select: { id: true },
+  });
+  await db.typeRdvEnLigne.createMany({
+    data: types.map(({ id }) => ({ organisationId, centreId, typeRdvId: id })),
+    skipDuplicates: true,
   });
 }

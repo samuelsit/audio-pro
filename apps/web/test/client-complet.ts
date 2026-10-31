@@ -144,6 +144,43 @@ export async function creerClientComplet(suffixe: string) {
       createdById: utilisateurId,
     },
   });
+  await prisma().parametresReservation.create({
+    data: {
+      organisationId,
+      centreId: d.centres.a.id,
+      actif: true,
+      delaiMinimalMinutes: 0,
+      horizonJours: 30,
+      validation: 'AUTOMATIQUE',
+      delaiModificationHeures: 24,
+    },
+  });
+  await prisma().typeRdvEnLigne.create({
+    data: { organisationId, centreId: d.centres.a.id, typeRdvId: typeRdv.id },
+  });
+  const reservation = await prisma().reservationEnLigne.create({
+    data: {
+      organisationId,
+      centreId: d.centres.a.id,
+      typeRdvId: typeRdv.id,
+      praticienId: d.praticiens.praticienAB.id,
+      debut: new Date('2030-08-05T09:00:00.000Z'),
+      fin: new Date('2030-08-05T09:30:00.000Z'),
+      expireLe: new Date('2030-08-05T08:00:00.000Z'),
+      jetonEmpreinte: `jeton-reservation${suffixe}`,
+    },
+  });
+  await base({ organisationId }).notification.create({
+    data: {
+      organisationId,
+      reservationId: reservation.id,
+      canal: 'SMS',
+      destinataire: '+33600000000',
+      gabarit: 'RDV_CONFIRME',
+      parametres: {},
+      cleIdempotence: `cle${suffixe}`,
+    },
+  });
   await prisma().session.create({
     data: {
       token: `jeton${suffixe}`,
@@ -170,6 +207,7 @@ export async function creerClientComplet(suffixe: string) {
     cabineId,
     typeRdvId: typeRdv.id,
     rdvId,
+    reservationId: reservation.id,
   };
 }
 

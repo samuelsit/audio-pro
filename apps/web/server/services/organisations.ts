@@ -5,6 +5,8 @@ import {
   nomAffiche,
   organisationSaisieSchema,
   ROLE_SUPERADMIN,
+  slugDepuisNom,
+  slugDisponible,
   statutClientSchema,
   type StatutOrganisation,
   TYPES_RDV_DEFAUT,
@@ -59,6 +61,7 @@ export async function listerOrganisations(
 
 const MESSAGES_DOUBLON = {
   organisation_siren_key: ['siren', 'Un client existe déjà avec ce SIREN.'],
+  organisation_slug_key: ['raisonSociale', 'Un client vient d’être créé avec ce nom. Réessayez.'],
   utilisateur_email_key: ['adminEmail', 'Un compte existe déjà avec cette adresse e-mail.'],
 } as const;
 
@@ -82,7 +85,16 @@ export async function creerOrganisation(
     return await withAuditPlateforme(
       acteur,
       async (tx) => {
-        const { id } = await tx.organisation.create({ data: organisation, select: { id: true } });
+        const nom = slugDepuisNom(organisation.raisonSociale, 'client');
+        const pris = await tx.organisation.findMany({
+          where: { slug: { startsWith: nom } },
+          select: { slug: true },
+        });
+        const slug = slugDisponible(nom, new Set(pris.map((o) => o.slug)));
+        const { id } = await tx.organisation.create({
+          data: { ...organisation, slug },
+          select: { id: true },
+        });
         const admin = await tx.utilisateur.create({
           data: {
             organisationId: id,
