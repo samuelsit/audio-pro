@@ -60,7 +60,7 @@ export function ajouterMois(date: string, mois: number): string {
   const [annee, moisDepart, jour] = decomposerDate(date);
   const total = moisDepart - 1 + mois;
   const anneeArrivee = annee + Math.floor(total / 12);
-  const moisArrivee = (total % 12) + 1;
+  const moisArrivee = (((total % 12) + 12) % 12) + 1;
   const dernierJour = joursDansLeMois(anneeArrivee, moisArrivee);
   return formaterDate(anneeArrivee, moisArrivee, Math.min(jour, dernierJour));
 }

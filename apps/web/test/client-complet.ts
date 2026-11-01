@@ -486,6 +486,17 @@ export async function creerClientComplet(suffixe: string) {
     dateRetourPrevue: '',
     ticketId,
   });
+  await prisma().controleSuivi.create({
+    data: {
+      organisationId,
+      patientId,
+      centreId: d.centres.a.id,
+      dateReference: new Date('2026-01-05'),
+      rang: 1,
+      statut: 'IGNORE',
+      createdById: audio.id,
+    },
+  });
   await enregistrerSeuil(d.acteurs.admin, {
     centreId: d.centres.a.id,
     produit: `modele:${catalogue.classeI}`,

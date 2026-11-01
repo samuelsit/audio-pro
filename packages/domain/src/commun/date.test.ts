@@ -52,6 +52,9 @@ describe('ajouterMois', () => {
     { date: '2024-02-29', mois: 48, attendu: '2028-02-29', cas: '29 février, 4 ans plus tard' },
     { date: '2096-02-29', mois: 48, attendu: '2100-02-28', cas: '2100 n’est pas bissextile' },
     { date: '2026-12-01', mois: 12, attendu: '2027-12-01', cas: 'décembre reste décembre' },
+    { date: '2027-05-01', mois: -12, attendu: '2026-05-01', cas: 'un an en arrière' },
+    { date: '2026-01-31', mois: -2, attendu: '2025-11-30', cas: 'recul sur l’année précédente' },
+    { date: '2026-03-15', mois: -3, attendu: '2025-12-15', cas: 'recul jusqu’en décembre' },
   ])('$cas', ({ date, mois, attendu }) => {
     expect(ajouterMois(date, mois)).toBe(attendu);
   });

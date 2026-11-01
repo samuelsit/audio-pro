@@ -68,6 +68,7 @@ export const LIENS_SAV: readonly LienSousNavigation[] = [
   { href: '/sav/retours', libelle: 'Retours fabricant' },
   { href: '/sav/prets', libelle: 'Prêts' },
   { href: '/sav/comptoir', libelle: 'Comptoir' },
+  { href: '/sav/suivi', libelle: 'Suivi' },
 ];
 
 export const LIENS_PILOTAGE: readonly LienSousNavigation[] = [

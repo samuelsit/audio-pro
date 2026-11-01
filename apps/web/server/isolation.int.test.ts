@@ -37,6 +37,7 @@ import {
 } from './services/agenda-parametres';
 import { appareilsDuPatient, enregistrerAssurance } from './services/garanties';
 import { rendrePret } from './services/prets';
+import { controlesDuPatient } from './services/suivi';
 import { obtenirRetour, telechargerBonRetour } from './services/retours-fabricant';
 import { obtenirTicket } from './services/tickets-sav';
 import { lireParametresReservation } from './services/reservation-parametres';
@@ -73,6 +74,7 @@ const TABLES_ISOLEES = [
   'appareil',
   'bilan_audiologique',
   'compteur_sav',
+  'controle_suivi',
   'garantie_appareil',
   'parametres_sav',
   'pret_appareil',
@@ -572,6 +574,7 @@ describe('identifiant d’un autre client forcé dans l’URL', () => {
     { entite: 'bon de commande', appel: (x, c) => telechargerBon(x, c.commandeId) },
     { entite: 'appareils du patient', appel: (x, c) => appareilsDuPatient(x, c.patientId) },
     { entite: 'ticket SAV', appel: (x, c) => obtenirTicket(x, c.ticketId) },
+    { entite: 'contrôles du patient', appel: (x, c) => controlesDuPatient(x, c.patientId) },
     { entite: 'retour fabricant', appel: (x, c) => obtenirRetour(x, c.retourId) },
     {
       entite: 'prêt',

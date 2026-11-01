@@ -18,8 +18,10 @@ import {
   MessageFormulaire,
   ZoneDeTexte,
 } from '@/components/formulaire';
+import { formaterDate } from '@/lib/format';
 import { ETAT_INITIAL, type EtatFormulaire } from '@/lib/formulaire';
 import type { ArticleComptoir } from '@/server/services/comptoir';
+import type { CreneauControle } from '@/server/services/suivi';
 import type { FicheTicket } from '@/server/services/tickets-sav';
 
 import { SelecteurPatient } from '../stock/selecteur-patient';
@@ -34,6 +36,8 @@ import {
   enregistrerIssueAction,
   enregistrerRemplacantAction,
   envoyerRetourAction,
+  ignorerControleAction,
+  planifierControleAction,
   facturerAction,
   ouvrirTicketAction,
   preparerRetourAction,
@@ -472,6 +476,71 @@ export function FormulaireComptoir({
       </div>
       <div>
         <BoutonEnvoi>Préparer la vente</BoutonEnvoi>
+      </div>
+    </form>
+  );
+}
+
+interface ReferenceControle {
+  readonly patientId: string;
+  readonly dateReference: string;
+  readonly rang: string;
+}
+
+function ChampsControle({ controle }: { controle: ReferenceControle }) {
+  return (
+    <>
+      <input type="hidden" name="patientId" value={controle.patientId} />
+      <input type="hidden" name="dateReference" value={controle.dateReference} />
+      <input type="hidden" name="rang" value={controle.rang} />
+    </>
+  );
+}
+
+export function FormulairePlanification({
+  controle,
+  centreId,
+  typeRdvId,
+  creneaux,
+}: {
+  controle: ReferenceControle;
+  centreId: string;
+  typeRdvId: string;
+  creneaux: readonly CreneauControle[];
+}) {
+  const [etat, envoyer] = useActionState(planifierControleAction, ETAT_INITIAL);
+  return (
+    <form action={envoyer} className="grid max-w-2xl gap-4">
+      <MessageFormulaire etat={etat} />
+      <ChampsControle controle={controle} />
+      <input type="hidden" name="centreId" value={centreId} />
+      <input type="hidden" name="typeRdvId" value={typeRdvId} />
+      <ListeDeroulante
+        etat={etat}
+        nom="creneau"
+        libelle="Créneau"
+        vide="Choisir"
+        options={creneaux.map((c) => ({
+          valeur: c.clef,
+          libelle: `${formaterDate(c.date)} à ${c.heure}${c.praticien ? `, ${c.praticien}` : ''}`,
+        }))}
+      />
+      <div>
+        <BoutonEnvoi>Prendre le rendez-vous</BoutonEnvoi>
+      </div>
+    </form>
+  );
+}
+
+export function FormulaireIgnorer({ controle }: { controle: ReferenceControle }) {
+  const [etat, envoyer] = useActionState(ignorerControleAction, ETAT_INITIAL);
+  return (
+    <form action={envoyer} className="grid max-w-2xl gap-4">
+      <MessageFormulaire etat={etat} />
+      <ChampsControle controle={controle} />
+      <ZoneDeTexte etat={etat} nom="motif" libelle="Ne pas proposer ce contrôle : motif" requis />
+      <div>
+        <BoutonEnvoi variant="outline">Ignorer ce contrôle</BoutonEnvoi>
       </div>
     </form>
   );

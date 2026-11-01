@@ -948,6 +948,18 @@ export async function fusionnerPatients(
         where: { patientId: doublonId },
         data: { patientId: conserveeId },
       });
+      // Deux fiches d'une même délivrance : la décision de la fiche conservée reste.
+      const decisions = await tx.controleSuivi.findMany({
+        where: { patientId: conserveeId },
+        select: { dateReference: true, rang: true },
+      });
+      await tx.controleSuivi.deleteMany({
+        where: { patientId: doublonId, OR: decisions },
+      });
+      await tx.controleSuivi.updateMany({
+        where: { patientId: doublonId },
+        data: { patientId: conserveeId },
+      });
       await tx.dossier.updateMany({
         where: { patientId: doublonId },
         data: { patientId: conserveeId },

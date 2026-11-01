@@ -18,6 +18,7 @@ import { formaterDate, formaterDateHeure } from '@/lib/format';
 import { ouIntrouvable, requireSession } from '@/server/auth/gardes';
 import { appareilsDuPatient } from '@/server/services/garanties';
 import { doublonsDeLaFiche, obtenirPatient } from '@/server/services/patients';
+import { controlesDuPatient } from '@/server/services/suivi';
 
 import { adresseSurUneLigne, dateEtAge, libelleMotifs } from '../affichage';
 import { AlerteDroits, BadgeC2s, EntetePatient } from '../entete-patient';
@@ -62,7 +63,10 @@ export default async function PageFichePatient({ params }: PageProps<'/patients/
   }
   const { fiche } = ouverture;
   const doublons = await doublonsDeLaFiche(acteur, fiche);
-  const appareils = await appareilsDuPatient(acteur, fiche.id);
+  const [appareils, controles] = await Promise.all([
+    appareilsDuPatient(acteur, fiche.id),
+    controlesDuPatient(acteur, fiche.id),
+  ]);
   const peutFusionner = peutActerAppareillage(acteur.role);
   const { amo, amc } = fiche;
 
@@ -138,6 +142,16 @@ export default async function PageFichePatient({ params }: PageProps<'/patients/
                 ? ` : garanti jusqu’au ${formaterDate(a.garantie.dateFin)}`
                 : ` : garantie terminée le ${formaterDate(a.garantie.dateFin)}`}
               {a.garantie.assuranceEnCours ? `, assuré par ${a.garantie.assureur}` : ''}
+            </Ligne>
+          ))}
+          {controles.map((c) => (
+            <Ligne
+              key={`${c.dateReference}-${String(c.rang)}`}
+              libelle={`Contrôle à ${String(c.mois)} mois`}
+            >
+              <Link href="/sav/suivi" className="underline underline-offset-2">
+                {c.enRetard ? 'En retard depuis le' : 'Prévu le'} {formaterDate(c.datePrevue)}
+              </Link>
             </Ligne>
           ))}
         </Bloc>

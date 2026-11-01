@@ -7,6 +7,7 @@ import { texte, type EtatFormulaire } from '@/lib/formulaire';
 import { executer } from '@/server/actions';
 import { requireSession } from '@/server/auth/gardes';
 import { venteComptoir } from '@/server/services/comptoir';
+import { ignorerControle, planifierControle } from '@/server/services/suivi';
 import { preterAppareil, rendrePret } from '@/server/services/prets';
 import {
   abandonnerRemplacant,
@@ -293,4 +294,45 @@ export async function venteComptoirAction(
     return erreur;
   }
   redirect(`/factures/${factureId}`);
+}
+
+function donneesControle(formData: FormData) {
+  return {
+    patientId: texte(formData, 'patientId'),
+    dateReference: texte(formData, 'dateReference'),
+    rang: texte(formData, 'rang'),
+  };
+}
+
+export async function planifierControleAction(
+  _: EtatFormulaire,
+  formData: FormData,
+): Promise<EtatFormulaire> {
+  const acteur = await requireSession();
+  const donnees = {
+    ...donneesControle(formData),
+    centreId: texte(formData, 'centreId'),
+    typeRdvId: texte(formData, 'typeRdvId'),
+    creneau: texte(formData, 'creneau'),
+  };
+  const erreur = await executer(() => planifierControle(acteur, donnees), donnees);
+  if (erreur) {
+    return erreur;
+  }
+  revalidatePath('/sav/suivi');
+  redirect('/sav/suivi');
+}
+
+export async function ignorerControleAction(
+  _: EtatFormulaire,
+  formData: FormData,
+): Promise<EtatFormulaire> {
+  const acteur = await requireSession();
+  const donnees = { ...donneesControle(formData), motif: texte(formData, 'motif') };
+  const erreur = await executer(() => ignorerControle(acteur, donnees), donnees);
+  if (erreur) {
+    return erreur;
+  }
+  revalidatePath('/sav/suivi');
+  redirect('/sav/suivi');
 }

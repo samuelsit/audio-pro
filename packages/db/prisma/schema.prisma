@@ -66,6 +66,7 @@ model Organisation {
   ticketsSav               TicketSav[]
   retoursFabricant         RetourFabricant[]
   pretsAppareil            PretAppareil[]
+  controlesSuivi           ControleSuivi[]
   reglesCommande           RegleCommande[]
   compteursCommande        CompteurCommande[]
   commandes                Commande[]
@@ -178,6 +179,7 @@ model Centre {
   patients              Patient[]
   lecturesVitale        LectureVitale[]
   appareils             Appareil[]
+  controlesSuivi        ControleSuivi[]
   pretsAppareil         PretAppareil[]
   retoursFabricant      RetourFabricant[]
   ticketsSav            TicketSav[]
@@ -252,6 +254,7 @@ model Utilisateur {
   comptes                      Compte[]
   deuxFacteurs                 DeuxFacteurs[]
   lecturesVitale               LectureVitale[]
+  controlesSuivi               ControleSuivi[]
   pretsAppareil                PretAppareil[]
   retoursFabricant             RetourFabricant[]
   ticketsSavOuverts            TicketSav[]
@@ -430,6 +433,7 @@ model Patient {
   appareils             Appareil[]
   mouvementsAppareil    MouvementAppareil[]
   garantiesAppareil     GarantieAppareil[]
+  controlesSuivi        ControleSuivi[]
   pretsAppareil         PretAppareil[]
   ticketsSav            TicketSav[]
   dossiers              Dossier[]
@@ -1609,6 +1613,37 @@ model PretAppareil {
   @@index([patientId])
   @@index([ticketSavId])
   @@map("pret_appareil")
+}
+
+enum StatutControleSuivi {
+  PLANIFIE
+  IGNORE
+}
+
+/// Décision sur un contrôle de suivi : l'échéancier se calcule depuis les délivrances (`controlesAPlanifier`), seuls
+/// le rendez-vous pris et le refus se stockent. Une clé par patient, date de délivrance et rang. `motif` est chiffré.
+model ControleSuivi {
+  id             String              @id @default(uuid(7))
+  organisationId String              @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  patientId      String              @map("patient_id")
+  centreId       String              @map("centre_id")
+  dateReference  DateTime            @map("date_reference") @db.Date
+  rang           Int
+  statut         StatutControleSuivi
+  rendezVousId   String?             @map("rendez_vous_id")
+  motif          String?
+  createdById    String              @map("created_by_id")
+  updatedAt      DateTime            @updatedAt @map("updated_at")
+  organisation   Organisation        @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  patient        Patient             @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  centre         Centre              @relation(fields: [centreId], references: [id], onDelete: Restrict)
+  rendezVous     RendezVous?         @relation(fields: [rendezVousId], references: [id], onDelete: Restrict)
+  createdBy      Utilisateur         @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@unique([patientId, dateReference, rang])
+  @@index([centreId])
+  @@index([rendezVousId])
+  @@map("controle_suivi")
 }
 
 /// Sans ligne, `PARAMETRES_SAV_DEFAUT` s'applique.
@@ -3035,6 +3070,7 @@ model RendezVous {
   organisation       Organisation        @relation(fields: [organisationId], references: [id], onDelete: Restrict)
   reservationEnLigne ReservationEnLigne?
   essaiRdv           EssaiRdv?
+  controlesSuivi     ControleSuivi[]
 
   @@index([centreId, debut])
   @@index([patientId, debut])

@@ -6,4 +6,5 @@ export * from './pret';
 export * from './quota-piles';
 export * from './retour';
 export * from './saisie';
+export * from './suivi';
 export * from './ticket';
