@@ -61,6 +61,12 @@ export const prixLigneSaisieSchema = z.object({ prixAchatCentimes: prixAchatSche
 
 export const motifCommandeSchema = z.object({ motif: motifSchema });
 
+export const accuseSaisieSchema = z.object({
+  referenceFournisseur: texteOptionnelSchema.pipe(
+    z.string().max(100, '100 caractères au maximum.').nullable(),
+  ),
+});
+
 export const regleCommandeSaisieSchema = z.object({
   libelle: texteObligatoire('Le libellé est obligatoire.', 100),
   priorite: z.coerce

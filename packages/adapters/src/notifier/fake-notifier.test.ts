@@ -26,6 +26,28 @@ describe('FakeNotifier', () => {
     await rm(dossier, { recursive: true });
   });
 
+  it('garde le nom des pièces jointes dans le fichier, pas leurs octets', async () => {
+    const dossier = await mkdtemp(join(tmpdir(), 'notifier-'));
+    const fichier = join(dossier, 'messages.jsonl');
+    const notifier = new FakeNotifier(fichier);
+    const pieceJointe = {
+      nomFichier: 'bon.pdf',
+      typeContenu: 'application/pdf',
+      contenu: Uint8Array.from([1, 2]),
+    };
+    await notifier.envoyerEmail({
+      destinataire: 'a@exemple.test',
+      sujet: 'S',
+      texte: 'T',
+      piecesJointes: [pieceJointe],
+    });
+    expect(JSON.parse(await readFile(fichier, 'utf8'))).toMatchObject({
+      piecesJointes: ['bon.pdf'],
+    });
+    expect(notifier.envoyes[0]).toMatchObject({ piecesJointes: [pieceJointe] });
+    await rm(dossier, { recursive: true });
+  });
+
   it('simule une panne', async () => {
     const notifier = new FakeNotifier();
     notifier.enPanne = true;

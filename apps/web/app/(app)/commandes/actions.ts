@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 
 import { coche, texte, type EtatFormulaire } from '@/lib/formulaire';
 import { executer } from '@/server/actions';
+import type { UtilisateurConnecte } from '@/server/auth/acces';
 import { requireSession } from '@/server/auth/gardes';
 import { notifier } from '@/server/notifications';
 import {
@@ -18,6 +19,7 @@ import {
   retirerLigne,
   soumettreCommande,
 } from '@/server/services/commandes';
+import { saisirAccuse, transmettreCommande } from '@/server/services/envoi-commandes';
 
 function actualiser(commandeId: string): void {
   revalidatePath('/commandes');
@@ -91,18 +93,59 @@ export async function fixerPrixLigneAction(
   return { succes: 'Prix enregistré.' };
 }
 
+/** L'envoi suit l'approbation. S'il échoue, la commande reste approuvée et se renvoie depuis son écran. */
+async function envoyer(acteur: UtilisateurConnecte, commandeId: string): Promise<void> {
+  const erreur = await executer(() => transmettreCommande(acteur, commandeId));
+  await notifier(
+    erreur ? `Commande approuvée, non envoyée : ${erreur.message ?? ''}` : 'Commande envoyée.',
+    erreur ? 'erreur' : 'succes',
+  );
+}
+
 export async function soumettreCommandeAction(commandeId: string): Promise<void> {
   const acteur = await requireSession();
-  const erreur = await executer(() => soumettreCommande(acteur, commandeId));
-  await notifier(erreur?.message ?? 'Commande soumise.', erreur ? 'erreur' : 'succes');
+  let statut = 'BROUILLON';
+  const erreur = await executer(async () => {
+    statut = await soumettreCommande(acteur, commandeId);
+  });
+  if (!erreur && statut === 'APPROUVEE') {
+    await envoyer(acteur, commandeId);
+  } else {
+    await notifier(erreur?.message ?? 'Demande à approuver.', erreur ? 'erreur' : 'succes');
+  }
   actualiser(commandeId);
 }
 
 export async function approuverCommandeAction(commandeId: string): Promise<void> {
   const acteur = await requireSession();
   const erreur = await executer(() => approuverCommande(acteur, commandeId));
-  await notifier(erreur?.message ?? 'Commande approuvée.', erreur ? 'erreur' : 'succes');
+  if (erreur) {
+    await notifier(erreur.message ?? 'Approbation impossible.', 'erreur');
+  } else {
+    await envoyer(acteur, commandeId);
+  }
   actualiser(commandeId);
+}
+
+export async function transmettreCommandeAction(commandeId: string): Promise<void> {
+  const acteur = await requireSession();
+  await envoyer(acteur, commandeId);
+  actualiser(commandeId);
+}
+
+export async function saisirAccuseAction(
+  commandeId: string,
+  _: EtatFormulaire,
+  formData: FormData,
+): Promise<EtatFormulaire> {
+  const acteur = await requireSession();
+  const donnees = { referenceFournisseur: texte(formData, 'referenceFournisseur') };
+  const erreur = await executer(() => saisirAccuse(acteur, commandeId, donnees), donnees);
+  if (erreur) {
+    return erreur;
+  }
+  actualiser(commandeId);
+  return { succes: 'Accusé enregistré.' };
 }
 
 export async function cloturerCommandeAction(commandeId: string): Promise<void> {

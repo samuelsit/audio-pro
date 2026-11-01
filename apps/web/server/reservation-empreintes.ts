@@ -3,6 +3,7 @@ import { timingSafeEqual } from 'node:crypto';
 import {
   chargerCleLienRdv,
   EmpreinteHmac,
+  SignatureLienCommande,
   SignatureLienDocument,
   SignatureLienRdv,
 } from '@ha/adapters';
@@ -10,6 +11,7 @@ import {
 let instanceEmpreinte: EmpreinteHmac | undefined;
 let instanceSignature: SignatureLienRdv | undefined;
 let instanceSignatureDocument: SignatureLienDocument | undefined;
+let instanceSignatureCommande: SignatureLienCommande | undefined;
 
 function empreinte(): EmpreinteHmac {
   instanceEmpreinte ??= new EmpreinteHmac(chargerCleLienRdv(process.env));
@@ -20,6 +22,12 @@ function empreinte(): EmpreinteHmac {
 export function signatureLien(): SignatureLienRdv {
   instanceSignature ??= new SignatureLienRdv(chargerCleLienRdv(process.env));
   return instanceSignature;
+}
+
+/** Signature de la page d'accusé d'une commande. Même clé, contexte distinct. */
+export function signatureLienCommande(): SignatureLienCommande {
+  instanceSignatureCommande ??= new SignatureLienCommande(chargerCleLienRdv(process.env));
+  return instanceSignatureCommande;
 }
 
 /** Signature d'un lien vers un document. Même clé, contexte distinct : un jeton ne vaut pas pour l'autre. */

@@ -98,9 +98,17 @@ export interface CommandeDetail {
   motifRefus: string | null;
   motifAnnulation: string | null;
   createdAt: Date;
+  envoyeeLe: Date | null;
+  /** État réel de l'envoi du bon, nul tant que la commande n'est pas partie. */
+  envoi: StatutEnvoi | null;
+  accuseLe: Date | null;
+  referenceFournisseur: string | null;
+  relances: number;
   montantCentimes: number | null;
   lignes: LigneCommandeVue[];
 }
+
+export type StatutEnvoi = 'A_ENVOYER' | 'ENVOYEE' | 'ABANDONNEE';
 
 export interface ProduitCommandable {
   /** Valeur du champ `produit`. */
@@ -144,6 +152,10 @@ const selectionCommande = {
   motifRefus: true,
   motifAnnulation: true,
   approuveeLe: true,
+  envoyeeLe: true,
+  accuseLe: true,
+  referenceFournisseur: true,
+  relances: true,
   createdAt: true,
   centre: { select: { nom: true } },
   fournisseur: { select: { nom: true, actif: true } },
@@ -347,6 +359,10 @@ export async function obtenirCommande(
     );
   }
   const patients = await nomsPatients(acteur, patientIds);
+  const envoi = await base(acteur).notification.findFirst({
+    where: { commandeId, gabarit: 'BON_COMMANDE' },
+    select: { statut: true },
+  });
   return {
     id: commande.id,
     numero: commande.numero,
@@ -362,6 +378,11 @@ export async function obtenirCommande(
     motifRefus: commande.motifRefus,
     motifAnnulation: commande.motifAnnulation,
     createdAt: commande.createdAt,
+    envoyeeLe: commande.envoyeeLe,
+    envoi: envoi?.statut ?? null,
+    accuseLe: commande.accuseLe,
+    referenceFournisseur: commande.referenceFournisseur,
+    relances: commande.relances,
     montantCentimes: peutVoirPrixAchat(acteur.role) ? montantCommande(commande.lignes) : null,
     lignes: commande.lignes.map((l) => versLigneVue(l, acteur, patients)),
   };
@@ -691,6 +712,11 @@ export async function annulerCommande(
       await tx.commande.update({
         where: { id: commandeId },
         data: { statut: 'ANNULEE', motifAnnulation: motif },
+      });
+      // Un bon pas encore parti ne part plus. S'il est parti, prévenir le fabricant reste à la charge du centre.
+      await tx.notification.updateMany({
+        where: { commandeId, statut: 'A_ENVOYER' },
+        data: { statut: 'ABANDONNEE' },
       });
       return commande;
     },

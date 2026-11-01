@@ -49,6 +49,7 @@ import { obtenirPraticien } from './services/praticiens';
 import { changerActivationPrescripteur, obtenirPrescripteur } from './services/prescripteurs';
 import { obtenirCommande, produitsDuFournisseur, soumettreCommande } from './services/commandes';
 import { modifierFournisseur, obtenirCentrale, obtenirFournisseur } from './services/fournisseurs';
+import { telechargerBon } from './services/envoi-commandes';
 import { obtenirRegleCommande } from './services/regles-commande';
 import { changerStatut, historiqueAccessoire, obtenirFicheAppareil } from './services/stock';
 import { obtenirUtilisateur } from './services/utilisateurs';
@@ -541,6 +542,7 @@ describe('identifiant d’un autre client forcé dans l’URL', () => {
     { entite: 'centrale d’achat', appel: (x, c) => obtenirCentrale(x, c.centraleId) },
     { entite: 'commande', appel: (x, c) => obtenirCommande(x, c.commandeId) },
     { entite: 'soumission de commande', appel: (x, c) => soumettreCommande(x, c.commandeId) },
+    { entite: 'bon de commande', appel: (x, c) => telechargerBon(x, c.commandeId) },
     { entite: 'règle de commande', appel: (x, c) => obtenirRegleCommande(x, c.regleCommandeId) },
     {
       entite: 'produits d’un fournisseur',

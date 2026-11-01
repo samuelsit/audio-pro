@@ -888,6 +888,11 @@ enum StatutCommande {
   ANNULEE
 }
 
+enum OrigineAccuseCommande {
+  LIEN
+  SAISIE
+}
+
 enum TypeProduitCommande {
   APPAREIL
   ACCESSOIRE
@@ -938,32 +943,42 @@ model CompteurCommande {
 
 /// Une demande est une commande en `BROUILLON`. Un fournisseur, un centre. Jamais supprimée.
 model Commande {
-  id                   String                @id @default(uuid(7))
-  organisationId       String                @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
-  centreId             String                @map("centre_id")
-  fournisseurId        String                @map("fournisseur_id")
+  id                   String                 @id @default(uuid(7))
+  organisationId       String                 @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  centreId             String                 @map("centre_id")
+  fournisseurId        String                 @map("fournisseur_id")
   numero               String
-  statut               StatutCommande        @default(BROUILLON)
-  demandeurId          String                @map("demandeur_id")
+  statut               StatutCommande         @default(BROUILLON)
+  demandeurId          String                 @map("demandeur_id")
   /// Règle qui a décidé de l'envoi direct, figée à la soumission.
-  regleId              String?               @map("regle_id")
-  approbateurId        String?               @map("approbateur_id")
-  approuveeLe          DateTime?             @map("approuvee_le") @db.Timestamptz(3)
+  regleId              String?                @map("regle_id")
+  approbateurId        String?                @map("approbateur_id")
+  approuveeLe          DateTime?              @map("approuvee_le") @db.Timestamptz(3)
   /// Chiffré (contexte « commande.motif_refus »).
-  motifRefus           String?               @map("motif_refus")
+  motifRefus           String?                @map("motif_refus")
   /// Chiffré (contexte « commande.motif_annulation »).
-  motifAnnulation      String?               @map("motif_annulation")
-  createdAt            DateTime              @default(now()) @map("created_at")
-  updatedAt            DateTime              @updatedAt @map("updated_at")
-  organisation         Organisation          @relation(fields: [organisationId], references: [id], onDelete: Restrict)
-  centre               Centre                @relation(fields: [centreId], references: [id], onDelete: Restrict)
-  fournisseur          Fournisseur           @relation(fields: [fournisseurId], references: [id], onDelete: Restrict)
-  demandeur            Utilisateur           @relation("CommandeDemandeur", fields: [demandeurId], references: [id], onDelete: Restrict)
-  approbateur          Utilisateur?          @relation("CommandeApprobateur", fields: [approbateurId], references: [id], onDelete: Restrict)
-  regle                RegleCommande?        @relation(fields: [regleId], references: [id], onDelete: Restrict)
+  motifAnnulation      String?                @map("motif_annulation")
+  /// Confiée à l'envoi. La date réelle d'envoi se lit sur la notification.
+  envoyeeLe            DateTime?              @map("envoyee_le") @db.Timestamptz(3)
+  /// Clé du bon envoyé, dans le stockage chiffré.
+  bonPdfCle            String?                @map("bon_pdf_cle")
+  accuseLe             DateTime?              @map("accuse_le") @db.Timestamptz(3)
+  accuseOrigine        OrigineAccuseCommande? @map("accuse_origine")
+  /// Numéro donné par le fabricant.
+  referenceFournisseur String?                @map("reference_fournisseur")
+  relances             Int                    @default(0)
+  createdAt            DateTime               @default(now()) @map("created_at")
+  updatedAt            DateTime               @updatedAt @map("updated_at")
+  organisation         Organisation           @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  centre               Centre                 @relation(fields: [centreId], references: [id], onDelete: Restrict)
+  fournisseur          Fournisseur            @relation(fields: [fournisseurId], references: [id], onDelete: Restrict)
+  demandeur            Utilisateur            @relation("CommandeDemandeur", fields: [demandeurId], references: [id], onDelete: Restrict)
+  approbateur          Utilisateur?           @relation("CommandeApprobateur", fields: [approbateurId], references: [id], onDelete: Restrict)
+  regle                RegleCommande?         @relation(fields: [regleId], references: [id], onDelete: Restrict)
   lignes               CommandeLigne[]
   mouvementsAppareil   MouvementAppareil[]
   mouvementsAccessoire MouvementAccessoire[]
+  notifications        Notification[]
 
   @@unique([organisationId, numero])
   @@index([centreId, statut])
@@ -2523,6 +2538,8 @@ enum GabaritNotification {
   RDV_DEPLACE
   RDV_ANNULE
   DOCUMENT_A_CONSULTER
+  BON_COMMANDE
+  RELANCE_COMMANDE
 }
 
 enum StatutNotification {
@@ -2613,14 +2630,16 @@ model ReservationEnLigne {
   @@map("reservation_en_ligne")
 }
 
-/// Message à envoyer au patient, écrit dans la transaction du métier et envoyé par `packages/jobs` (ADR-021).
+/// Message à envoyer, écrit dans la transaction du métier et envoyé par `packages/jobs` (ADR-021) : au patient,
+/// au prescripteur ou, pour une commande, au fournisseur avec le bon en pièce jointe (ADR-031).
 /// Le code SMS n'y passe jamais.
 model Notification {
   id              String              @id @default(uuid(7))
   organisationId  String              @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
-  /// Exactement une source : la réservation ou le lien vers un document (contrainte CHECK).
+  /// Exactement une source : la réservation, le lien vers un document ou la commande (contrainte CHECK).
   reservationId   String?             @map("reservation_id")
   lienDocumentId  String?             @map("lien_document_id")
+  commandeId      String?             @map("commande_id")
   canal           CanalNotification
   /// Chiffré (contexte « notification.destinataire »).
   destinataire    String
@@ -2635,11 +2654,13 @@ model Notification {
   createdAt       DateTime            @default(now()) @map("created_at")
   reservation     ReservationEnLigne? @relation(fields: [reservationId], references: [id], onDelete: Restrict)
   lienDocument    LienDocument?       @relation(fields: [lienDocumentId], references: [id], onDelete: Restrict)
+  commande        Commande?           @relation(fields: [commandeId], references: [id], onDelete: Restrict)
   organisation    Organisation        @relation(fields: [organisationId], references: [id], onDelete: Restrict)
 
   @@unique([organisationId, cleIdempotence])
   @@index([reservationId])
   @@index([lienDocumentId])
+  @@index([commandeId])
   @@map("notification")
 }
 

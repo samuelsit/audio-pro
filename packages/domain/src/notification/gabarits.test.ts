@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  gabaritAvecPieceJointe,
   GABARITS_NOTIFICATION,
   messageCodeSms,
+  parametresCommandeMessageSchema,
   parametresDocumentSchema,
   parametresGabaritSchema,
   rendreMessage,
+  rendreMessageCommande,
   rendreMessageDocument,
   type GabaritRdv,
 } from './gabarits';
@@ -34,7 +37,7 @@ describe('rendreMessage', () => {
   });
 
   const gabaritsRdv = GABARITS_NOTIFICATION.filter(
-    (g): g is GabaritRdv => g !== 'DOCUMENT_A_CONSULTER',
+    (g): g is GabaritRdv => g !== 'DOCUMENT_A_CONSULTER' && !gabaritAvecPieceJointe(g),
   );
 
   it.each(gabaritsRdv)('%s cite le centre, jamais de libellé médical', (gabarit) => {
@@ -65,6 +68,39 @@ describe('rendreMessageDocument', () => {
 
   it.each(['patient', 'nature', 'montant'])('refuse le champ %s', (champ) => {
     expect(parametresDocumentSchema.safeParse({ centre: 'C', [champ]: 'x' }).success).toBe(false);
+  });
+});
+
+describe('rendreMessageCommande', () => {
+  const parametres = { numero: 'CMD-2030-000001', centre: 'Centre Nord' };
+
+  it('annonce le bon joint et le lien d’accusé', () => {
+    const { sujet, corps } = rendreMessageCommande('BON_COMMANDE', parametres, LIEN);
+    expect(sujet).toBe('Bon de commande CMD-2030-000001');
+    expect(corps).toContain('ci-joint');
+    expect(corps).toContain(LIEN);
+  });
+
+  it('distingue la relance', () => {
+    const { sujet, corps } = rendreMessageCommande('RELANCE_COMMANDE', parametres, LIEN);
+    expect(sujet).toBe('Relance : bon de commande CMD-2030-000001');
+    expect(corps).toContain('accusé');
+    expect(corps).toContain(LIEN);
+  });
+
+  it.each(['patient', 'referencePatient', 'montant'])('refuse le champ %s', (champ) => {
+    expect(parametresCommandeMessageSchema.safeParse({ ...parametres, [champ]: 'x' }).success).toBe(
+      false,
+    );
+  });
+});
+
+describe('gabaritAvecPieceJointe', () => {
+  it('réserve les pièces jointes aux messages aux fournisseurs', () => {
+    expect(GABARITS_NOTIFICATION.filter(gabaritAvecPieceJointe)).toEqual([
+      'BON_COMMANDE',
+      'RELANCE_COMMANDE',
+    ]);
   });
 });
 

@@ -157,3 +157,21 @@ export function FormulaireMotif({
     </form>
   );
 }
+
+export function FormulaireAccuse({ action }: { action: Action }) {
+  const [etat, envoyer] = useActionState(action, ETAT_INITIAL);
+  return (
+    <form action={envoyer} className="grid max-w-2xl gap-3">
+      <MessageFormulaire etat={etat} />
+      <ChampTexte
+        etat={etat}
+        nom="referenceFournisseur"
+        libelle="Référence du fabricant"
+        aide="Numéro donné par le fabricant, s’il en a communiqué un."
+      />
+      <div>
+        <BoutonEnvoi>Noter l’accusé</BoutonEnvoi>
+      </div>
+    </form>
+  );
+}

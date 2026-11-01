@@ -10,6 +10,7 @@ import {
   FakeNotifier,
   HacheurSha256,
   S3DocumentStore,
+  SignatureLienCommande,
   SignatureLienDocument,
   SignatureLienRdv,
   SystemClock,
@@ -23,6 +24,7 @@ import { travailDiagnostic } from './travaux/diagnostic';
 import { repartirDiffusion, travailDiffusion } from './travaux/diffuser-evenements';
 import { repartirEnvois, travailEnvoi } from './travaux/envoyer-notifications';
 import { repartirPurgeLiens, travailPurgeLiensDocument } from './travaux/purger-liens-document';
+import { repartirRelances, travailRelanceCommandes } from './travaux/relancer-commandes';
 import {
   purgerLimitations,
   repartirPurge,
@@ -60,6 +62,16 @@ await file.planifierTransverse('repartir-purge-reservations', '7 * * * *', () =>
 );
 await file.planifierTransverse('purger-limitations', '17 3 * * *', purgerLimitations);
 
+// Les bons de commande et les archives de caisse exigent un vrai stockage : la mémoire de l'application n'est pas
+// celle de l'ouvrier.
+const documentsChiffres =
+  process.env.DOCUMENTS_STOCKAGE !== 'memoire' && process.env.S3_BUCKET
+    ? new DocumentStoreChiffre(
+        new S3DocumentStore(chargerConfigurationS3(process.env)),
+        new ChiffreurAesGcm(chargerTrousseau(process.env)),
+      )
+    : null;
+
 // À VÉRIFIER : aucun fournisseur de SMS ni d'e-mail n'est retenu (ADR-021). Sans lui, les autres travaux tournent
 // quand même : la réservation en ligne, elle, ne peut pas s'ouvrir, faute de pouvoir envoyer le code.
 const urlPublique = process.env.URL_PUBLIQUE;
@@ -68,6 +80,8 @@ if (process.env.NOTIFIER === 'simulation' && process.env.NODE_ENV !== 'productio
     notifier: new FakeNotifier(process.env.NOTIFIER_SIMULATION_FICHIER),
     signature: new SignatureLienRdv(chargerCleLienRdv(process.env)),
     signatureDocument: new SignatureLienDocument(chargerCleLienRdv(process.env)),
+    signatureCommande: new SignatureLienCommande(chargerCleLienRdv(process.env)),
+    documents: documentsChiffres,
     urlPublique,
   });
   await file.declarer(envoi, { expireInSeconds: 120 });
@@ -96,18 +110,19 @@ const caisseNuit = travailCaisseNuit({
   horloge: new SystemClock(),
   hacheur: new HacheurSha256(),
   signature: chargerSignatureCaisse(process.env),
-  documents:
-    process.env.DOCUMENTS_STOCKAGE !== 'memoire' && process.env.S3_BUCKET
-      ? new DocumentStoreChiffre(
-          new S3DocumentStore(chargerConfigurationS3(process.env)),
-          new ChiffreurAesGcm(chargerTrousseau(process.env)),
-        )
-      : null,
+  documents: documentsChiffres,
 });
 await file.declarer(caisseNuit, { expireInSeconds: 1800 });
 await file.ecouter(caisseNuit);
 await file.planifierTransverse('repartir-caisse', '20 0 * * *', () =>
   repartirCaisse(file, caisseNuit),
+);
+
+const relanceCommandes = travailRelanceCommandes();
+await file.declarer(relanceCommandes);
+await file.ecouter(relanceCommandes);
+await file.planifierTransverse('repartir-relances-commandes', '23 * * * *', () =>
+  repartirRelances(file, relanceCommandes),
 );
 
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {

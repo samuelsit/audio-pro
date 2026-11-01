@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { SignatureLienCommande } from './lien-commande';
 import { SignatureLienDocument } from './lien-document';
 import { SignatureLienRdv } from './lien-rdv';
 
@@ -31,5 +32,30 @@ describe('SignatureLienDocument', () => {
     const rdv = new SignatureLienRdv(CLE);
     const jeton = rdv.signer({ organisationId: 'org', reservationId: 'lien' });
     expect(signature.lire(jeton)).toBeNull();
+  });
+});
+
+describe('SignatureLienCommande', () => {
+  const signature = new SignatureLienCommande(CLE);
+  const cible = { organisationId: 'org', commandeId: 'commande' };
+
+  it('relit un jeton intact', () => {
+    expect(signature.lire(signature.signer(cible))).toEqual(cible);
+  });
+
+  it.each([
+    ['vide', ''],
+    ['incomplet', 'org.commande'],
+    ['trop long', 'org.commande.sig.x'],
+    ['falsifié', 'org.autre.sig'],
+  ])('refuse un jeton %s', (_, jeton) => {
+    expect(signature.lire(jeton)).toBeNull();
+  });
+
+  it('ne vaut pas pour un lien vers un document, même à clé égale', () => {
+    const document = new SignatureLienDocument(CLE);
+    expect(
+      signature.lire(document.signer({ organisationId: 'org', lienId: 'commande' })),
+    ).toBeNull();
   });
 });

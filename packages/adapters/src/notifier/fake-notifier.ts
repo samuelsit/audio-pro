@@ -5,6 +5,14 @@ import type { EmailSortant, Notifier, SmsSortant } from '@ha/domain';
 export type MessageSimule =
   ({ readonly canal: 'SMS' } & SmsSortant) | ({ readonly canal: 'EMAIL' } & EmailSortant);
 
+/** Le fichier garde le nom des pièces jointes, pas leurs octets. */
+function sansContenu(message: MessageSimule): unknown {
+  if (message.canal === 'SMS' || message.piecesJointes === undefined) {
+    return message;
+  }
+  return { ...message, piecesJointes: message.piecesJointes.map((p) => p.nomFichier) };
+}
+
 /**
  * Envois simulés : rien ne part. `envoyes` donne accès aux messages en test ; `fichier` (une ligne JSON par
  * message) les rend lisibles depuis un autre processus, pour le développement et les E2E.
@@ -25,7 +33,7 @@ export class FakeNotifier implements Notifier {
     }
     this.envoyes.push(message);
     if (this.#fichier !== undefined) {
-      await appendFile(this.#fichier, `${JSON.stringify(message)}\n`);
+      await appendFile(this.#fichier, `${JSON.stringify(sansContenu(message))}\n`);
     }
   }
 

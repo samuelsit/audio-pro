@@ -13,9 +13,17 @@ export const GABARITS_NOTIFICATION = [
   'RDV_DEPLACE',
   'RDV_ANNULE',
   'DOCUMENT_A_CONSULTER',
+  'BON_COMMANDE',
+  'RELANCE_COMMANDE',
 ] as const;
 export type GabaritNotification = (typeof GABARITS_NOTIFICATION)[number];
-export type GabaritRdv = Exclude<GabaritNotification, 'DOCUMENT_A_CONSULTER'>;
+export type GabaritCommande = Extract<GabaritNotification, 'BON_COMMANDE' | 'RELANCE_COMMANDE'>;
+export type GabaritRdv = Exclude<GabaritNotification, 'DOCUMENT_A_CONSULTER' | GabaritCommande>;
+
+/** Seuls les messages aux fournisseurs portent une pièce jointe : un patient reçoit un lien (CLAUDE.md). */
+export function gabaritAvecPieceJointe(gabarit: GabaritNotification): boolean {
+  return gabarit === 'BON_COMMANDE' || gabarit === 'RELANCE_COMMANDE';
+}
 
 // Ni type de rendez-vous, ni motif, ni nom : le schéma ne laisse passer que ce qu'un message peut dire
 // (CLAUDE.md, aucune donnée de santé). « Fin d'essai » dans un SMS en serait déjà une.
@@ -111,6 +119,26 @@ export function rendreMessageDocument(
   return {
     sujet: 'Un document est à votre disposition',
     corps: `${centre} met un document à votre disposition. Lien sécurisé, valable ${String(dureeJours)} jours : ${lien}`,
+  };
+}
+
+// Adressé au fournisseur : le numéro et le centre suffisent. Le contenu est dans le bon, sans identité de patient.
+export const parametresCommandeMessageSchema = z.strictObject({
+  numero: z.string().min(1),
+  centre: z.string().min(1),
+});
+export type ParametresCommandeMessage = z.output<typeof parametresCommandeMessageSchema>;
+
+/** Message au fournisseur. `lienAccuse` : page de confirmation, sans authentification. */
+export function rendreMessageCommande(
+  gabarit: GabaritCommande,
+  { numero, centre }: ParametresCommandeMessage,
+  lienAccuse: string,
+): MessageRendu {
+  const relance = gabarit === 'RELANCE_COMMANDE';
+  return {
+    sujet: `${relance ? 'Relance : bon' : 'Bon'} de commande ${numero}`,
+    corps: `${relance ? `Sauf erreur, nous n’avons pas reçu d’accusé pour le bon de commande ${numero} de ${centre}, de nouveau joint à ce message.` : `Veuillez trouver ci-joint le bon de commande ${numero} de ${centre}.`} Merci d’en accuser réception : ${lienAccuse}`,
   };
 }
 

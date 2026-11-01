@@ -24,6 +24,7 @@ export {
   FakeSignatureCaisse,
   SignatureCaisseEd25519,
 } from './crypto/signature-caisse';
+export { SignatureLienCommande, type CibleLienCommandeSignee } from './crypto/lien-commande';
 export { SignatureLienDocument, type CibleLienDocumentSigne } from './crypto/lien-document';
 export { chargerCleLienRdv, SignatureLienRdv, type CibleLienRdv } from './crypto/lien-rdv';
 export { chargerTrousseau, type Trousseau } from './crypto/trousseau';

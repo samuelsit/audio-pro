@@ -1,6 +1,7 @@
 import {
   FakeDocumentStore,
   FakeNotifier,
+  SignatureLienCommande,
   SignatureLienDocument,
   SignatureLienRdv,
 } from '@ha/adapters';
@@ -17,6 +18,7 @@ import { purgerLimitations, travailPurgeReservations } from './purger-reservatio
 const file = new FileTravaux(process.env.DATABASE_URL_JOBS ?? '');
 const signature = new SignatureLienRdv(Buffer.alloc(32, 3));
 const signatureDocument = new SignatureLienDocument(Buffer.alloc(32, 3));
+const signatureCommande = new SignatureLienCommande(Buffer.alloc(32, 3));
 const PARAMETRES = {
   centre: 'Centre A',
   telephoneCentre: '0100000000',
@@ -60,6 +62,8 @@ function envoyer(maintenant = () => new Date()) {
     notifier,
     signature,
     signatureDocument,
+    signatureCommande,
+    documents: null,
     urlPublique: 'https://exemple.test',
     maintenant,
   });
@@ -331,6 +335,8 @@ describe('repartirEnvois', () => {
       notifier,
       signature,
       signatureDocument,
+      signatureCommande,
+      documents: null,
       urlPublique: 'https://exemple.test',
     });
     await file.declarer(travail, { expireInSeconds: 120 });

@@ -1,11 +1,16 @@
-import type { SignatureLienDocument, SignatureLienRdv } from '@ha/adapters';
+import type { SignatureLienCommande, SignatureLienDocument, SignatureLienRdv } from '@ha/adapters';
 import { clientPlateforme } from '@ha/db';
 import {
   DUREE_LIEN_DOCUMENT_JOURS,
+  gabaritAvecPieceJointe,
+  parametresCommandeMessageSchema,
   parametresDocumentSchema,
   parametresGabaritSchema,
   rendreMessage,
+  rendreMessageCommande,
   rendreMessageDocument,
+  type DocumentStore,
+  type GabaritCommande,
   type GabaritNotification,
   type GabaritRdv,
   type MessageRendu,
@@ -14,7 +19,7 @@ import {
 import { z } from 'zod';
 
 import type { FileTravaux } from '../file';
-import { definirTravail, type Travail } from '../travail';
+import { definirTravail, type ContexteTravail, type Travail } from '../travail';
 
 const TAILLE_LOT = 50;
 const TENTATIVES_MAX = 5;
@@ -26,6 +31,9 @@ export interface DependancesEnvoi {
   readonly notifier: Notifier;
   readonly signature: SignatureLienRdv;
   readonly signatureDocument: SignatureLienDocument;
+  readonly signatureCommande: SignatureLienCommande;
+  /** Bons de commande. Sans stockage réel, leurs messages attendent : ils ne partent pas sans pièce jointe. */
+  readonly documents: DocumentStore | null;
   readonly urlPublique: string;
   readonly maintenant?: () => Date;
 }
@@ -33,8 +41,12 @@ export interface DependancesEnvoi {
 const chargeEnvoi = z.object({});
 type ChargeEnvoi = typeof chargeEnvoi;
 
+function estGabaritCommande(gabarit: GabaritNotification): gabarit is GabaritCommande {
+  return gabaritAvecPieceJointe(gabarit);
+}
+
 function estGabaritRdv(gabarit: GabaritNotification): gabarit is GabaritRdv {
-  return gabarit !== 'DOCUMENT_A_CONSULTER';
+  return gabarit !== 'DOCUMENT_A_CONSULTER' && !estGabaritCommande(gabarit);
 }
 
 /**
@@ -47,6 +59,8 @@ export function travailEnvoi(dependances: DependancesEnvoi): Travail<ChargeEnvoi
     notifier,
     signature,
     signatureDocument,
+    signatureCommande,
+    documents,
     urlPublique,
     maintenant = () => new Date(),
   } = dependances;
@@ -79,13 +93,53 @@ export function travailEnvoi(dependances: DependancesEnvoi): Travail<ChargeEnvoi
     );
   }
 
+  async function envoyerCommande(
+    client: ContexteTravail['client'],
+    stockage: DocumentStore,
+    organisationId: string,
+    ligne: {
+      commandeId: string;
+      destinataire: string;
+      gabarit: GabaritCommande;
+      parametres: unknown;
+    },
+  ): Promise<void> {
+    const commande = await client.commande.findUniqueOrThrow({
+      where: { id: ligne.commandeId },
+      select: { numero: true, bonPdfCle: true, centre: { select: { email: true } } },
+    });
+    const jeton = signatureCommande.signer({ organisationId, commandeId: ligne.commandeId });
+    const { sujet, corps } = rendreMessageCommande(
+      ligne.gabarit,
+      parametresCommandeMessageSchema.parse(ligne.parametres),
+      `${urlPublique}/commande-accuse/${jeton}`,
+    );
+    await notifier.envoyerEmail({
+      destinataire: ligne.destinataire,
+      sujet,
+      texte: corps,
+      repondreA: commande.centre.email,
+      piecesJointes: [
+        {
+          nomFichier: `${commande.numero}.pdf`,
+          typeContenu: 'application/pdf',
+          contenu: await stockage.get(z.string().parse(commande.bonPdfCle)),
+        },
+      ],
+    });
+  }
+
   return definirTravail({
     nom: 'envoyer-notifications',
     charge: chargeEnvoi,
     async executer({ client, organisationId }) {
       const instant = maintenant();
       const lot = await client.notification.findMany({
-        where: { statut: 'A_ENVOYER', prochainEssaiLe: { lte: instant } },
+        where: {
+          statut: 'A_ENVOYER',
+          prochainEssaiLe: { lte: instant },
+          ...(documents === null ? { commandeId: null } : {}),
+        },
         orderBy: { id: 'asc' },
         take: TAILLE_LOT,
       });
@@ -102,6 +156,18 @@ export function travailEnvoi(dependances: DependancesEnvoi): Travail<ChargeEnvoi
           continue;
         }
         try {
+          if (ligne.commandeId !== null && estGabaritCommande(ligne.gabarit) && documents) {
+            await envoyerCommande(client, documents, organisationId, {
+              ...ligne,
+              commandeId: ligne.commandeId,
+              gabarit: ligne.gabarit,
+            });
+            await client.notification.update({
+              where: { id: ligne.id },
+              data: { statut: 'ENVOYEE', envoyeeLe: maintenant() },
+            });
+            continue;
+          }
           const { sujet, corps } = message(organisationId, ligne);
           if (ligne.canal === 'SMS') {
             await notifier.envoyerSms({ destinataire: ligne.destinataire, texte: corps });
