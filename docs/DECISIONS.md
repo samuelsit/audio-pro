@@ -306,7 +306,7 @@ L'étape 7 suit chaque aide auditive par son numéro de série, et les accessoir
 ### Décision
 
 - **Modèle** : `Appareil`, `MouvementAppareil`, `StockAccessoire`, `MouvementAccessoire` (migration `stock`). Les mouvements sont en ajout seul (trigger). Un appareil ne se supprime pas, même au-delà de la durée de conservation, que docs/ref ne donne pas.
-- **Machine à états** : `packages/domain/src/stock/etats.ts`, table des transitions dans `etats.test.ts` (les 49 couples). VENDU ne s'atteint que depuis EN_ESSAI. VENDU → EN_STOCK passe uniquement par `annulerVente`.
+- **Machine à états** : `packages/domain/src/stock/etats.ts`, table des transitions dans `etats.test.ts` (les 49 couples, 64 depuis l'ADR-032). VENDU ne s'atteint que depuis EN_ESSAI. VENDU → EN_STOCK passe uniquement par `annulerVente`.
 - **Patient porteur** : RESERVE, EN_ESSAI et PRET exigent un patient. EN_ESSAI ou PRET → SAV le détache : l'appareil en panne n'est pas celui du patient. VENDU → SAV le conserve. Un appareil en SAV ou en retour fabricant avec un patient est donc un appareil vendu, qui ne revient qu'en VENDU, et un appareil sans patient ne revient qu'en EN_STOCK. Le mouvement garde le patient qui détenait l'appareil, même une fois détaché.
 - **Dossier** : `dossierId` sans clé étrangère, toujours nul à cette étape, car aucun identifiant ne pourrait être vérifié.
 - **Unicité** : `(fabricant_id, numero_serie)`, sur la forme normalisée (espaces retirés, majuscules). `fabricantId` est copié sur l'appareil ; la clé composite `(modele_id, fabricant_id)` en `ON UPDATE RESTRICT` interdit de changer le fabricant d'un modèle en stock.
@@ -321,7 +321,7 @@ L'étape 7 suit chaque aide auditive par son numéro de série, et les accessoir
 ### Conséquences
 
 - Une nouvelle écriture d'état doit passer par `appliquerMouvement`, sinon l'historique diverge. L'étape 8 ajoutera la clé étrangère de `dossierId` ; les étapes 10 et 11 appelleront `changerStatut` avec un dossier. D'ici là, l'essai et la vente se saisissent à la main sur la fiche.
-- Un appareil remplacé par le fabricant sous un nouveau numéro reste en RETOUR_FABRICANT ; le remplaçant est une nouvelle réception. Aucun lien entre les deux n'est modélisé.
+- Un appareil remplacé par le fabricant sous un nouveau numéro reste en RETOUR_FABRICANT ; le remplaçant est une nouvelle réception. Aucun lien entre les deux n'est modélisé. Remplacé par l'ADR-032 : statut `REMPLACE` et lien.
 - La reprise Cosium (étape 13) créera des appareils dans leur état réel, sans passer par la machine à états.
 - Rien ne recherche encore les détenteurs d'un modèle (matériovigilance, art. 21), et aucun numéro de lot n'est stocké (rappel de lot, même article).
 - `reponseCsv` (`apps/web/server/csv.ts`) reprend la réponse en flux de l'export du journal, qui l'utilise désormais.
@@ -734,7 +734,7 @@ La mise à niveau de l'étape 10 demande des mouvements liables à une commande,
 - **Accessoires** : la quantité théorique est relevée au comptage, et la clôture applique l'écart relevé à la quantité du moment. Une vente postérieure au comptage reste comptée une seule fois.
 - **Clôture** : tout accessoire en stock doit être compté et tout écart justifié, en texte chiffré. Les accessoires sont corrigés par `INVENTAIRE_ENTREE` et `INVENTAIRE_SORTIE`, la justification servant de motif. Un appareil manquant ne change pas de statut : aucun statut ne dit « perdu », en créer un dépasse cette étape. L'écart reste consigné dans la ligne.
 - **Droits** : ouvrir, justifier et clôturer sont réservés aux rôles de gestion ; le pointage et le comptage sont ouverts à tous dans leurs centres.
-- **Valeur** : au prix d'achat. Comptent `EN_STOCK`, `RESERVE`, `EN_ESSAI`, `PRET` et `SAV`, propriété du client ; ne comptent ni la consignation, propriété du fabricant, ni `VENDU`, ni `RETOUR_FABRICANT`. Un article sans prix est compté à part, jamais à zéro. La clôture photographie la valeur. Choix de gestion, sans texte de référence.
+- **Valeur** : au prix d'achat. Comptent `EN_STOCK`, `RESERVE`, `EN_ESSAI`, `PRET` et `SAV`, propriété du client ; ne comptent ni la consignation, propriété du fabricant, ni `VENDU`, ni `RETOUR_FABRICANT`. Un article sans prix est compté à part, jamais à zéro. Depuis l'ADR-032, ni `REMPLACE`, ni un appareil vendu passé en `SAV`. La clôture photographie la valeur. Choix de gestion, sans texte de référence.
 - **`Accessoire.prixAchatCentimes`** : ajouté, nullable, réservé aux rôles de gestion. Absent de `AccessoireResume`, qui part vers des écrans ouverts à tous.
 
 ### Conséquences
@@ -1004,3 +1004,42 @@ La page `/commandes` était vide, `commande_id` n'avait pas de clé étrangère 
 
 - En production, rien ne part et rien n'arrive par e-mail tant qu'un fournisseur n'est pas retenu (ADR-021). Le dépôt à l'écran fonctionne seul.
 - L'efficacité de l'extraction n'est pas mesurée : les tests n'utilisent que des PDF générés, faute de vraies factures de fabricants.
+
+---
+
+## ADR-032 – SAV : tickets, échange, prêts, comptoir et suivi
+
+- **Date** : 2026-11-01
+- **Statut** : acceptée. Modifie l'ADR-010 (machine à états, chemin manuel, échange), l'ADR-023 (valeur du stock) et l'ADR-028 (droits de la vente directe).
+
+### Contexte
+
+Les statuts `SAV`, `PRET` et `RETOUR_FABRICANT` existaient, sans ticket ni garantie : seule la fiche appareil les atteignait. Un appareil échangé restait sans lien avec son remplaçant, l'avoir qui solde forçait n'importe quel appareil en `RESERVE`, et aucun suivi ni compteur de piles n'existait.
+
+### Décision
+
+- **Garantie stockée** : `GarantieAppareil`, une ligne par appareil, née dans la transaction de la vente. La durée en vigueur ce jour-là reste acquise. Un avoir qui solde retire la ligne, la revente la recrée : elle est hors chaîne de caisse. La migration reprend les appareils déjà vendus, sur 48 mois.
+- **Le ticket pilote l'appareil** : ouverture `VENDU → SAV`, y compris pour une perte. `SAV` veut dire « sous ticket » : un appareil `VENDU` n'a jamais de ticket ouvert, ce qui protège l'avoir et l'annulation par le seul statut. Un index unique partiel limite à un ticket ouvert par appareil.
+- **Chemin manuel fermé à l'entrée** : la fiche n'entre plus dans `SAV`, `RETOUR_FABRICANT`, `PRET` ni `REMPLACE` (`PILOTE_PAR_SAV`), mais en sort encore, pour les appareils déjà dans ces statuts sans ticket. `ouvrirTicket` reprend un appareil déjà au SAV par un mouvement de même statut, qui verrouille la ligne.
+- **Couverture figée** : calculée à l'ouverture, recalculée à cette même date si le diagnostic change le motif.
+- **`REMPLACE` terminal** : garder `RETOUR_FABRICANT` avec un lien mentirait pour un appareil perdu, et ce statut mène à `VENDU`. `remplace_par_id`, unique, `CHECK` lié au statut, posé dans une seconde migration car PostgreSQL refuse une valeur d'enum dans la transaction qui l'ajoute. Le patient se détache : un appareil n'a qu'un détenteur, l'historique le garde.
+- **Échange en deux temps** : le fabricant livre avant la venue du patient. À la réception, le remplaçant passe `EN_STOCK → RESERVE`, tenu par `ticket.appareilRemplacantId`. À la remise, en une transaction : remplaçant `VENDU`, ancien `REMPLACE`, garantie reprise, ticket clos. Aucune transition `EN_STOCK → VENDU` : `verifierTransition` est le seul garde de la vente.
+- **Ni facture, ni délivrance, ni maillon** : la ligne figée garde l'ancien numéro. Un avoir qui solde suit `remplaceParId` et ramène le remplaçant, avec un nouveau lien d'essai. Un remplaçant ne s'annule jamais hors facture.
+- **Avoir refusé au SAV** : un avoir qui solde exige de clore le ticket d'abord. Sûr, mais un remboursement peut attendre le fabricant. Un avoir partiel reste possible.
+- **Réception réutilisée** : `receptionnerDansTransaction`, `commandeId` nul, vrai bon de livraison exigé, prix d'achat copié de l'ancien. Un numéro déjà connu chez ce fabricant est une réparation, pas un échange. La série se saisit deux fois et se corrige tant que le ticket est ouvert, car deux mouvements suffisent à la figer.
+- **Le fabricant décide** : un appareil envoyé en réparation peut revenir échangé. Une perte ou un vol se remplacent sans retour physique.
+- **`RetourFabricant` à trois sources** : ticket, appareil en stock, écart `PRODUIT_NON_CONFORME`. Ce dernier n'a jamais d'appareil : le bon part, l'écart se résout, le remplacement arrive par la commande. Rendu hors transaction, comme le bon de commande.
+- **Facturation atomique** : `ouvrirVenteDirecte` et `ecrireLigneBrouillon` s'exécutent dans la transaction de l'appelant, pour qu'un ticket et son brouillon naissent ensemble. Le ticket pointe la facture, et non l'inverse : une pièce validée ne change pas. Un brouillon abandonné libère le ticket.
+- **Parc de prêt** : drapeau sur `Appareil`, modifiable en stock par la gestion. `verifierTransition` et `refusAppareilEssai` le refusent, les listes de proposition et de réapprovisionnement l'écartent.
+- **Alertes à la lecture** : `etatPret` et `compterPretsEnRetard`, comme `ALERTES_ESSAI` et `proposerReappro`. Ni table d'alerte, ni travail planifié : `Notification` ne vise que l'extérieur, et le message au patient relève de l'étape 19.
+- **Comptoir** : un brouillon d'un seul geste, validé sur l'écran de la facture. `peutValiderPiece` ouvre à l'assistant les seules ventes directes (art. 16). Il encaissait déjà (ADR-029).
+- **Quota global et daté** : `quota_piles`, comme `taux_tva`. Une valeur réglementaire n'est pas un réglage client. La table est vide, une saisie exige sa source.
+- **Échéancier calculé** : `ControleSuivi` ne garde que les décisions, sur `(patient, date de délivrance, rang)`. Changer le rythme, annuler une vente ou fusionner deux fiches ne laisse aucune ligne à recalculer. Le type de RDV se cherche par son nom, modifiable à l'écran : `TypeRdv` n'a pas de code stable, et une colonne dédiée n'aurait servi qu'ici.
+- **RDV par `creerRdv`** : ses contrôles et `RDV_CREE` restent les mêmes. Il a sa propre transaction : un échec juste après laisse au pire un rendez-vous sans lien, visible dans l'agenda.
+
+### Conséquences
+
+- `transitionsPossibles` ne propose plus que la sortie de ces statuts : les étapes suivantes passent par les services du SAV.
+- Un ticket reste dans le centre de l'appareil : un patient reçu dans un autre centre du réseau demande un compte qui voit les deux.
+- La liste de suivi se calcule en mémoire, patient par patient : à revoir si un client dépasse quelques milliers de patients appareillés.
+- Un ticket hors garantie ne se facture pas au bout tant que le taux de TVA de l'entretien n'est pas saisi (R18).

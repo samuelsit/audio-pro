@@ -321,12 +321,12 @@ Le reste n'est pas dans les tests : il est calculé. Dans ces cas de tiers payan
 
 **Autre constat** : `QTE_MAX` vaut 4 pour les embouts avant 2 ans (sauf 7353204, à 0) et 2 de 2 à 20 ans ou cécité, sans période indiquée.
 
-**Décision** : aucun quota codé.
+**Décision** : aucun quota inventé. Depuis l'étape 18, un compteur annuel existe et le quota est un paramètre daté, vide tant qu'un texte ne le fixe pas (R56).
 
 ## R16 – Règles voisines, hors fonctions de cette étape
 
 - **AME** : tarif de responsabilité à 100 %, devis et prix limites identiques (art. 30, p. 28).
-- **Suivi** : bilans aux 3e, 6e et 12e mois (devis p. 2), deux consultations annuelles recommandées ensuite (art. 19, p. 20), télétransmission `SUI` (art. 20, p. 21).
+- **Suivi** : bilans aux 3e, 6e et 12e mois (devis p. 2), deux consultations annuelles recommandées ensuite (art. 19, p. 20), télétransmission `SUI` (art. 20, p. 21). Échéancier : R57. La télétransmission reste à faire, étape 26.
 - **Droits** : appréciés à la date de délivrance (art. 27, p. 26).
 
 ## R17 – Traçabilité des aides auditives (`packages/domain/src/stock`)
@@ -337,7 +337,7 @@ Le reste n'est pas dans les tests : il est calculé. Dans ces cas de tiers payan
 
 **Décision** : un appareil et ses mouvements ne se suppriment pas ; la référence de facture se saisit après la réception ; le mouvement garde le patient détenteur (ADR-010).
 
-**Écart** : ce sont les références qui sont stockées, pas les pièces elles-mêmes. Aucun numéro de lot n'est stocké et aucun écran ne liste les détenteurs d'un modèle.
+**Écart** : ce sont les références qui sont stockées, pas les pièces elles-mêmes. Aucun numéro de lot n'est stocké et aucun écran ne liste les détenteurs d'un modèle. Depuis l'étape 18, un appareil échangé reste en base, statut `REMPLACE`, relié à son remplaçant : le numéro délivré reste retrouvable (R52).
 
 **Hors docs/ref** : la machine à états (ADR-010) est un choix d'organisation, pas une règle réglementaire. La consignation est un simple indicateur, aucun document n'en parle.
 
@@ -360,6 +360,8 @@ Le taux est copié sur chaque ligne de devis et de facture. La facture suit le t
 **Source** : devis p. 2 § 4.
 
 **Écart** : le modèle ne fixe pas le point de départ. La délivrance est retenue, À VÉRIFIER. La date de fin s'affiche à l'écran ; le PDF garde le texte officiel, sans rubrique ajoutée.
+
+**Depuis l'étape 18** (`finGarantie`) : la durée se paramètre par client, jamais sous 48 mois, et chaque appareil vendu porte sa garantie (R52).
 
 ## R20 – Compte rendu au prescripteur (`rendreCompteRenduEssaiHtml`)
 
@@ -702,6 +704,67 @@ Le lettrage n'écrit rien. Une contre-passation retourne l'écriture.
 
 **Statut : choix de gestion**, sans texte de référence (ADR-031). Paramètres par client : `ParametresCommande`, `RegleCommande`, `SeuilStock`. Par défaut : relance à 3 jours, 2 relances, tolérance de prix nulle, approbation humaine.
 
+## R52 – Garantie, couverture et échange (`couvertureTicket`, `reprendreGarantie`)
+
+**Statut : Confirmé avec écart** pour la garantie, **À VÉRIFIER** pour l'assurance et l'échange.
+
+**Règle** : la garantie naît avec la vente, dans la transaction de la facture. Une panne pendant la période est couverte, dernier jour compris. Casse, perte et vol sont couverts par une assurance en cours, sinon non.
+
+**Source** : `modele-devis-audio.pdf` p. 2 § 4 : garantie minimale de 4 ans, vices de forme, défauts de fabrication, pannes d'un usage habituel, pièces, main-d'œuvre et transport. Elle vaut « même si vous consultez un audioprothésiste différent ».
+
+**Écarts** :
+
+- L'assurance perte, vol, casse n'est citée que comme information « sur un document à part ». Tout motif assuré est supposé couvert : le contrat réel peut dire autre chose, À VÉRIFIER.
+- Vol ajouté aux motifs : le devis nomme perte, vol et casse.
+- Aucun texte sur l'échange. Le remplaçant reprend la date de fin d'origine et l'assurance ; aucune délivrance n'est créée, donc le délai de 4 ans de R8 ne bouge pas (décision du 2026-11-01). À VÉRIFIER.
+- Un ticket ne s'ouvre que sur un appareil connu, dans un centre de l'utilisateur. Un appareil vendu ailleurs n'est pas pris en charge, malgré la portée de la garantie.
+
+## R53 – Facturation d'un ticket (`refusFacturationTicket`)
+
+**Statut : À VÉRIFIER.**
+
+**Texte** : `modele-devis-audio.pdf` p. 2 § 4 range « l'entretien et les réparations nécessaires » parmi les prestations comprises dans le prix, et précise qu'« aucun frais supplémentaire ne peut donc vous être demandé, avant, pendant ou après l'achat ».
+
+**Règle** (décision du 2026-11-01) : sous garantie ou sous assurance, refusé. Sinon, facturable avec un motif obligatoire, conservé chiffré, après un rappel du texte. La pièce est une vente directe, ligne `ENTRETIEN`, hors LPP et hors FSE (R30).
+
+**À VÉRIFIER** : ce qui peut réellement être facturé hors garantie. Sans taux de TVA d'entretien, la validation reste bloquée (R18).
+
+## R54 – Bon de retour (`BonRetourVue`)
+
+**Statut : À VÉRIFIER**, comme R50.
+
+**Règle** : aucun champ d'identité. Le bon porte la référence du ticket, le modèle, le numéro de série, la date de délivrance et l'état de garantie, utiles au fabricant. La description est un texte libre, saisi avec un rappel de n'y mettre ni nom ni donnée de santé.
+
+**À VÉRIFIER** : numéro de série et date de délivrance, associés à une référence interne, restent-ils hors du champ des données de santé ?
+
+## R55 – Prêt d'un appareil (`etatPret`)
+
+**Statut : choix de gestion**, sans texte de référence. `docs/ref` ne cite un prêt que pour l'interdire aux prescripteurs (convention art. 15, p. 16), et le dépôt de garantie que pour l'essai (devis p. 2).
+
+**Règle** : un appareil du parc n'est ni réservé, ni essayé, ni vendu. Un prêt n'est en retard que le lendemain de la date prévue. L'alerte se calcule à la lecture, 3 jours avant l'échéance. Durée par défaut : 30 jours, paramétrable.
+
+## R56 – Compteur et quota de piles (`boitesRemboursees`, `quotaPilesEnVigueur`)
+
+**Statut : À VÉRIFIER** (R15). Aucun quota dans `docs/ref`.
+
+**Règle** : le compteur additionne les boîtes de piles remboursées (part AMO non nulle) des factures validées de l'année civile, nettes d'avoirs. Le quota vit dans la table globale datée `quota_piles`, vide, saisie en console éditeur avec le texte qui la fonde. Il avertit sans bloquer.
+
+**Choix** : année civile, par patient, avoir partiel proratisé au montant et arrondi à la boîte supérieure. Le texte, s'il existe, peut compter par appareil ou sur 12 mois.
+
+**Comptoir** : la vente de piles et le nettoyage sont possibles sans audioprothésiste (`convention-audioprothesistes.pdf`, art. 16, p. 18). L'assistant crée et valide donc une vente directe, jamais une facture de dossier (décision du 2026-11-01). La fiche patient reste requise (R30).
+
+## R57 – Suivi post-appareillage (`moisDesControles`, `controlesAPlanifier`)
+
+**Statut : Confirmé avec écart.**
+
+**Règle** : contrôles aux 3e, 6e et 12e mois, puis au moins deux rendez-vous par an, pour la durée de vie de l'appareil. Rythme paramétrable.
+
+**Source** : `modele-devis-audio.pdf` p. 2 § 4 ; `convention-audioprothesistes.pdf`, art. 19, p. 20-21. Le texte recommande les deux consultations annuelles, et interdit d'en faire grief : `suiviParAn` peut valoir 0. Un même suivi compte par assuré, simple ou bilatéral (art. 20, p. 21) : une date de délivrance fait un seul suivi.
+
+**Choix** : proposés 30 jours avant l'échéance, abandonnés 12 mois après. Un appareillage plus récent de toutes ses oreilles clôt l'ancien suivi. Un rendez-vous annulé ou manqué repropose le contrôle. Un contrôle se refuse avec un motif. Après un échange, le suivi continue depuis la délivrance d'origine.
+
+**Écart** : la télétransmission `SUI` (art. 20 ; ameli p. 3) n'est pas envoyée, étape 26.
+
 ## Points À VÉRIFIER
 
 | Point                                                    | Règle | Document qui trancherait                      |
@@ -773,3 +836,9 @@ Le lettrage n'écrit rien. Une contre-passation retourne l'écriture.
 | Pas de saisie et symboles de l'audiogramme               | R25   | Norme d'audiométrie, ISO 8253-1               |
 | Contenu de l'anamnèse par défaut                         | R26   | Audioprothésiste référent                     |
 | Questionnaires validés, droits d'usage et cotation       | R26   | Auteurs ou éditeurs de chaque questionnaire   |
+| Étendue d'une assurance perte, vol, casse                | R52   | Contrats des assureurs                        |
+| Garantie et renouvellement après un échange              | R52   | Nomenclature LPP, conditions des fabricants   |
+| Appareil vendu ailleurs, garantie mise en œuvre          | R52   | Nomenclature LPP                              |
+| Ce qui se facture hors garantie                          | R53   | Nomenclature LPP, version à jour du devis     |
+| Série et date de délivrance sur le bon de retour         | R54   | Délégué à la protection des données           |
+| Quota de piles : valeur, unité, période                  | R56   | Nomenclature LPP, dictionnaire LPP            |

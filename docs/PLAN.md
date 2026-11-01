@@ -124,10 +124,20 @@ Numérotation du plan SaaS (ADR-015). Les références aux étapes dans `docs/DE
   - à choisir : fournisseur d'e-mail entrant et plateforme agréée (documentation à déposer dans `docs/vendor`). Sans eux, seul le dépôt à l'écran fait entrer des factures
   - à mesurer : l'extraction sur de vraies factures de fabricants, les tests n'utilisent que des PDF générés
   - à arbitrer : précisions de fabrication du sur-mesure (couleur, évent), une facture couvrant plusieurs centres, avoirs fournisseurs, prévenir le fabricant d'une annulation (message manuel pour l'instant)
-  - reporté à l'étape 18 : retour au fabricant d'un produit non conforme
+  - [x] retour au fabricant d'un produit non conforme (étape 18)
   - reporté à l'étape 19 : prévenir l'approbateur d'une demande en attente (la liste filtrée suffit pour l'instant)
   - à planifier : EDI fabricant, à brancher sur `transmettreCommande` ; paiement des fournisseurs et écritures comptables d'achat
-- [ ] **18** – SAV, garanties, prêts
+- [x] **18** – SAV, garanties, prêts (ADR-032)
+  - fait : garantie par appareil née à la vente, durée paramétrable, assurance perte, vol et casse, reprise des appareils déjà vendus ; tickets avec diagnostic, action, couverture, restitution, facturation hors garantie en vente directe ; retours fabricant, bon PDF sans identité, suivi, issue, depuis un ticket, le stock ou un écart ; échange sous nouveau numéro, statut `REMPLACE`, lien et historique conservés ; parc de prêt par centre, prêts tracés, alerte de retard ; comptoir, ventes directes de l'assistant, compteur de piles, quota daté en console ; suivi post-appareillage, proposition de créneaux, RDV dans l'agenda
+  - corrigé en passant : l'avoir qui solde forçait un appareil au SAV en `RESERVE` ; un appareil vendu passé au SAV remontait dans la valeur du stock ; un remplaçant pouvait s'annuler hors facture ; `validerFacture` acceptait un appareil réparé ; `ajouterMois` ne gérait pas un nombre de mois négatif
+  - À VÉRIFIER : point de départ de la garantie, assurance, garantie et renouvellement après échange, ce qui se facture hors garantie (devis p. 2 § 4), série sur le bon de retour, quota de piles (voir `docs/REGLES_AUDIO.md`, R15, R19, R52 à R57)
+  - bloquant pour facturer un ticket ou un entretien : taux de TVA de l'entretien à saisir en console (R18), à valider par l'expert-comptable
+  - à déposer dans `docs/ref` : nomenclature LPP, pour le quota de piles et la portée des réparations
+  - à arbitrer : appareil vendu par un autre centre ou hors réseau (un ticket suit le centre de l'appareil), appareil perdu sans remplacement, caution de prêt, avoir bloqué tant qu'un ticket est ouvert
+  - reporté à l'étape 19 : messages au patient pour un prêt en retard, un contrôle à venir, un appareil à récupérer
+  - reporté à l'étape 26 : télétransmission `SUI` de chaque prestation de suivi
+  - à surveiller : `admin-2fa` et `tiers-payant` ont échoué une fois dans une suite E2E complète, sans lien établi avec le SAV (`tiers-payant` n'avait pas atteint l'écran du règlement) ; passés seuls, puis dans la suite complète suivante (59 sur 59)
+  - à planifier : remplaçant pris dans le stock du centre, renouvellement anticipé depuis un ticket irréparable, recherche des détenteurs à travers les échanges, performance de la liste de suivi au-delà de quelques milliers de patients
 
 ## Phase H – Relances
 

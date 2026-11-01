@@ -110,6 +110,11 @@ describe('créneau et saisies', () => {
     expect(lireCreneau(clef)).toEqual({ ...creneau, cabineId: '' });
   });
 
+  it('un type sans praticien ni cabine donne une clef valide', () => {
+    const creneau = { date: '2026-11-02', heure: '09:30', praticienId: null, cabineId: UUID };
+    expect(clefCreneau(creneau)).toBe(`2026-11-02|09:30||${UUID}`);
+  });
+
   it('une clef incomplète se lit à vide', () => {
     expect(lireCreneau('')).toEqual({ date: '', heure: '', praticienId: '', cabineId: '' });
   });
