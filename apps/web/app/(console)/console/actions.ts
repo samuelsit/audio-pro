@@ -13,6 +13,25 @@ import {
   reactiverOrganisation,
   suspendreOrganisation,
 } from '@/server/services/organisations';
+import { ajouterTauxTva } from '@/server/services/taux-tva';
+
+export async function ajouterTauxTvaAction(
+  _: EtatFormulaire,
+  formData: FormData,
+): Promise<EtatFormulaire> {
+  const acteur = await requireSuperadmin();
+  const donnees = {
+    type: texte(formData, 'type'),
+    taux: texte(formData, 'taux'),
+    debut: texte(formData, 'debut'),
+  };
+  const erreur = await executer(() => ajouterTauxTva(acteur, donnees), donnees);
+  if (erreur) {
+    return erreur;
+  }
+  revalidatePath(`${CHEMIN_CONSOLE}/tva`);
+  return { succes: 'Taux enregistré.' };
+}
 
 function saisie(formData: FormData) {
   return {

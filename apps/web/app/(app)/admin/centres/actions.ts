@@ -9,6 +9,7 @@ import { executer } from '@/server/actions';
 import { requireRole } from '@/server/auth/gardes';
 import { notifier } from '@/server/notifications';
 import { creerCentre, modifierCentre } from '@/server/services/centres';
+import { modifierPrefixeSerie } from '@/server/services/facturation';
 
 function champs(formData: FormData) {
   return {
@@ -66,4 +67,15 @@ export async function modifierCentreAction(
   revalidatePath('/', 'layout');
   await notifier('Centre enregistré.');
   redirect('/admin/centres');
+}
+
+export async function modifierPrefixeAction(
+  centreId: string,
+  _: EtatFormulaire,
+  formData: FormData,
+): Promise<EtatFormulaire> {
+  const acteur = await requireRole('ADMIN_CLIENT');
+  const donnees = { prefixe: texte(formData, 'prefixe') };
+  const erreur = await executer(() => modifierPrefixeSerie(acteur, centreId, donnees), donnees);
+  return erreur ?? { succes: 'Préfixe enregistré.' };
 }

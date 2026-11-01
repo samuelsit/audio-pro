@@ -5,6 +5,9 @@ import {
   LIBELLES_SPECIALITES_PRESCRIPTEUR,
   LIBELLES_TYPES_APPAREILLAGE,
   type TypeAppareillage,
+  formatEuros,
+  LIBELLES_NATURES_PIECE,
+  peutValiderFacture,
 } from '@ha/domain';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -20,6 +23,7 @@ import { listerDevisDuDossier } from '@/server/services/devis';
 import { appareilsProposables, obtenirEssai } from '@/server/services/essais';
 import { obtenirDossier, type PrescriptionAffichee } from '@/server/services/dossiers';
 import { lirePecDossier, obtenirFacture } from '@/server/services/factures';
+import { piecesDuDossier } from '@/server/services/facturation';
 import { listerLiensDocument } from '@/server/services/liens-document';
 
 import { AlerteDroits, EntetePatient } from '../../patients/entete-patient';
@@ -138,6 +142,7 @@ export default async function PageDossier({ params }: PageProps<'/dossiers/[id]'
   const devis = await listerDevisDuDossier(acteur, id);
   const essai = await obtenirEssai(acteur, id);
   const facture = await obtenirFacture(acteur, id);
+  const pieces = await piecesDuDossier(acteur, id);
   const proposables = essai?.actions.changerAppareil ? await appareilsProposables(acteur, id) : [];
   const { fiche } = dossier;
   const [courante, ...anciennes] = dossier.prescriptions;
@@ -250,8 +255,27 @@ export default async function PageDossier({ params }: PageProps<'/dossiers/[id]'
       ) : null}
 
       {facture ? (
-        <Bloc titre="Facture préparée">
-          <BlocFacture dossierId={dossier.id} detail={facture} />
+        <Bloc titre="Facture">
+          <BlocFacture
+            dossierId={dossier.id}
+            detail={facture}
+            validable={peutValiderFacture(acteur.role)}
+          />
+        </Bloc>
+      ) : null}
+
+      {pieces.length > 0 ? (
+        <Bloc titre="Factures et avoirs">
+          <ul className="grid gap-2 text-sm">
+            {pieces.map((p) => (
+              <li key={p.id}>
+                <Link href={`/factures/${p.id}`} className="underline underline-offset-2">
+                  {LIBELLES_NATURES_PIECE[p.nature]} {p.numero}
+                </Link>
+                {`, ${formatEuros(p.totalTTC)}`}
+              </li>
+            ))}
+          </ul>
         </Bloc>
       ) : null}
 

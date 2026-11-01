@@ -68,6 +68,9 @@ export default async function PageFichePatient({ params }: PageProps<'/patients/
     <div className="grid gap-6">
       <EntetePatient fiche={fiche}>
         <LectureVitale patientId={fiche.id} />
+        <Button asChild variant="outline">
+          <Link href={`/factures/nouvelle?patient=${fiche.id}`}>Vente directe</Link>
+        </Button>
         <Button asChild>
           <Link href={`/patients/${fiche.id}/modifier`}>Modifier</Link>
         </Button>

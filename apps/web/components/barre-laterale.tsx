@@ -39,7 +39,7 @@ const LIENS_METIER: readonly Lien[] = [
   { href: '/dossiers', libelle: 'Dossiers', icone: FolderOpen, racines: ['/essais'] },
   { href: '/stock', libelle: 'Stock', icone: Package },
   { href: '/commandes', libelle: 'Commandes', icone: ShoppingCart },
-  { href: '/a-facturer', libelle: 'Facturation', icone: ReceiptText },
+  { href: '/a-facturer', libelle: 'Facturation', icone: ReceiptText, racines: ['/factures'] },
   { href: '/caisse', libelle: 'Caisse', icone: Wallet },
   { href: '/tiers-payant', libelle: 'Tiers payant', icone: HandCoins },
   { href: '/sav', libelle: 'SAV', icone: Wrench },

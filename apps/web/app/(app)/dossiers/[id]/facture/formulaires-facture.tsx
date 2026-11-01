@@ -15,43 +15,33 @@ import { Label } from '@/components/ui/label';
 import { ETAT_INITIAL } from '@/lib/formulaire';
 import type { PecAffichee } from '@/server/services/factures';
 
-import {
-  confirmerCouvertureAction,
-  enregistrerPecAction,
-  modifierDateDelivranceAction,
-} from './actions';
+import { confirmerCouvertureAction, enregistrerPecAction, validerFactureAction } from './actions';
 
 const OPTIONS_STATUTS = STATUTS_PEC.map((valeur) => ({
   valeur,
   libelle: LIBELLES_STATUTS_PEC[valeur],
 }));
 
-export function FormulaireDateDelivrance({
+export function BoutonValidation({
   dossierId,
-  dateDelivrance,
+  factureId,
 }: {
   dossierId: string;
-  dateDelivrance: string;
+  factureId: string;
 }) {
   const [etat, envoyer] = useActionState(
-    modifierDateDelivranceAction.bind(null, dossierId),
+    validerFactureAction.bind(null, dossierId, factureId),
     ETAT_INITIAL,
   );
   return (
-    <form action={envoyer} className="grid max-w-md gap-4">
+    <form action={envoyer} className="grid gap-2">
       <MessageFormulaire etat={etat} />
-      <ChampTexte
-        etat={etat}
-        nom="dateDelivrance"
-        libelle="Date de délivrance"
-        type="date"
-        defaut={dateDelivrance}
-        aide="Remise de l’aide, à l’issue de l’essai. Base, âge, droits et tarifs se lisent à cette date."
-        requis
-      />
       <div>
-        <BoutonEnvoi variant="outline">Enregistrer la date</BoutonEnvoi>
+        <BoutonEnvoi>Valider la facture</BoutonEnvoi>
       </div>
+      <p className="text-sm text-muted-foreground">
+        La facture reçoit son numéro et ne se modifie plus. Sa date marque la délivrance.
+      </p>
     </form>
   );
 }

@@ -64,7 +64,7 @@ export default async function PageAFacturer({
   const { lignes, pagination, compteurs } = await listerAFacturer(acteur, perimetre, parametres);
   return (
     <div className="grid gap-6">
-      <EntetePage titre="À facturer">
+      <EntetePage titre="À facturer" action={{ href: '/factures', libelle: 'Toutes les factures' }}>
         {perimetre.type === 'tous'
           ? 'Dossiers de tous vos centres prêts à être facturés.'
           : 'Dossiers du centre courant prêts à être facturés.'}

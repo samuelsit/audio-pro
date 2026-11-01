@@ -22,11 +22,7 @@ import { formaterDate, formaterJour } from '@/lib/format';
 import type { FactureDetail } from '@/server/services/factures';
 
 import { ListeConstats } from '../liste-constats';
-import {
-  BoutonConfirmationAmo,
-  FormulaireDateDelivrance,
-  FormulairePec,
-} from './formulaires-facture';
+import { BoutonConfirmationAmo, BoutonValidation, FormulairePec } from './formulaires-facture';
 
 function libelleLigne({ oreille, libelle, quantite }: LigneFacture): string {
   const cote = oreille ? `${LIBELLES_OREILLES[oreille]} : ` : '';
@@ -56,7 +52,7 @@ function Lignes({ facture }: { facture: NonNullable<FactureDetail['facture']> })
           <TableRow key={index}>
             <TableCell>{libelleLigne(l)}</TableCell>
             <TableCell className="font-mono">{l.codeLpp ?? '—'}</TableCell>
-            <TableCell className="font-mono">{l.codePrestation}</TableCell>
+            <TableCell className="font-mono">{l.codePrestation ?? '—'}</TableCell>
             <TableCell className="font-mono">{l.numeroSerie ?? '—'}</TableCell>
             <TableCell className="text-right">{formatEuros(l.prixTTC)}</TableCell>
             <TableCell className="text-right">{formatEuros(l.baseRemboursement)}</TableCell>
@@ -112,9 +108,17 @@ function ResumePec({ dossierId, pec }: { dossierId: string; pec: FactureDetail['
   );
 }
 
-/** Préparation de la facture : ni numéro ni encaissement avant les étapes 14 et 15 (ADR-015). */
-export function BlocFacture({ dossierId, detail }: { dossierId: string; detail: FactureDetail }) {
-  const { etat, controle, facture, dateDelivrance, pec, c2s, amoConfirmeeLe } = detail;
+/** Brouillon du dossier, recalculé au jour courant : la validation le fige (ADR-028). */
+export function BlocFacture({
+  dossierId,
+  detail,
+  validable,
+}: {
+  dossierId: string;
+  detail: FactureDetail;
+  validable: boolean;
+}) {
+  const { etat, controle, facture, dateDelivrance, pec, c2s, amoConfirmeeLe, factureId } = detail;
   const aConfirmer = controle.erreurs.some((c) => c.code === 'COUVERTURE_AMO_A_CONFIRMER');
   return (
     <>
@@ -122,7 +126,7 @@ export function BlocFacture({ dossierId, detail }: { dossierId: string; detail: 
         <Badge variant={etat === 'PRET' ? 'secondary' : 'destructive'}>
           {etat === 'PRET' ? 'Prêt à facturer' : LIBELLES_ETATS_FACTURE.BLOQUE}
         </Badge>
-        <span>Délivrance le {formaterDate(dateDelivrance)}</span>
+        <span>Calculé au {formaterDate(dateDelivrance)}</span>
         {amoConfirmeeLe ? (
           <span className="text-muted-foreground">
             Couverture AMO confirmée le {formaterJour(amoConfirmeeLe)}
@@ -177,14 +181,9 @@ export function BlocFacture({ dossierId, detail }: { dossierId: string; detail: 
           </>
         )}
       </section>
-      <details className="rounded-lg border p-4">
-        <summary className="cursor-pointer text-sm font-medium">
-          Corriger la date de délivrance
-        </summary>
-        <div className="mt-3">
-          <FormulaireDateDelivrance dossierId={dossierId} dateDelivrance={dateDelivrance} />
-        </div>
-      </details>
+      {etat === 'PRET' && validable ? (
+        <BoutonValidation dossierId={dossierId} factureId={factureId} />
+      ) : null}
     </>
   );
 }

@@ -5,11 +5,8 @@ import { revalidatePath } from 'next/cache';
 import { texte, type EtatFormulaire } from '@/lib/formulaire';
 import { executer } from '@/server/actions';
 import { requireSession } from '@/server/auth/gardes';
-import {
-  confirmerCouvertureAmo,
-  enregistrerPec,
-  modifierDateDelivrance,
-} from '@/server/services/factures';
+import { validerFacture } from '@/server/services/facturation';
+import { confirmerCouvertureAmo, enregistrerPec } from '@/server/services/factures';
 
 /** L'écran reste sur le dossier : la confirmation s'affiche dans le formulaire (voir ADR-011). */
 function terminer(dossierId: string, succes: string): EtatFormulaire {
@@ -18,15 +15,13 @@ function terminer(dossierId: string, succes: string): EtatFormulaire {
   return { succes };
 }
 
-export async function modifierDateDelivranceAction(
+export async function validerFactureAction(
   dossierId: string,
-  _: EtatFormulaire,
-  formData: FormData,
+  factureId: string,
 ): Promise<EtatFormulaire> {
   const acteur = await requireSession();
-  const donnees = { dateDelivrance: texte(formData, 'dateDelivrance') };
-  const erreur = await executer(() => modifierDateDelivrance(acteur, dossierId, donnees), donnees);
-  return erreur ?? terminer(dossierId, 'Date de délivrance enregistrée.');
+  const erreur = await executer(() => validerFacture(acteur, factureId));
+  return erreur ?? terminer(dossierId, 'Facture validée.');
 }
 
 export async function confirmerCouvertureAction(dossierId: string): Promise<EtatFormulaire> {
