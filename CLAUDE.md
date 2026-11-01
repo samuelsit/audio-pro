@@ -6,7 +6,7 @@ La facturation SESAM-Vitale (lecture Vitale, FSE, DRE, NOEMIE, SCOR) passera par
 
 ## Architecture
 - packages/domain : règles métier pures, testées à 100 %. Aucun I/O.
-- Ports dans packages/domain/ports : VitaleReader, BillingEngine, PecGateway, Notifier, ESignature, DocumentStore, PdfRenderer, NoahConnector, Clock.
+- Ports dans packages/domain/ports : VitaleReader, BillingEngine, PecGateway, Notifier, ESignature, DocumentStore, PdfRenderer, NoahConnector, Clock, Hacheur, SignatureCaisse.
 - Adaptateurs dans packages/adapters, avec un adaptateur Fake par port, utilisé en développement et en test.
 - apps/web n'appelle jamais Prisma depuis un composant : tout passe par des services serveur (apps/web/server).
 - Tâches longues ou planifiées (envois, imports, clôtures, purges) dans packages/jobs, toujours idempotentes.

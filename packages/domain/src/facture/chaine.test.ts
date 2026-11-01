@@ -66,7 +66,55 @@ describe('verifierChaine', () => {
     { cas: 'maillon supprimé', altere: (m: Maillon[]) => m.toSpliced(1, 1), rang: 2 },
     { cas: 'maillons inversés', altere: (m: Maillon[]) => [...m].reverse(), rang: 1 },
   ])('détecte : $cas', ({ altere, rang }) => {
-    expect(verifierChaine(altere(maillons), HACHEUR)).toEqual({ valide: false, rang });
+    expect(verifierChaine(altere(maillons), HACHEUR)).toEqual({
+      valide: false,
+      rang,
+      raison: 'MAILLON',
+    });
+  });
+});
+
+describe('maillon de format 2', () => {
+  const contenu = {
+    format: 2,
+    rang: 1,
+    type: 'ENCAISSEMENT',
+    charge: { montant: 100 },
+    empreintePrecedente: EMPREINTE_INITIALE,
+    centreId: 'c1',
+    acteurId: 'u1',
+    horodatage: '2026-11-02T09:15:00.000Z',
+  } as const;
+
+  it('fige son format canonique : le changer impose une version majeure (BOFiP § 340)', () => {
+    expect(enchainer(contenu, HACHEUR)).toBe(
+      `h({"acteurId":"u1","centreId":"c1","charge":{"montant":100},"empreintePrecedente":"${EMPREINTE_INITIALE}","format":2,"horodatage":"2026-11-02T09:15:00.000Z","rang":1,"type":"ENCAISSEMENT"})`,
+    );
+  });
+
+  it.each([
+    ['horodatage', { horodatage: '2026-11-02T09:16:00.000Z' }],
+    ['acteur', { acteurId: 'u2' }],
+    ['centre', { centreId: 'c2' }],
+  ])('change avec : %s', (_, modification) => {
+    expect(enchainer({ ...contenu, ...modification }, HACHEUR)).not.toBe(
+      enchainer(contenu, HACHEUR),
+    );
+  });
+
+  it('un retour au format 1 change l’empreinte', () => {
+    const { rang, type, charge, empreintePrecedente } = contenu;
+    expect(enchainer({ rang, type, charge, empreintePrecedente }, HACHEUR)).not.toBe(
+      enchainer(contenu, HACHEUR),
+    );
+  });
+
+  it('se vérifie dans une chaîne, à la suite d’un maillon de format 1', () => {
+    const [premier] = chaine(['A']) as [Maillon];
+    const suite = { ...contenu, rang: 2, empreintePrecedente: premier.empreinte };
+    expect(
+      verifierChaine([premier, { ...suite, empreinte: enchainer(suite, HACHEUR) }], HACHEUR),
+    ).toEqual({ valide: true, maillons: 2 });
   });
 });
 
@@ -109,6 +157,15 @@ describe('chargePiece', () => {
     const avecIdentifiant = { ...piece, lignes: [{ ...ligne, id: 'l1', libre: 'x' }] };
     expect(serialiserCanonique(chargePiece(avecIdentifiant))).toBe(
       serialiserCanonique(chargePiece(piece)),
+    );
+  });
+
+  it('n’ajoute les acomptes déduits que s’ils existent', () => {
+    expect(serialiserCanonique(chargePiece({ ...piece, acomptesDeduits: centimes(0) }))).toBe(
+      serialiserCanonique(chargePiece(piece)),
+    );
+    expect(serialiserCanonique(chargePiece({ ...piece, acomptesDeduits: centimes(5) }))).toContain(
+      '"acomptesDeduits":5',
     );
   });
 

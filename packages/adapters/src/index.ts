@@ -18,6 +18,11 @@ export {
 } from './crypto/prisma';
 export { chargerCleEmpreinte, EmpreinteHmac } from './crypto/empreinte';
 export { HacheurSha256 } from './crypto/hacheur';
+export {
+  chargerSignatureCaisse,
+  FakeSignatureCaisse,
+  SignatureCaisseEd25519,
+} from './crypto/signature-caisse';
 export { SignatureLienDocument, type CibleLienDocumentSigne } from './crypto/lien-document';
 export { chargerCleLienRdv, SignatureLienRdv, type CibleLienRdv } from './crypto/lien-rdv';
 export { chargerTrousseau, type Trousseau } from './crypto/trousseau';
