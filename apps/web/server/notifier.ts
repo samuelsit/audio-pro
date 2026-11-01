@@ -1,23 +1,26 @@
-import { FakeNotifier } from '@ha/adapters';
+import { creerNotifierDepuisEnv, notifierActif } from '@ha/adapters';
 import type { Notifier } from '@ha/domain';
 
-/** Sans fournisseur, aucun code ne peut partir : la réservation en ligne reste fermée. */
+/** Sans fournisseur, aucun message ne peut partir : documents et devis restent à remettre en main propre. */
 export function notifierDisponible(): boolean {
-  return process.env.NOTIFIER === 'simulation' && process.env.NODE_ENV !== 'production';
+  return notifierActif(process.env);
 }
 
-function creerNotifier(): Notifier {
-  if (notifierDisponible()) {
-    return new FakeNotifier(process.env.NOTIFIER_SIMULATION_FICHIER);
-  }
-  // À VÉRIFIER : fournisseur SMS et e-mail à choisir, docs/vendor n'en documente aucun (ADR-021).
-  throw new Error('Aucun fournisseur de SMS ni d’e-mail n’est configuré.');
+/**
+ * Une page publique envoie un code SMS à la demande : en réel, elle exige son propre interrupteur, posé une fois
+ * `PROXIES_DE_CONFIANCE` réglé (étape 23). Sans lui, la limitation par adresse IP se contourne.
+ */
+export function reservationPubliqueOuverte(): boolean {
+  return (
+    notifierDisponible() &&
+    (process.env.NOTIFIER !== 'reel' || process.env.RESERVATION_PUBLIQUE === 'active')
+  );
 }
 
 let instanceNotifier: Notifier | undefined;
 
-/** Envois au patient : simulation hors production, tant qu'aucun fournisseur n'est retenu. */
+/** Envois au patient : fournisseurs réels, ou simulation hors production. */
 export function notifier(): Notifier {
-  instanceNotifier ??= creerNotifier();
+  instanceNotifier ??= creerNotifierDepuisEnv(process.env);
   return instanceNotifier;
 }

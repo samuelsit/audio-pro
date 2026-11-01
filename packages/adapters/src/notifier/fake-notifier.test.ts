@@ -56,4 +56,43 @@ describe('FakeNotifier', () => {
     ).rejects.toThrow();
     expect(notifier.envoyes).toEqual([]);
   });
+
+  it('rend un reçu avec les segments d’un SMS', async () => {
+    const notifier = new FakeNotifier();
+    const recu = await notifier.envoyerSms({
+      destinataire: '+33600000000',
+      texte: 'a'.repeat(200),
+    });
+    expect(recu).toEqual({ idFournisseur: 'simule-1', credits: 2 });
+  });
+
+  it('enregistre un lot de courrier', async () => {
+    const notifier = new FakeNotifier();
+    await expect(notifier.envoyerCourrier({ cleDocument: 'c', lettres: 2 })).resolves.toEqual({
+      idFournisseur: null,
+      credits: null,
+    });
+    expect(notifier.envoyes).toEqual([{ canal: 'COURRIER', cleDocument: 'c', lettres: 2 }]);
+  });
+
+  it('dit un message délivré, sauf consigne', async () => {
+    const notifier = new FakeNotifier();
+    notifier.etats.set('x', 'ECHEC');
+    await expect(notifier.etatEnvoi('SMS', 'y')).resolves.toBe('DELIVRE');
+    await expect(notifier.etatEnvoi('SMS', 'x')).resolves.toBe('ECHEC');
+  });
+
+  it('simule une panne de lecture', async () => {
+    const notifier = new FakeNotifier();
+    notifier.enPanne = true;
+    await expect(notifier.etatEnvoi('SMS', 'y')).rejects.toThrow();
+  });
+
+  it('tient la liste des STOP', async () => {
+    const notifier = new FakeNotifier();
+    notifier.oppositions = ['+33600000000'];
+    await expect(notifier.oppositionsSms()).resolves.toEqual(['+33600000000']);
+    await notifier.retirerOppositionSms('+33600000000');
+    await expect(notifier.oppositionsSms()).resolves.toEqual([]);
+  });
 });

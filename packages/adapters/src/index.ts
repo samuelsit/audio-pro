@@ -28,13 +28,30 @@ export {
   FakeSignatureCaisse,
   SignatureCaisseEd25519,
 } from './crypto/signature-caisse';
+export { EmpreinteAdresse } from './crypto/empreinte-adresse';
 export { SignatureLienCommande, type CibleLienCommandeSignee } from './crypto/lien-commande';
+export {
+  SignatureLienDesinscription,
+  type CibleLienDesinscription,
+} from './crypto/lien-desinscription';
 export { SignatureLienDocument, type CibleLienDocumentSigne } from './crypto/lien-document';
 export { chargerCleLienRdv, SignatureLienRdv, type CibleLienRdv } from './crypto/lien-rdv';
 export { chargerTrousseau, type Trousseau } from './crypto/trousseau';
 export { ErreurDbf, lireDbf, type ChampDbf, type TableDbf } from './lpp/lecteur-dbf';
 export { FakeNotifier, type MessageSimule } from './notifier/fake-notifier';
+export {
+  creerNotifierDepuisEnv,
+  notifierActif,
+  NotifierFournisseurs,
+} from './notifier/notifier-fournisseurs';
+export { chargerConfigurationOvhSms, OvhSms, type ConfigurationOvhSms } from './notifier/ovh-sms';
+export {
+  chargerConfigurationScalewayEmail,
+  ScalewayEmail,
+  type ConfigurationScalewayEmail,
+} from './notifier/scaleway-email';
 export { ChromiumPdfRenderer } from './pdf/chromium-pdf-renderer';
+export { creerRenduPdfDepuisEnv } from './pdf/creer-rendu';
 export { FakePdfRenderer } from './pdf/fake-pdf-renderer';
 export { DocumentStoreChiffre } from './storage/document-store-chiffre';
 export { FakeDocumentStore } from './storage/fake-document-store';

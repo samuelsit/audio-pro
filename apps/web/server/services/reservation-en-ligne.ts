@@ -44,7 +44,7 @@ import { journaliser, type AuteurAudit, type EvenementAudit } from '../audit/jou
 import { captcha as captchaConfigure } from '../captcha';
 import { base, enTransaction, type ClientTransaction, type ContexteClient } from '../chiffrement';
 import { ErreurConflitAgenda, ErreurSaisie, ressourcePerdue, valider } from '../erreurs';
-import { notifier as notifierConfigure, notifierDisponible } from '../notifier';
+import { notifier as notifierConfigure, reservationPubliqueOuverte } from '../notifier';
 import { publierEvenement } from '../evenements';
 import {
   empreinteCaptcha,
@@ -167,7 +167,7 @@ export async function resoudreCentre(
   slugClient: string,
   slugCentre: string,
 ): Promise<CiblePublique> {
-  if (!notifierDisponible()) {
+  if (!reservationPubliqueOuverte()) {
     throw new AccesRefuseError();
   }
   const organisation = await clientPlateforme().organisation.findUnique({
