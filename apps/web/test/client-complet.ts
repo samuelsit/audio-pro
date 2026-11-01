@@ -1,7 +1,12 @@
 import { FakeClock } from '@ha/adapters';
 import { archiverCentre, cloturerCentre } from '@ha/caisse';
 import { prisma } from '@ha/db/admin';
-import { PARAMETRES_COMPTABLES_DEFAUT, PROFIL_ECRITURES_DEFAUT } from '@ha/domain';
+import {
+  MODELES_DEFAUT,
+  PARAMETRES_COMMUNICATION_DEFAUT,
+  PARAMETRES_COMPTABLES_DEFAUT,
+  PROFIL_ECRITURES_DEFAUT,
+} from '@ha/domain';
 
 import { base } from '@/server/chiffrement';
 import { documents } from '@/server/documents';
@@ -495,6 +500,69 @@ export async function creerClientComplet(suffixe: string) {
       rang: 1,
       statut: 'IGNORE',
       createdById: audio.id,
+    },
+  });
+  await prisma().parametresCommunication.create({
+    data: {
+      ...PARAMETRES_COMMUNICATION_DEFAUT,
+      organisationId,
+      jours: [...PARAMETRES_COMMUNICATION_DEFAUT.jours],
+    },
+  });
+  await prisma().reglageScenario.create({
+    data: { organisationId, scenario: 'RAPPEL_RDV_J1', actif: true, canaux: ['SMS'] },
+  });
+  const modeleMessage = await prisma().modeleMessage.create({
+    data: {
+      organisationId,
+      nom: 'Campagne de démonstration',
+      ...MODELES_DEFAUT.ANNIVERSAIRE,
+    },
+  });
+  const campagne = await prisma().campagne.create({
+    data: {
+      organisationId,
+      nom: 'Campagne',
+      modeleId: modeleMessage.id,
+      canal: 'EMAIL',
+      segment: { centreIds: [d.centres.a.id] },
+      programmeeLe: new Date('2030-08-05T08:00:00.000Z'),
+    },
+  });
+  const lotCourrier = await prisma().lotCourrier.create({
+    data: { organisationId, centreId: d.centres.a.id, type: 'LETTRES' },
+  });
+  await base({ organisationId }).messagePatient.create({
+    data: {
+      organisationId,
+      centreId: d.centres.a.id,
+      patientId,
+      canal: 'COURRIER',
+      finalite: 'COMMERCIAL',
+      campagneId: campagne.id,
+      lotCourrierId: lotCourrier.id,
+      cleIdempotence: `message${suffixe}`,
+      statut: 'A_IMPRIMER',
+    },
+  });
+  await base({ organisationId }).oppositionAdresse.create({
+    data: {
+      organisationId,
+      canal: 'SMS',
+      empreinte: `empreinte${suffixe}`,
+      adresse: '+33600000000',
+      origine: 'STOP_SMS',
+    },
+  });
+  await prisma().evenementConsentement.create({
+    data: {
+      organisationId,
+      patientId,
+      canal: 'SMS',
+      finalite: 'SUIVI',
+      accorde: false,
+      origine: 'STOP_SMS',
+      auteur: 'Fournisseur',
     },
   });
   await enregistrerSeuil(d.acteurs.admin, {

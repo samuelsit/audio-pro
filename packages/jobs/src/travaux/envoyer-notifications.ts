@@ -46,7 +46,11 @@ function estGabaritCommande(gabarit: GabaritNotification): gabarit is GabaritCom
 }
 
 function estGabaritRdv(gabarit: GabaritNotification): gabarit is GabaritRdv {
-  return gabarit !== 'DOCUMENT_A_CONSULTER' && !estGabaritCommande(gabarit);
+  return (
+    gabarit !== 'DOCUMENT_A_CONSULTER' &&
+    gabarit !== 'MESSAGE_PATIENT' &&
+    !estGabaritCommande(gabarit)
+  );
 }
 
 /**

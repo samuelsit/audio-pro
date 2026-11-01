@@ -51,6 +51,14 @@ model Organisation {
   createdAt                DateTime                  @default(now()) @map("created_at")
   updatedAt                DateTime                  @updatedAt @map("updated_at")
   centres                  Centre[]
+  parametresCommunication  ParametresCommunication?
+  reglagesScenario         ReglageScenario[]
+  modelesMessage           ModeleMessage[]
+  evenementsConsentement   EvenementConsentement[]
+  oppositionsAdresse       OppositionAdresse[]
+  messagesPatient          MessagePatient[]
+  campagnes                Campagne[]
+  lotsCourrier             LotCourrier[]
   utilisateurs             Utilisateur[]
   patients                 Patient[]
   lecturesVitale           LectureVitale[]
@@ -218,6 +226,8 @@ model Centre {
   ecartsAchat           EcartAchat[]
   facturesFournisseurs  FactureFournisseur[]
   seuilsStock           SeuilStock[]
+  lotsCourrier          LotCourrier[]
+  messagesPatient       MessagePatient[]
 
   @@unique([organisationId, slug])
   @@unique([organisationId, nom])
@@ -394,57 +404,63 @@ enum OrigineDonnee {
 /// Une fiche fusionnée n'est pas supprimée : elle pointe vers la fiche conservée (`fusionneDansId`).
 /// Les couvertures sont lues et écrites directement (jamais par relation imbriquée : champs chiffrés).
 model Patient {
-  id                    String              @id @default(uuid(7))
-  organisationId        String              @map("organisation_id")
-  centreId              String              @map("centre_id")
-  civilite              Civilite
-  nomNaissance          String              @map("nom_naissance")
-  nomUsage              String?             @map("nom_usage")
-  prenoms               String
-  dateNaissance         DateTime            @map("date_naissance") @db.Date
-  sexe                  Sexe
-  adresseLigne1         String?             @map("adresse_ligne1")
-  adresseLigne2         String?             @map("adresse_ligne2")
-  codePostal            String?             @map("code_postal")
-  ville                 String?
-  telephone             String?
-  email                 String?
+  id                             String                  @id @default(uuid(7))
+  organisationId                 String                  @map("organisation_id")
+  centreId                       String                  @map("centre_id")
+  civilite                       Civilite
+  nomNaissance                   String                  @map("nom_naissance")
+  nomUsage                       String?                 @map("nom_usage")
+  prenoms                        String
+  dateNaissance                  DateTime                @map("date_naissance") @db.Date
+  sexe                           Sexe
+  adresseLigne1                  String?                 @map("adresse_ligne1")
+  adresseLigne2                  String?                 @map("adresse_ligne2")
+  codePostal                     String?                 @map("code_postal")
+  ville                          String?
+  telephone                      String?
+  email                          String?
   /// Texte libre pendant le MVP.
-  medecinTraitant       String?             @map("medecin_traitant")
-  consentementSms       Boolean             @default(false) @map("consentement_sms")
-  consentementEmail     Boolean             @default(false) @map("consentement_email")
-  consentementCourrier  Boolean             @default(false) @map("consentement_courrier")
+  medecinTraitant                String?                 @map("medecin_traitant")
+  consentementSms                Boolean                 @default(false) @map("consentement_sms")
+  consentementEmail              Boolean                 @default(false) @map("consentement_email")
+  consentementCourrier           Boolean                 @default(false) @map("consentement_courrier")
+  /// Finalité commerciale, distincte du suivi : décochée par défaut, par canal (ADR-033).
+  consentementSmsCommercial      Boolean                 @default(false) @map("consentement_sms_commercial")
+  consentementEmailCommercial    Boolean                 @default(false) @map("consentement_email_commercial")
+  consentementCourrierCommercial Boolean                 @default(false) @map("consentement_courrier_commercial")
   /// Chiffré (contexte « patient.notes ») : peut contenir des données de santé.
-  notes                 String?
+  notes                          String?
   /// Formes normalisées (sans accents, majuscules) pour la recherche et les doublons.
-  nomNaissanceRecherche String              @map("nom_naissance_recherche")
-  nomUsageRecherche     String?             @map("nom_usage_recherche")
-  prenomsRecherche      String              @map("prenoms_recherche")
-  fusionneDansId        String?             @map("fusionne_dans_id")
-  fusionneLe            DateTime?           @map("fusionne_le")
-  createdAt             DateTime            @default(now()) @map("created_at")
-  updatedAt             DateTime            @updatedAt @map("updated_at")
-  organisation          Organisation        @relation(fields: [organisationId], references: [id], onDelete: Restrict)
-  centre                Centre              @relation(fields: [centreId], references: [id], onDelete: Restrict)
-  fusionneDans          Patient?            @relation("FusionPatient", fields: [fusionneDansId], references: [id], onDelete: Restrict)
-  fusionnes             Patient[]           @relation("FusionPatient")
-  couvertureAmo         CouvertureAmo?
-  couvertureAmc         CouvertureAmc?
-  appareils             Appareil[]
-  mouvementsAppareil    MouvementAppareil[]
-  garantiesAppareil     GarantieAppareil[]
-  controlesSuivi        ControleSuivi[]
-  pretsAppareil         PretAppareil[]
-  ticketsSav            TicketSav[]
-  dossiers              Dossier[]
-  delivrances           Delivrance[]
-  factures              Facture[]
-  encaissements         Encaissement[]
-  creances              Creance[]
-  liensDocument         LienDocument[]
-  rendezVous            RendezVous[]
-  bilansAudiologiques   BilanAudiologique[]
-  lignesCommande        CommandeLigne[]
+  nomNaissanceRecherche          String                  @map("nom_naissance_recherche")
+  nomUsageRecherche              String?                 @map("nom_usage_recherche")
+  prenomsRecherche               String                  @map("prenoms_recherche")
+  fusionneDansId                 String?                 @map("fusionne_dans_id")
+  fusionneLe                     DateTime?               @map("fusionne_le")
+  createdAt                      DateTime                @default(now()) @map("created_at")
+  updatedAt                      DateTime                @updatedAt @map("updated_at")
+  organisation                   Organisation            @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  centre                         Centre                  @relation(fields: [centreId], references: [id], onDelete: Restrict)
+  fusionneDans                   Patient?                @relation("FusionPatient", fields: [fusionneDansId], references: [id], onDelete: Restrict)
+  fusionnes                      Patient[]               @relation("FusionPatient")
+  couvertureAmo                  CouvertureAmo?
+  couvertureAmc                  CouvertureAmc?
+  appareils                      Appareil[]
+  mouvementsAppareil             MouvementAppareil[]
+  garantiesAppareil              GarantieAppareil[]
+  controlesSuivi                 ControleSuivi[]
+  pretsAppareil                  PretAppareil[]
+  ticketsSav                     TicketSav[]
+  dossiers                       Dossier[]
+  delivrances                    Delivrance[]
+  evenementsConsentement         EvenementConsentement[]
+  messagesPatient                MessagePatient[]
+  factures                       Facture[]
+  encaissements                  Encaissement[]
+  creances                       Creance[]
+  liensDocument                  LienDocument[]
+  rendezVous                     RendezVous[]
+  bilansAudiologiques            BilanAudiologique[]
+  lignesCommande                 CommandeLigne[]
 
   @@index([organisationId, nomNaissanceRecherche])
   @@index([organisationId, nomUsageRecherche])
@@ -1828,6 +1844,10 @@ model Prescripteur {
   cabinet           String?
   /// Adresse e-mail ou MSSanté.
   contact           String?
+  adresseLigne1     String?                @map("adresse_ligne1")
+  adresseLigne2     String?                @map("adresse_ligne2")
+  codePostal        String?                @map("code_postal")
+  ville             String?
   /// Formes normalisées (sans accents, majuscules) pour la recherche.
   nomRecherche      String                 @map("nom_recherche")
   prenomRecherche   String                 @map("prenom_recherche")
@@ -3071,6 +3091,7 @@ model RendezVous {
   reservationEnLigne ReservationEnLigne?
   essaiRdv           EssaiRdv?
   controlesSuivi     ControleSuivi[]
+  messagesPatient    MessagePatient[]
 
   @@index([centreId, debut])
   @@index([patientId, debut])
@@ -3120,6 +3141,7 @@ enum GabaritNotification {
   DOCUMENT_A_CONSULTER
   BON_COMMANDE
   RELANCE_COMMANDE
+  MESSAGE_PATIENT
 }
 
 enum StatutNotification {
@@ -3212,36 +3234,312 @@ model ReservationEnLigne {
 
 /// Message à envoyer, écrit dans la transaction du métier et envoyé par `packages/jobs` (ADR-021) : au patient,
 /// au prescripteur ou, pour une commande, au fournisseur avec le bon en pièce jointe (ADR-031).
-/// Le code SMS n'y passe jamais.
+/// Le code SMS n'y passe jamais. La ligne est purgée après 30 jours : `MessagePatient` garde l'historique.
 model Notification {
-  id              String              @id @default(uuid(7))
-  organisationId  String              @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
-  /// Exactement une source : la réservation, le lien vers un document ou la commande (contrainte CHECK).
-  reservationId   String?             @map("reservation_id")
-  lienDocumentId  String?             @map("lien_document_id")
-  commandeId      String?             @map("commande_id")
-  canal           CanalNotification
+  id               String              @id @default(uuid(7))
+  organisationId   String              @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  /// Exactement une source : la réservation, le lien vers un document ou la commande (contrainte CHECK), ou,
+  /// sans source, `messagePatientId`.
+  reservationId    String?             @map("reservation_id")
+  lienDocumentId   String?             @map("lien_document_id")
+  commandeId       String?             @map("commande_id")
+  messagePatientId String?             @map("message_patient_id")
+  canal            CanalNotification
   /// Chiffré (contexte « notification.destinataire »).
-  destinataire    String
-  gabarit         GabaritNotification
+  destinataire     String
+  gabarit          GabaritNotification
   /// Validés par `parametresGabaritSchema` : ni type de rendez-vous, ni motif, ni nom.
-  parametres      Json
-  cleIdempotence  String              @map("cle_idempotence")
-  statut          StatutNotification  @default(A_ENVOYER)
-  tentatives      Int                 @default(0)
-  prochainEssaiLe DateTime            @default(now()) @map("prochain_essai_le") @db.Timestamptz(3)
-  envoyeeLe       DateTime?           @map("envoyee_le") @db.Timestamptz(3)
-  createdAt       DateTime            @default(now()) @map("created_at")
-  reservation     ReservationEnLigne? @relation(fields: [reservationId], references: [id], onDelete: Restrict)
-  lienDocument    LienDocument?       @relation(fields: [lienDocumentId], references: [id], onDelete: Restrict)
-  commande        Commande?           @relation(fields: [commandeId], references: [id], onDelete: Restrict)
-  organisation    Organisation        @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  parametres       Json
+  cleIdempotence   String              @map("cle_idempotence")
+  statut           StatutNotification  @default(A_ENVOYER)
+  /// 0 passe d'abord : une campagne (1) ne retarde pas un rappel.
+  priorite         Int                 @default(0)
+  tentatives       Int                 @default(0)
+  prochainEssaiLe  DateTime            @default(now()) @map("prochain_essai_le") @db.Timestamptz(3)
+  envoyeeLe        DateTime?           @map("envoyee_le") @db.Timestamptz(3)
+  createdAt        DateTime            @default(now()) @map("created_at")
+  reservation      ReservationEnLigne? @relation(fields: [reservationId], references: [id], onDelete: Restrict)
+  lienDocument     LienDocument?       @relation(fields: [lienDocumentId], references: [id], onDelete: Restrict)
+  commande         Commande?           @relation(fields: [commandeId], references: [id], onDelete: Restrict)
+  messagePatient   MessagePatient?     @relation(fields: [messagePatientId], references: [id], onDelete: Restrict)
+  organisation     Organisation        @relation(fields: [organisationId], references: [id], onDelete: Restrict)
 
   @@unique([organisationId, cleIdempotence])
   @@index([reservationId])
   @@index([lienDocumentId])
   @@index([commandeId])
+  @@index([messagePatientId])
   @@map("notification")
+}
+
+enum CanalMessage {
+  SMS
+  EMAIL
+  COURRIER
+}
+
+enum FinaliteMessage {
+  SUIVI
+  COMMERCIAL
+}
+
+enum ScenarioCommunication {
+  RAPPEL_RDV_J2
+  RAPPEL_RDV_J1
+  CONFIRMATION_RDV
+  DEPLACEMENT_RDV
+  ANNULATION_RDV
+  RELANCE_DEVIS
+  FIN_ESSAI
+  CONTROLE_ANNUEL
+  RENOUVELLEMENT
+  FIN_GARANTIE
+  ANNIVERSAIRE
+}
+
+enum StatutMessage {
+  A_ENVOYER
+  ENVOYE
+  DELIVRE
+  ECHEC
+  BLOQUE
+  EXPIRE
+  A_IMPRIMER
+  IMPRIME
+}
+
+enum OrigineConsentement {
+  FICHE
+  AGENDA
+  RESERVATION
+  VITALE
+  FUSION
+  RECUEIL
+  DESINSCRIPTION
+  STOP_SMS
+}
+
+enum StatutCampagne {
+  PROGRAMMEE
+  EN_COURS
+  TERMINEE
+  ANNULEE
+}
+
+enum StatutLotCourrier {
+  A_GENERER
+  PRET
+  IMPRIME
+}
+
+enum TypeLotCourrier {
+  LETTRES
+  COMPTES_RENDUS
+}
+
+/// Réglages de communication du client. Sans ligne, `PARAMETRES_COMMUNICATION_DEFAUT` s'applique.
+model ParametresCommunication {
+  id                         String       @id @default(uuid(7))
+  organisationId             String       @unique @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  heureDebut                 String       @map("heure_debut")
+  heureFin                   String       @map("heure_fin")
+  jours                      String[]
+  feries                     Boolean
+  /// Millièmes d'euro par crédit SMS : le tarif passe sous le centime.
+  tarifSmsMillimes           Int          @map("tarif_sms_millimes")
+  devisDelaiJours            Int          @map("devis_delai_jours")
+  devisRelancesMax           Int          @map("devis_relances_max")
+  finEssaiAvanceJours        Int          @map("fin_essai_avance_jours")
+  controleAvanceJours        Int          @map("controle_avance_jours")
+  garantieAvanceJours        Int          @map("garantie_avance_jours")
+  renouvellementFenetreJours Int          @map("renouvellement_fenetre_jours")
+  createdAt                  DateTime     @default(now()) @map("created_at")
+  updatedAt                  DateTime     @updatedAt @map("updated_at")
+  organisation               Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+
+  @@map("parametres_communication")
+}
+
+/// Un scénario est inactif tant que le client ne l'a pas activé : sans ligne, il ne part rien (ADR-033).
+model ReglageScenario {
+  id             String                @id @default(uuid(7))
+  organisationId String                @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  scenario       ScenarioCommunication
+  actif          Boolean               @default(false)
+  /// Par ordre de préférence : un événement fait un seul message.
+  canaux         CanalMessage[]
+  createdAt      DateTime              @default(now()) @map("created_at")
+  updatedAt      DateTime              @updatedAt @map("updated_at")
+  organisation   Organisation          @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+
+  @@unique([organisationId, scenario])
+  @@map("reglage_scenario")
+}
+
+/// Texte d'un scénario, qui remplace `MODELES_DEFAUT`, ou modèle de campagne (sans scénario). Chaque modification
+/// augmente la version ; `MessagePatient` garde le texte rendu.
+model ModeleMessage {
+  id             String                 @id @default(uuid(7))
+  organisationId String                 @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  nom            String
+  scenario       ScenarioCommunication?
+  sujet          String
+  corpsEmail     String                 @map("corps_email")
+  corpsSms       String                 @map("corps_sms")
+  corpsCourrier  String?                @map("corps_courrier")
+  version        Int                    @default(1)
+  createdAt      DateTime               @default(now()) @map("created_at")
+  updatedAt      DateTime               @updatedAt @map("updated_at")
+  organisation   Organisation           @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  campagnes      Campagne[]
+
+  @@unique([organisationId, scenario])
+  @@map("modele_message")
+}
+
+/// Journal des consentements, en ajout seul (trigger). Le patient porte l'état courant, ici son histoire ;
+/// un consentement antérieur à l'étape 19 n'a pas de date connue, aucune n'est inventée.
+model EvenementConsentement {
+  id             String              @id @default(uuid(7))
+  organisationId String              @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  patientId      String              @map("patient_id")
+  canal          CanalMessage
+  finalite       FinaliteMessage
+  accorde        Boolean
+  origine        OrigineConsentement
+  /// Libellé de l'auteur, ou de l'envoi qui l'a déclenché. Pas de NIR : il est masqué comme dans l'audit.
+  auteur         String
+  survenuLe      DateTime            @default(now()) @map("survenu_le") @db.Timestamptz(3)
+  patient        Patient             @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  organisation   Organisation        @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+
+  @@index([patientId, survenuLe])
+  @@map("evenement_consentement")
+}
+
+/// Une adresse a dit stop : le canal se coupe pour elle, quelle que soit la fiche et même si la fiche change.
+/// Seule une action « nouveau consentement noté » la lève (ADR-033).
+model OppositionAdresse {
+  id             String              @id @default(uuid(7))
+  organisationId String              @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  canal          CanalMessage
+  /// HMAC de l'adresse canonique, pour la chercher sans la déchiffrer.
+  empreinte      String
+  /// Chiffré (contexte « opposition_adresse.adresse »), pour recalculer l'empreinte à la rotation de clé.
+  adresse        String
+  origine        OrigineConsentement
+  survenueLe     DateTime            @default(now()) @map("survenue_le") @db.Timestamptz(3)
+  organisation   Organisation        @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+
+  @@unique([organisationId, canal, empreinte])
+  @@map("opposition_adresse")
+}
+
+/// Campagne manuelle. Le segment se résout au lancement : le compteur annoncé est revu à cet instant.
+model Campagne {
+  id             String           @id @default(uuid(7))
+  organisationId String           @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  nom            String
+  modeleId       String           @map("modele_id")
+  canal          CanalMessage
+  /// Validé par `segmentSchema`. Ses `centreIds` sont figés dans le périmètre de l'auteur.
+  segment        Json
+  statut         StatutCampagne   @default(PROGRAMMEE)
+  programmeeLe   DateTime         @map("programmee_le") @db.Timestamptz(3)
+  lanceeLe       DateTime?        @map("lancee_le") @db.Timestamptz(3)
+  destinataires  Int?
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+  modele         ModeleMessage    @relation(fields: [modeleId], references: [id], onDelete: Restrict)
+  organisation   Organisation     @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  messages       MessagePatient[]
+
+  @@index([organisationId, statut, programmeeLe])
+  @@index([modeleId])
+  @@map("campagne")
+}
+
+/// PDF à imprimer d'un centre, assemblé par `generer-courriers` ou par le service des comptes rendus.
+model LotCourrier {
+  id             String            @id @default(uuid(7))
+  organisationId String            @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  centreId       String            @map("centre_id")
+  type           TypeLotCourrier
+  statut         StatutLotCourrier @default(A_GENERER)
+  documentCle    String?           @map("document_cle")
+  lettres        Int               @default(0)
+  genereLe       DateTime?         @map("genere_le") @db.Timestamptz(3)
+  imprimeLe      DateTime?         @map("imprime_le") @db.Timestamptz(3)
+  createdAt      DateTime          @default(now()) @map("created_at")
+  centre         Centre            @relation(fields: [centreId], references: [id], onDelete: Restrict)
+  organisation   Organisation      @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  messages       MessagePatient[]
+
+  @@index([centreId, statut])
+  @@map("lot_courrier")
+}
+
+/// Historique durable d'un message au patient, à la différence de `Notification` : ce qui devait partir, ce qui
+/// est parti, ce qu'il en est advenu. Le texte rendu y reste, chiffré.
+model MessagePatient {
+  id               String                 @id @default(uuid(7))
+  organisationId   String                 @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  centreId         String                 @map("centre_id")
+  patientId        String                 @map("patient_id")
+  canal            CanalMessage
+  finalite         FinaliteMessage
+  scenario         ScenarioCommunication?
+  campagneId       String?                @map("campagne_id")
+  lotCourrierId    String?                @map("lot_courrier_id")
+  rendezVousId     String?                @map("rendez_vous_id")
+  /// Début du rendez-vous annoncé : s'il bouge, le rappel est périmé.
+  rdvDebut         DateTime?              @map("rdv_debut") @db.Timestamptz(3)
+  /// Devis, essai ou garantie concerné, relu avant l'envoi.
+  entiteId         String?                @map("entite_id")
+  modeleVersion    Int?                   @map("modele_version")
+  /// Chiffré (contexte « message_patient.sujet »).
+  sujet            String?
+  /// Chiffré (contexte « message_patient.corps »).
+  corps            String?
+  /// HMAC de l'adresse canonique. Nul pour un message bloqué faute d'adresse.
+  empreinteAdresse String?                @map("empreinte_adresse")
+  cleIdempotence   String                 @map("cle_idempotence")
+  statut           StatutMessage          @default(A_ENVOYER)
+  /// Motif d'un message bloqué ou expiré, ou catégorie d'échec.
+  motif            String?
+  idFournisseur    String?                @map("id_fournisseur")
+  segments         Int?
+  coutMillimes     Int?                   @map("cout_millimes")
+  /// Passé cet instant, le message n'a plus de sens et ne part pas.
+  expireLe         DateTime?              @map("expire_le") @db.Timestamptz(3)
+  envoyeLe         DateTime?              @map("envoye_le") @db.Timestamptz(3)
+  delivreLe        DateTime?              @map("delivre_le") @db.Timestamptz(3)
+  echecLe          DateTime?              @map("echec_le") @db.Timestamptz(3)
+  clicLe           DateTime?              @map("clic_le") @db.Timestamptz(3)
+  desinscritLe     DateTime?              @map("desinscrit_le") @db.Timestamptz(3)
+  /// Unique tous clients confondus : `/l/<code>` se résout sans contexte client.
+  codeCourt        String?                @unique @map("code_court")
+  /// Chiffré (contexte « message_patient.lien_cible ») : peut porter un jeton de gestion de rendez-vous.
+  lienCible        String?                @map("lien_cible")
+  createdAt        DateTime               @default(now()) @map("created_at")
+  updatedAt        DateTime               @updatedAt @map("updated_at")
+  centre           Centre                 @relation(fields: [centreId], references: [id], onDelete: Restrict)
+  patient          Patient                @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  campagne         Campagne?              @relation(fields: [campagneId], references: [id], onDelete: Restrict)
+  lotCourrier      LotCourrier?           @relation(fields: [lotCourrierId], references: [id], onDelete: Restrict)
+  rendezVous       RendezVous?            @relation(fields: [rendezVousId], references: [id], onDelete: Restrict)
+  organisation     Organisation           @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  notifications    Notification[]
+
+  @@unique([organisationId, cleIdempotence])
+  @@index([patientId, createdAt])
+  @@index([centreId, envoyeLe])
+  @@index([organisationId, statut, envoyeLe])
+  @@index([empreinteAdresse])
+  @@index([campagneId])
+  @@index([lotCourrierId])
+  @@index([rendezVousId])
+  @@map("message_patient")
 }
 
 enum CibleLienDocument {

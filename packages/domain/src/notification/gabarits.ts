@@ -15,10 +15,14 @@ export const GABARITS_NOTIFICATION = [
   'DOCUMENT_A_CONSULTER',
   'BON_COMMANDE',
   'RELANCE_COMMANDE',
+  'MESSAGE_PATIENT',
 ] as const;
 export type GabaritNotification = (typeof GABARITS_NOTIFICATION)[number];
 export type GabaritCommande = Extract<GabaritNotification, 'BON_COMMANDE' | 'RELANCE_COMMANDE'>;
-export type GabaritRdv = Exclude<GabaritNotification, 'DOCUMENT_A_CONSULTER' | GabaritCommande>;
+export type GabaritRdv = Exclude<
+  GabaritNotification,
+  'DOCUMENT_A_CONSULTER' | 'MESSAGE_PATIENT' | GabaritCommande
+>;
 
 /** Seuls les messages aux fournisseurs portent une pièce jointe : un patient reçoit un lien (CLAUDE.md). */
 export function gabaritAvecPieceJointe(gabarit: GabaritNotification): boolean {

@@ -47,6 +47,12 @@ export const CHAMPS_CHIFFRES: ConfigurationChampsChiffres = {
   RendezVous: { notes: 'rendez_vous.notes' },
   ReservationEnLigne: { motif: 'reservation_en_ligne.motif' },
   Notification: { destinataire: 'notification.destinataire' },
+  MessagePatient: {
+    sujet: 'message_patient.sujet',
+    corps: 'message_patient.corps',
+    lienCible: 'message_patient.lien_cible',
+  },
+  OppositionAdresse: { adresse: 'opposition_adresse.adresse' },
   MesureAudiologique: { donnees: 'mesure_audiologique.donnees' },
   Otoscopie: { constat: 'otoscopie.constat' },
   ReponseFormulaire: { reponses: 'reponse_formulaire.reponses' },
