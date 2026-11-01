@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formaterDate, formaterDateHeure } from '@/lib/format';
 import { ouIntrouvable, requireSession } from '@/server/auth/gardes';
+import { appareilsDuPatient } from '@/server/services/garanties';
 import { doublonsDeLaFiche, obtenirPatient } from '@/server/services/patients';
 
 import { adresseSurUneLigne, dateEtAge, libelleMotifs } from '../affichage';
@@ -61,6 +62,7 @@ export default async function PageFichePatient({ params }: PageProps<'/patients/
   }
   const { fiche } = ouverture;
   const doublons = await doublonsDeLaFiche(acteur, fiche);
+  const appareils = await appareilsDuPatient(acteur, fiche.id);
   const peutFusionner = peutActerAppareillage(acteur.role);
   const { amo, amc } = fiche;
 
@@ -120,6 +122,22 @@ export default async function PageFichePatient({ params }: PageProps<'/patients/
             ) : null}
           </AlertDescription>
         </Alert>
+      ) : null}
+
+      {appareils.length > 0 ? (
+        <Bloc titre="Appareils et garanties">
+          {appareils.map((a) => (
+            <Ligne key={a.id} libelle={a.designation}>
+              <Link href={`/stock/appareils/${a.id}`} className="underline underline-offset-2">
+                {a.numeroSerie}
+              </Link>
+              {a.garantie.enCours
+                ? ` : garanti jusqu’au ${formaterDate(a.garantie.dateFin)}`
+                : ` : garantie terminée le ${formaterDate(a.garantie.dateFin)}`}
+              {a.garantie.assuranceEnCours ? `, assuré par ${a.garantie.assureur}` : ''}
+            </Ligne>
+          ))}
+        </Bloc>
       ) : null}
 
       <div className="grid gap-6 lg:grid-cols-2">

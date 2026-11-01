@@ -144,6 +144,8 @@ async function annulerVente(
     } as const;
     await appliquerMouvement(tx, acteur, appareil, mouvement);
     evenements.push(evenementMouvement(appareil, mouvement, appareil.centreId));
+    // La vente est annulée : la nouvelle facture ouvrira la garantie à sa date.
+    await tx.garantieAppareil.deleteMany({ where: { appareilId: appareil.id } });
     // Le dernier lien de l'appareil est celui que la vente a fermé : un retrait plus ancien reste.
     const lien = await tx.essaiAppareil.findFirstOrThrow({
       where: { appareilId, essai: { dossierId } },

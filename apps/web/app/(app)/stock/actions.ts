@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 
 import { coche, liste, texte, type EtatFormulaire } from '@/lib/formulaire';
 import { executer } from '@/server/actions';
+import { enregistrerAssurance } from '@/server/services/garanties';
 import { requireSession } from '@/server/auth/gardes';
 import { notifier } from '@/server/notifications';
 import { listerPatients, type PatientResume } from '@/server/services/patients';
@@ -66,6 +67,21 @@ export async function changerStatutAction(
     motif: texte(formData, 'motif'),
   };
   const erreur = await executer(() => changerStatut(acteur, appareilId, donnees), donnees);
+  return erreur ?? terminerMouvement(appareilId);
+}
+
+export async function enregistrerAssuranceAction(
+  appareilId: string,
+  _: EtatFormulaire,
+  formData: FormData,
+): Promise<EtatFormulaire> {
+  const acteur = await requireSession();
+  const donnees = {
+    assureur: texte(formData, 'assureur'),
+    contrat: texte(formData, 'contrat'),
+    assuranceFin: texte(formData, 'assuranceFin'),
+  };
+  const erreur = await executer(() => enregistrerAssurance(acteur, appareilId, donnees), donnees);
   return erreur ?? terminerMouvement(appareilId);
 }
 

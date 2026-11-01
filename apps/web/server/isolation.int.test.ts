@@ -35,6 +35,7 @@ import {
   listerExceptions,
   modifierTypeRdv,
 } from './services/agenda-parametres';
+import { appareilsDuPatient, enregistrerAssurance } from './services/garanties';
 import { lireParametresReservation } from './services/reservation-parametres';
 import { imprimerDevis, lireScanDevis, obtenirDevis } from './services/devis';
 import { lireScan, obtenirDossier } from './services/dossiers';
@@ -68,6 +69,8 @@ const TABLES_ISOLEES = [
   'accessoire',
   'appareil',
   'bilan_audiologique',
+  'garantie_appareil',
+  'parametres_sav',
   'cabine',
   'centrale_achat',
   'centre',
@@ -559,6 +562,12 @@ describe('identifiant d’un autre client forcé dans l’URL', () => {
     { entite: 'commande', appel: (x, c) => obtenirCommande(x, c.commandeId) },
     { entite: 'soumission de commande', appel: (x, c) => soumettreCommande(x, c.commandeId) },
     { entite: 'bon de commande', appel: (x, c) => telechargerBon(x, c.commandeId) },
+    { entite: 'appareils du patient', appel: (x, c) => appareilsDuPatient(x, c.patientId) },
+    {
+      entite: 'assurance d’un appareil',
+      appel: (x, c) =>
+        enregistrerAssurance(x, c.appareilId, { assureur: '', contrat: '', assuranceFin: '' }),
+    },
     {
       entite: 'facture fournisseur',
       appel: (x, c) => obtenirFactureFournisseur(x, c.factureFournisseurId),

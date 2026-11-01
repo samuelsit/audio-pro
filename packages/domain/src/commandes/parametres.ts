@@ -18,7 +18,7 @@ export const PARAMETRES_COMMANDE_DEFAUT: ParametresCommande = {
   adresseBoiteFactures: null,
 };
 
-function entierEntre(minimum: number, maximum: number) {
+export function entierEntre(minimum: number, maximum: number) {
   return z.coerce
     .number({ error: 'Valeur invalide.' })
     .int('Valeur invalide.')

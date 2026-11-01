@@ -43,6 +43,7 @@ import { auteurDepuisActeur, journaliser, withAudit, type EvenementAudit } from 
 import { base, type ClientTransaction } from '../chiffrement';
 import { ErreurSaisie, traduireDoublon, valider } from '../erreurs';
 import { centresDuPerimetre } from '../perimetre';
+import { garantieDeLAppareil, type GarantieAffichee } from './garanties';
 
 export const LIGNES_PAR_PAGE_STOCK = 50;
 const LOT_EXPORT = 1000;
@@ -569,6 +570,8 @@ export interface FicheAppareil {
   dossierEssaiId: string | null;
   transferable: boolean;
   annulable: boolean;
+  garantie: GarantieAffichee | null;
+  parcPret: boolean;
   corrigeable: boolean;
   voitPrix: boolean;
 }
@@ -671,6 +674,7 @@ async function lireFicheAppareil(
     referenceFactureFabricant: a.referenceFactureFabricant,
     prixAchatCentimes: voitPrix ? a.prixAchatCentimes : null,
     enConsignation: a.enConsignation,
+    parcPret: a.parcPret,
     mouvements,
     transitions: lienEssai
       ? []
@@ -683,6 +687,7 @@ async function lireFicheAppareil(
     annulable:
       verifierAnnulationVente(a.statut) && peutAnnulerVente(acteur.role) && issuDunEchange === 0,
     corrigeable: lignes.length === 1 && peutCorrigerIdentite(acteur.role),
+    garantie: await garantieDeLAppareil(client, appareilId),
     voitPrix,
   };
   return fiche;

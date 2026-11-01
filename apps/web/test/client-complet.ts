@@ -32,6 +32,7 @@ import { enregistrerPec } from '@/server/services/factures';
 import { aujourdhui } from '@/server/services/patients';
 
 import { confirmerCouvertureVente, validerFacture } from '@/server/services/facturation';
+import { enregistrerParametresSav } from '@/server/services/garanties';
 import {
   ajouterContact,
   creerCentrale,
@@ -435,6 +436,21 @@ export async function creerClientComplet(suffixe: string) {
     },
     null,
   );
+  await prisma().garantieAppareil.create({
+    data: {
+      organisationId,
+      appareilId,
+      patientId,
+      dateDebut: new Date('2026-01-05'),
+      dateFin: new Date('2030-01-05'),
+    },
+  });
+  await enregistrerParametresSav(d.acteurs.admin, {
+    dureeGarantieMois: '48',
+    suiviMois: '3, 6, 12',
+    suiviParAn: '2',
+    pretDureeJours: '30',
+  });
   await enregistrerSeuil(d.acteurs.admin, {
     centreId: d.centres.a.id,
     produit: `modele:${catalogue.classeI}`,

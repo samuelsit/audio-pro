@@ -22,6 +22,7 @@ import {
 
 import { BadgeStatut } from '../../badge-statut';
 import { ActionsAppareil } from './actions-appareil';
+import { BlocGarantie } from './bloc-garantie';
 
 export const metadata: Metadata = { title: 'Appareil – HA-Gestion' };
 
@@ -107,7 +108,10 @@ export default async function PageAppareil({ params }: PageProps<'/stock/apparei
               : formatEuros(centimes(fiche.prixAchatCentimes))}
           </Information>
         ) : null}
+        {fiche.parcPret ? <Information libelle="Parc de prêt">Oui</Information> : null}
       </dl>
+
+      {fiche.garantie ? <BlocGarantie appareilId={fiche.id} garantie={fiche.garantie} /> : null}
 
       {/* Remonté après chaque mouvement : le panneau ouvert se referme. */}
       {fiche.dossierEssaiId ? (

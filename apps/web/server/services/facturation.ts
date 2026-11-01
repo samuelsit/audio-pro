@@ -78,6 +78,7 @@ import {
   type PayeursFacture,
 } from './factures';
 import { decrireCodesLpp, tarifsAudioEnVigueur, versClientLpp } from './lpp';
+import { creerGarantie } from './garanties';
 import { aujourdhui, type Client } from './patients';
 import {
   appliquerMouvement,
@@ -546,6 +547,11 @@ async function vendreAppareils(
     } as const;
     await appliquerMouvement(tx, acteur, appareil, mouvement);
     evenements.push(evenementMouvement(appareil, mouvement, appareil.centreId));
+    await creerGarantie(
+      tx,
+      { appareilId, patientId: dossier.patientId, jour },
+      acteur.organisationId,
+    );
     await tx.essaiAppareil.updateMany({
       where: { appareilId, retireLe: null, essai: { dossierId: dossier.id } },
       data: { retireLe: versDate(jour), retireParId: acteur.id },

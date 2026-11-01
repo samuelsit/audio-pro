@@ -60,6 +60,8 @@ model Organisation {
   fournisseurContacts      FournisseurContact[]
   fournisseurComptes       FournisseurCompteCentre[]
   parametresCommande       ParametresCommande?
+  parametresSav            ParametresSav?
+  garantiesAppareil        GarantieAppareil[]
   reglesCommande           RegleCommande[]
   compteursCommande        CompteurCommande[]
   commandes                Commande[]
@@ -417,6 +419,7 @@ model Patient {
   couvertureAmc         CouvertureAmc?
   appareils             Appareil[]
   mouvementsAppareil    MouvementAppareil[]
+  garantiesAppareil     GarantieAppareil[]
   dossiers              Dossier[]
   delivrances           Delivrance[]
   factures              Facture[]
@@ -1383,6 +1386,7 @@ model Appareil {
   receptionLigne            ReceptionLigneAppareil?
   remplacePar               Appareil?               @relation("EchangeAppareil", fields: [remplaceParId], references: [id], onDelete: Restrict)
   remplace                  Appareil?               @relation("EchangeAppareil")
+  garantie                  GarantieAppareil?
 
   @@unique([fabricantId, numeroSerie])
   @@index([organisationId, numeroSerie])
@@ -1390,6 +1394,47 @@ model Appareil {
   @@index([modeleId])
   @@index([patientId])
   @@map("appareil")
+}
+
+/// Garantie d'un appareil vendu, née avec la vente. Un avoir qui solde la retire, la revente la recrée.
+/// Après un échange, le remplaçant reprend la date de fin de l'appareil échangé (`origineId`, ADR-032).
+model GarantieAppareil {
+  id             String            @id @default(uuid(7))
+  organisationId String            @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  appareilId     String            @unique @map("appareil_id")
+  patientId      String            @map("patient_id")
+  dateDebut      DateTime          @map("date_debut") @db.Date
+  /// Dernier jour couvert.
+  dateFin        DateTime          @map("date_fin") @db.Date
+  origineId      String?           @unique @map("origine_id")
+  /// Assurance perte, vol, casse : souscrite si `assureur` est renseigné, avec `assuranceFin`.
+  assureur       String?
+  contrat        String?
+  assuranceFin   DateTime?         @map("assurance_fin") @db.Date
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+  organisation   Organisation      @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  appareil       Appareil          @relation(fields: [appareilId], references: [id], onDelete: Restrict)
+  patient        Patient           @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  origine        GarantieAppareil? @relation("EchangeGarantie", fields: [origineId], references: [id], onDelete: Restrict)
+  reprise        GarantieAppareil? @relation("EchangeGarantie")
+
+  @@index([patientId])
+  @@index([organisationId, dateFin])
+  @@map("garantie_appareil")
+}
+
+/// Sans ligne, `PARAMETRES_SAV_DEFAUT` s'applique.
+model ParametresSav {
+  organisationId    String       @id @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  dureeGarantieMois Int          @map("duree_garantie_mois")
+  suiviMois         Int[]        @map("suivi_mois")
+  suiviParAn        Int          @map("suivi_par_an")
+  pretDureeJours    Int          @map("pret_duree_jours")
+  updatedAt         DateTime     @updatedAt @map("updated_at")
+  organisation      Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+
+  @@map("parametres_sav")
 }
 
 /// Historique d'un appareil, en ajout seul (trigger, voir la migration). Écrit dans la même transaction

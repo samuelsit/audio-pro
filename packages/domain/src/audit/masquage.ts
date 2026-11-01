@@ -191,6 +191,8 @@ export const CHAMPS_VISIBLES_AUDIT: Readonly<Record<TypeEntite, readonly string[
   FACTURE_FOURNISSEUR: [],
   RELEVE_CENTRALE: [],
   SEUIL_STOCK: [],
+  GARANTIE_APPAREIL: [],
+  PARAMETRES_SAV: [],
 };
 
 export interface ChampModifie {

@@ -77,6 +77,7 @@ export const LIENS_ADMINISTRATION: readonly LienSousNavigation[] = [
   { href: '/admin/centrales', libelle: 'Centrales d’achat' },
   { href: '/admin/regles-commande', libelle: 'Règles de commande' },
   { href: '/admin/parametres-commande', libelle: 'Paramètres de commande' },
+  { href: '/admin/parametres-sav', libelle: 'Paramètres du SAV' },
   { href: '/admin/modeles', libelle: 'Modèles' },
   { href: '/admin/accessoires', libelle: 'Accessoires et piles' },
   { href: '/admin/formulaires', libelle: 'Formulaires cliniques' },

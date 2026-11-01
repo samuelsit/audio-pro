@@ -936,6 +936,10 @@ export async function fusionnerPatients(
         where: { patientId: doublonId },
         data: { patientId: conserveeId },
       });
+      await tx.garantieAppareil.updateMany({
+        where: { patientId: doublonId },
+        data: { patientId: conserveeId },
+      });
       await tx.dossier.updateMany({
         where: { patientId: doublonId },
         data: { patientId: conserveeId },
