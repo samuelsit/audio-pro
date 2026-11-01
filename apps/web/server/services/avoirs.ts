@@ -188,6 +188,8 @@ export async function emettreAvoir(
         throw new ErreurSaisie({}, MESSAGES_REFUS_AVOIR[resultat.code]);
       }
       const totaux = totauxAvoir(resultat.lignes);
+      // L'avoir qui solde rend les acomptes au dossier : la facture suivante les déduira à son tour (R35).
+      const acomptesDeduitsCentimes = resultat.solde ? piece.acomptesDeduitsCentimes : 0;
       const jour = aujourdhui();
       const { id } = await tx.facture.create({
         data: {
@@ -244,6 +246,7 @@ export async function emettreAvoir(
           patientId: facture.patientId,
           dossierId: facture.dossierId,
           factureOrigineId: factureId,
+          acomptesDeduitsCentimes,
           ...enBase,
         },
         lignes,
@@ -258,6 +261,7 @@ export async function emettreAvoir(
         where: { id },
         data: {
           ...enBase,
+          acomptesDeduitsCentimes,
           statut: 'VALIDEE',
           numero,
           numeroSequence,

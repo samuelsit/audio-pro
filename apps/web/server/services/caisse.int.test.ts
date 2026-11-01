@@ -86,6 +86,16 @@ async function falsifier(sql: string, table: string): Promise<void> {
   }
 }
 
+async function lire(flux: AsyncGenerator<string>): Promise<string> {
+  let texte = '';
+  for await (const ligne of flux) {
+    texte += ligne;
+  }
+  return texte;
+}
+
+const euros = (texte = '0') => Number(texte.replace(',', '.'));
+
 beforeEach(async () => {
   vi.useFakeTimers({ toFake: ['Date'] });
   regler('2026-11-02T10:00:00+01:00');
@@ -285,6 +295,28 @@ describe('acomptes', () => {
     await validerFacture(audio, nouvelle);
     const { solde } = await encaissementsDeFacture(audio, nouvelle);
     expect(solde).toMatchObject({ encaisse: 15_000, tropPercu: 0 });
+  });
+
+  it('après un avoir total, les acomptes ne sont pas repris deux fois en comptabilité', async () => {
+    const { dossierId, devisId, factureId } = await dossierPret();
+    await encaisserAcompte(audio, devisId, paiement('CB', '100,00'));
+    await validerFacture(audio, factureId);
+    await emettreAvoir(admin, factureId, { mode: 'TOTAL', motif: 'Erreur' });
+    const evaluee = await obtenirFacture(audio, dossierId);
+    await confirmerCouvertureAmo(audio, dossierId);
+    await validerFacture(audio, evaluee?.factureId ?? '');
+
+    const texte = await lire(
+      await exporterEcritures(admin, centreA(), { debut: '2026-11-01', fin: '2026-11-30' }),
+    );
+    const soldeDu = (compte: string) =>
+      texte
+        .trim()
+        .split('\n')
+        .map((ligne) => ligne.split(';'))
+        .filter((colonnes) => colonnes[2] === compte)
+        .reduce((t, c) => t + euros(c[5]) - euros(c[6]), 0);
+    expect(soldeDu('419100')).toBeCloseTo(0);
   });
 
   it('sur une vente directe, un avoir total laisse un trop-perçu à rembourser', async () => {
@@ -844,14 +876,6 @@ describe('archivage', () => {
 });
 
 describe('export comptable', () => {
-  async function lire(flux: AsyncGenerator<string>): Promise<string> {
-    let texte = '';
-    for await (const ligne of flux) {
-      texte += ligne;
-    }
-    return texte;
-  }
-
   it('produit des écritures équilibrées, au format du profil', async () => {
     const factureId = await vente();
     await encaisserFacture(audio, factureId, paiement('CB', '6,00'));
