@@ -30,6 +30,7 @@ import { lignesCatalogueDevis, obtenirDevis } from '@/server/services/devis';
 import { appareilsProposables } from '@/server/services/essais';
 import { aujourdhui } from '@/server/services/patients';
 
+import { BlocAcomptes } from '../../../../caisse/bloc-encaissements';
 import { ListeConstats } from '../../liste-constats';
 import {
   BoutonEmettre,
@@ -304,6 +305,11 @@ export default async function PageDevis({ params }: PageProps<'/dossiers/[id]/de
             oreilles={devis.oreilles}
             proposables={proposables}
           />
+        </Bloc>
+      ) : null}
+      {devis.statut === 'SIGNE' ? (
+        <Bloc titre="Acomptes">
+          <BlocAcomptes devisId={devisId} />
         </Bloc>
       ) : null}
       {actions.deposerScan ? (

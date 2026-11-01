@@ -109,7 +109,6 @@ async function journaliserExport(
   });
 }
 
-// eslint-disable-next-line @typescript-eslint/require-await -- flux attendu par `reponseCsv`
 async function* enFlux(lignes: readonly string[]): AsyncGenerator<string> {
   for (const ligne of lignes) {
     yield `${ligne}\n`;

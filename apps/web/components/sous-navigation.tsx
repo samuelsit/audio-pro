@@ -32,6 +32,20 @@ export const LIENS_DOSSIERS: readonly LienSousNavigation[] = [
   { href: '/essais', libelle: 'Essais en cours' },
 ];
 
+export const LIENS_CAISSE: readonly LienSousNavigation[] = [
+  { href: '/caisse', libelle: 'Caisse du jour' },
+];
+
+export const LIENS_GESTION_CAISSE: readonly LienSousNavigation[] = [
+  ...LIENS_CAISSE,
+  { href: '/caisse/clotures', libelle: 'Clôtures' },
+  { href: '/caisse/archives', libelle: 'Archives' },
+  { href: '/caisse/journal', libelle: 'Journal' },
+  { href: '/caisse/verification', libelle: 'Vérification' },
+  { href: '/caisse/export', libelle: 'Export comptable' },
+  { href: '/caisse/parametres', libelle: 'Paramètres' },
+];
+
 export const LIENS_PILOTAGE: readonly LienSousNavigation[] = [
   { href: '/tableau-de-bord', libelle: 'Tableau de bord' },
   { href: '/renouvellements', libelle: 'Renouvellements' },

@@ -28,6 +28,7 @@ import { ouIntrouvable, requireSession } from '@/server/auth/gardes';
 import { listerAccessoires } from '@/server/services/catalogue';
 import { obtenirFactureDetail, type FactureDetaillee } from '@/server/services/facturation';
 
+import { BlocEncaissements } from '../../caisse/bloc-encaissements';
 import { ListeConstats } from '../../dossiers/[id]/liste-constats';
 import { abandonnerAction, retirerLigneAction } from '../actions';
 import {
@@ -221,6 +222,8 @@ export default async function PageFacture({ params }: PageProps<'/factures/[id]'
           <dd className="text-right">{formatEuros(detail.totaux.resteACharge)}</dd>
         </dl>
       ) : null}
+
+      {validee && facture ? <BlocEncaissements factureId={id} /> : null}
 
       {detail.avoirs.length > 0 ? (
         <section className="grid gap-2">

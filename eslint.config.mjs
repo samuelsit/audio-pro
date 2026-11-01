@@ -71,6 +71,7 @@ export default tseslint.config(
       'apps/web/e2e/**/*.ts',
       'apps/web/playwright.config.ts',
       'apps/web/scripts/demo-devis.ts',
+      'apps/web/scripts/verifier-chaine.ts',
     ],
     rules: { 'no-restricted-imports': 'off' },
   },

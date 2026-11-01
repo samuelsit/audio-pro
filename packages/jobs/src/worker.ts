@@ -3,16 +3,22 @@ import path from 'node:path';
 import {
   chargerCleLienRdv,
   chargerConfigurationS3,
+  chargerSignatureCaisse,
   chargerTrousseau,
+  ChiffreurAesGcm,
+  DocumentStoreChiffre,
   FakeNotifier,
+  HacheurSha256,
   S3DocumentStore,
   SignatureLienDocument,
   SignatureLienRdv,
+  SystemClock,
 } from '@ha/adapters';
 import { config } from 'dotenv';
 
 import { ABONNES } from './abonnes';
 import { FileTravaux } from './file';
+import { repartirCaisse, travailCaisseNuit } from './travaux/caisse-nuit';
 import { travailDiagnostic } from './travaux/diagnostic';
 import { repartirDiffusion, travailDiffusion } from './travaux/diffuser-evenements';
 import { repartirEnvois, travailEnvoi } from './travaux/envoyer-notifications';
@@ -84,6 +90,25 @@ if (process.env.DOCUMENTS_STOCKAGE !== 'memoire' && process.env.S3_BUCKET) {
     repartirPurgeLiens(file, purgeLiens),
   );
 }
+
+// Avant l'ouverture des centres : la veille se fige, le mois écoulé s'archive. L'archivage demande un vrai stockage.
+const caisseNuit = travailCaisseNuit({
+  horloge: new SystemClock(),
+  hacheur: new HacheurSha256(),
+  signature: chargerSignatureCaisse(process.env),
+  documents:
+    process.env.DOCUMENTS_STOCKAGE !== 'memoire' && process.env.S3_BUCKET
+      ? new DocumentStoreChiffre(
+          new S3DocumentStore(chargerConfigurationS3(process.env)),
+          new ChiffreurAesGcm(chargerTrousseau(process.env)),
+        )
+      : null,
+});
+await file.declarer(caisseNuit, { expireInSeconds: 1800 });
+await file.ecouter(caisseNuit);
+await file.planifierTransverse('repartir-caisse', '20 0 * * *', () =>
+  repartirCaisse(file, caisseNuit),
+);
 
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, () => {

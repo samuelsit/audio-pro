@@ -96,6 +96,7 @@ export function ListeDeroulante({
   vide,
   requis = true,
   surChangement,
+  id = nom,
 }: {
   etat: EtatFormulaire;
   nom: string;
@@ -107,16 +108,18 @@ export function ListeDeroulante({
   requis?: boolean | undefined;
   /** Pour un formulaire dont d'autres champs dépendent de ce choix. */
   surChangement?: ((valeur: string) => void) | undefined;
+  /** À fournir quand un même formulaire se répète sur la page : `nom` y serait dupliqué. */
+  id?: string | undefined;
 }) {
   const erreurs = etat.erreurs?.[nom];
   const valeur = valeurTexte(etat, nom, defaut);
   return (
     <div className="grid gap-1.5">
-      <Label htmlFor={nom}>{libelle}</Label>
+      <Label htmlFor={id}>{libelle}</Label>
       <select
         // React n'applique le defaultValue d'un <select> qu'au montage : on le remonte quand il change.
         key={valeur}
-        id={nom}
+        id={id}
         name={nom}
         required={requis}
         defaultValue={valeur}

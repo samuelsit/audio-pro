@@ -4,7 +4,8 @@ import {
   ChiffreurAesGcm,
   extensionChampsChiffres,
 } from '@ha/adapters';
-import { clientOrganisation } from '@ha/db';
+import { clientApplication, clientOrganisation, poserContexte } from '@ha/db';
+import type { TxCaisse } from '@ha/caisse';
 import { z } from 'zod';
 
 /**
@@ -37,6 +38,25 @@ function clientChiffre(organisationId: string): ReturnType<typeof creerClient> {
     clients.set(organisationId, client);
   }
   return client;
+}
+
+function creerClientTransactions(chiffreurActif: ChiffreurAesGcm) {
+  return clientApplication().$extends(extensionChampsChiffres(chiffreurActif, CHAMPS_CHIFFRES));
+}
+
+let clientTransactions: ReturnType<typeof creerClientTransactions> | undefined;
+
+/** Le travail de caisse enchaîne plusieurs requêtes sous un verrou : il a besoin d'une vraie transaction. */
+export function enTransaction<T>(
+  organisationId: string,
+  operation: (tx: TxCaisse) => Promise<T>,
+): Promise<T> {
+  chiffreur ??= new ChiffreurAesGcm(chargerTrousseau(process.env));
+  clientTransactions ??= creerClientTransactions(chiffreur);
+  return clientTransactions.$transaction(async (tx) => {
+    await poserContexte(tx, organisationId);
+    return operation(tx as unknown as TxCaisse);
+  });
 }
 
 export interface ContexteTravail {
