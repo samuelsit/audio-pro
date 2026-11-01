@@ -888,3 +888,42 @@ L'ADR-013 traçait les rendez-vous d'essai sans agenda, Doctolib le restant. L'a
 - Un avoir sur une FSE déjà partie n'est qu'une alerte jusqu'à l'étape 26.
 - Le seed construit sa vente directe et son avoir par les règles du domaine, sans PDF : leur téléchargement les rend à la demande.
 - Une facture de dossier ne peut pas être abandonnée : seul un avoir la défait, une fois validée.
+
+---
+
+## ADR-029 – Encaissement et caisse : chaîne signée, clôtures, archives et export
+
+- **Date** : 2026-11-01
+- **Statut** : acceptée. Complète l'ADR-028 ; lève l'interdiction des champs de règlement posée par l'ADR-014.
+
+### Contexte
+
+L'objectif est de remettre une attestation individuelle d'éditeur à chaque client. Rien ne traitait l'argent : ni encaissement, ni clôture, ni archive. La chaîne de l'étape 14 ne hachait ni l'horodatage ni l'acteur, et un SHA-256 sans clé se recalcule entièrement avec les droits de propriétaire sur la base, ce qui vise aussi l'éditeur d'un SaaS. L'attestation engage son représentant légal (BOFiP § 300).
+
+### Décision
+
+- **Sources** : BOFiP enregistré dans `docs/ref/fiscal`. Légifrance refuse le téléchargement : l'art. 286 du CGI et l'art. A47 A-1 du LPF restent À VÉRIFIER.
+- **Une chaîne par centre, conservée** : « sa série » désigne la chaîne du centre, toutes natures mêlées. Le texte n'impose pas de technique (§ 60, § 140).
+- **Format 2 du maillon** : `horodatage`, `acteurId` et `centreId` entrent dans l'empreinte, et le format lui-même. Les maillons de l'étape 14 restent vérifiés en format 1, sans réécriture. L'horodatage vient du port `Clock`, sous le verrou de tête, et ne recule pas : une clôture peut découper la chaîne par instants.
+- **Signature Ed25519** des clôtures et des archives, sur l'empreinte du maillon. Clé privée hors de la base, en environnement jusqu'à l'étape 23 ; clé publique dans la notice : la vérification se fait sans secret. Elle s'ajoute au SHA-256 demandé.
+- **Encaissement** : table en ajout seul. Remboursement et annulation sont des lignes inverses. Le solde est calculé, jamais stocké, car `facture_figee` compare toute la ligne. Il se lit au dossier : acomptes et paiements suivent la facture suivante après un avoir total.
+- **Acomptes** : `facture.acomptes_deduits_centimes`, figé à la validation pour le PDF et l'écriture. Il n'entre dans la charge que s'il est non nul : les anciens maillons restent identiques.
+- **Plafond** : TTC net d'avoirs, faute de drapeau de tiers payant avant l'étape 16.
+- **Caisse physique et clôture fiscale séparées** : `session_caisse` et `comptage_caisse` pour le tiroir, un comptage pouvant être refait. La clôture fiscale est automatique, car impérative, et ne porte jamais sur la journée en cours. Une opération est horodatée à sa saisie : une journée passée ne reçoit plus rien, sans blocage au guichet.
+- **Clôture** : plage de rangs, donc rien n'est compté deux fois. Le mois additionne ses jours, l'exercice ses mois. Le total perpétuel est un cumul de chiffre d'affaires (§ 170) ; le cumul des encaissements s'y ajoute. Colonnes en `BigInt` : un `Int` plafonne à 21 M€.
+- **Paquet `@ha/caisse`** : `@ha/jobs` ne peut pas importer `apps/web`. Le cœur (maillon, clôture, archive, vérification) y vit ; le travail reste dans `packages/jobs`. Un seul travail, `caisse-nuit`, fixe l'ordre : vérifier, clôturer, archiver.
+- **Acteur système** : `evenement_caisse.acteur_id` devient nullable, seulement pour clôture, archivage et échec de vérification (CHECK).
+- **Archive** : un JSON par mois clôturé, notice comprise. L'empreinte porte sur le texte en clair, car `DocumentStoreChiffre` utilise un IV aléatoire. Le fichier est écrit avant la transaction : un échec laisse au pire un orphelin, jamais une ligne sans fichier. Pas de purge.
+- **Textes libres** : chiffrés au repos, le maillon n'en garde que l'empreinte. La vérification doit donc déchiffrer.
+- **Déchiffrement** : l'extension ne descend pas dans un `include` : comptages et motifs se lisent par une requête directe.
+- **Écritures comptables** : déduites des maillons, donc de ce qui est chaîné. Comptes de tiers collectifs, sans identité de patient. Le FEC couvre ventes et encaissements, par SIREN et par exercice.
+- **Droits** : tous les rôles encaissent, ouvrent et comptent ; rembourser, clôturer, archiver et exporter reviennent aux gestionnaires du centre.
+- **Protection renforcée** : `chaine_caisse` n'avance que d'un rang vers un maillon existant, `serie_facture` ne recule pas.
+
+### Conséquences
+
+- La vérification ferme les angles morts de l'étape 14 : pièce sans maillon, `facture.empreinte` différente, trou de numérotation, ligne sans maillon. Elle a révélé dès son premier passage un défaut du seed : une ligne d'avoir sans ses champs chaînés.
+- Sans la clé, un recalcul complet casse la signature de toute clôture déjà écrite. La fin de chaîne postérieure à la dernière clôture reste exposée, au plus un jour.
+- Une base de développement semée avant cette étape garde l'ancien avoir : `pnpm caisse:verifier` y signale une rupture, à effacer en repartant d'une base neuve.
+- Changer le format d'empreinte, les recalculs ou le format d'archive est une version majeure : nouvelles attestations (§ 380).
+- **Aucune attestation avant l'étape 23** : Object Lock, KMS et sauvegardes sont des conditions, et les textes À VÉRIFIER doivent être levés (voir `docs/CAISSE.md`).

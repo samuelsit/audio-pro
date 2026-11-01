@@ -96,7 +96,15 @@ Numérotation du plan SaaS (ADR-015). Les références aux étapes dans `docs/DE
   - reporté à l'étape 26 : format réel de la FSE, correction d'une FSE après un avoir, suivi automatique des statuts
   - à planifier : codes `7xxxxxx` reliés au catalogue
   - à surveiller : deux tests de `facturation.int.test.ts` ont échoué une fois dans la suite complète, sur une machine chargée, sans message conservé ; non reproduit en 5 passages
-- [ ] **15** – Encaissement et caisse
+- [x] **15** – Encaissement et caisse (ADR-029, `docs/CAISSE.md`)
+  - fait : encaissements multi-modes sur facture, acomptes sur devis signé, rendu de monnaie, remboursement et annulation par opération inverse ; chaîne de format 2 avec horodatage et acteur ; signature Ed25519 des clôtures et archives ; journal des événements de caisse ; clôtures journalière, mensuelle et annuelle par centre, cumuls perpétuels, travail de nuit ; caisse du jour avec fond, comptage et écart justifié ; archives mensuelles vérifiables ; export paramétrable et FEC ; `pnpm caisse:verifier`, écran de vérification
+  - À VÉRIFIER : art. 286 I 3° bis version du 27/06/2026 et format de restitution des archives, transfert au CIBS, portée pour les opérations facturées, TVA sur acomptes, facture d'acompte, plafond légal des espèces, jour sans opération, plan de comptes et écritures d'écart, format du FEC, plafond d'encaissement avant le tiers payant (voir `docs/REGLES_AUDIO.md`, R32 à R41)
+  - à déposer dans `docs/ref/fiscal` : art. 286 du CGI, loi 2026-534 art. 87, art. L. 216-48 du CIBS, art. A47 A-1 du LPF (Légifrance refuse le téléchargement)
+  - à valider : FEC et plan de comptes par l'expert-comptable ; `docs/CAISSE.md` par un conseil fiscal
+  - à planifier : reçu d'encaissement en PDF ; téléchargement d'une archive en E2E (faute de pouvoir avancer l'horloge du serveur, couvert en intégration)
+  - reporté à l'étape 16 : encaissements des organismes, plafond selon le tiers payant
+  - reporté à l'étape 22 : durées de conservation et purge, face au RGPD
+  - reporté à l'étape 23 : S3 Object Lock sur `archives-caisse/`, clé de signature en KMS et rotation, restauration de sauvegarde vérifiée. **Aucune attestation avant cette étape**
 - [ ] **16** – Tiers payant et PEC
 
 ## Phase G – Commandes fabricants et SAV
@@ -118,6 +126,7 @@ Numérotation du plan SaaS (ADR-015). Les références aux étapes dans `docs/DE
 - [ ] **22** – Sécurité et RGPD
   - reporté de l'étape 1 : réinitialisation du mot de passe par e-mail, liste et révocation des sessions par l'utilisateur
 - [ ] **23** – E2E et déploiement HDS
+  - reporté de l'étape 15 : S3 Object Lock sur `archives-caisse/`, `CAISSE_SIGNATURE_CLE_PRIVEE` en KMS et rotation, restauration de sauvegarde suivie de `pnpm caisse:verifier` ; condition de la première attestation d'éditeur
 
 ## Phase K – Intégrations soumises à prérequis
 

@@ -15,6 +15,7 @@ Statuts : **Confirmé** (le texte dit exactement cela), **Confirmé avec écart*
 | `fr201-codes-prestation.pdf`       | Fiche d'évolution réglementaire FR 201v2 et cas de tests     | Application 01/01/2021, CDC 1.40                                                                                                                                                            |
 | `modele-devis-audio.pdf`           | Annexe I, devis normalisé                                    | Fichier de 2019 ; encore rédigé avec « CMU-c » et « Dès 2020 »                                                                                                                              |
 | `lpp/908/`                         | Base LPP                                                     | Version 908, actualisée au 16/10/2026                                                                                                                                                       |
+| `fiscal/`                          | BOFiP : logiciels de caisse, modèle d'attestation, format du FEC | Pages enregistrées le 01/11/2026, versions du 25/03/2026 (caisse) et du 07/06/2017 (FEC). Art. 286 du CGI et A47 A-1 du LPF absents : Légifrance refuse le téléchargement |
 | `biap-rec-02-2-en.pdf`             | BIAP, Recommandation 02/2, classification audiométrique      | Version anglaise, langue d'origine, publiée le 01/09/2026, acceptée en juillet 2026 ; retire la 02/1 bis (p. 6). Recommandation professionnelle, pas un texte opposable                     |
 
 Les pages citées sont celles du PDF (identiques à la numérotation imprimée pour la convention).
@@ -498,11 +499,11 @@ L'anamnèse, les questionnaires livrés et la synthèse en PDF sont des proposit
 
 ## R28 – Numérotation et chaînage (`formaterNumero`, `enchainer`, `verifierChaine`)
 
-**Statut : À VÉRIFIER.** Ces obligations viennent de `CLAUDE.md` ; le texte sur les logiciels de caisse n'est pas dans docs/ref.
+**Statut : Confirmé avec écart.** Le chaînage et l'absence de suppression sans trace : `fiscal/boi-tva-decla-30-10-30.html` § 130 et § 140, qui n'imposent pas de technique. La numérotation continue vient de `CLAUDE.md`.
 
 **Règle** : numéro continu, sans trou, une série par centre, attribué à la validation, dans la transaction : un rollback le rend. Format `<PREFIXE>-000123`, sans remise à zéro annuelle. Factures et avoirs partagent la série. Une chaîne par centre lie validations, avoirs et sorties de documents (empreinte SHA-256 du maillon précédent) ; `evenement_caisse` sert aussi de journal des événements de caisse.
 
-**À VÉRIFIER** : format, série commune aux factures et aux avoirs, type de hachage, durée de conservation, conditions de certification d'un logiciel de caisse.
+**À VÉRIFIER** : format, série commune aux factures et aux avoirs.
 
 ## R29 – Avoir (`calculerAvoir`)
 
@@ -535,6 +536,74 @@ L'anamnèse, les questionnaires livrés et la synthèse en PDF sont des proposit
 **Source** : convention art. 28, p. 26 et art. 32 ; FR 201v2, tests n° 6 à 10 (prescripteur, date de prescription, code, montant, base, parts).
 
 **Décisions** : préparation sur action explicite, après validation ; une FSE en cours ne repart pas, une FSE rejetée repart ; le contenu, qui porte le NIR, est chiffré. Sur un avoir, une FSE transmise ou acceptée lève une alerte seulement : sa correction arrive à l'étape 26. Le RPPS du prescripteur reste un avertissement (R10) ; le simulateur rejette une FSE sans RPPS pour montrer le parcours, ce n'est pas une règle.
+
+## R32 – Chaînage de format 2 (`enchainer`)
+
+**Statut : Confirmé avec écart.** `fiscal/boi-tva-decla-30-10-30.html` § 50 (date à la minute), § 100 et § 140 (chaînage, empreinte à clé privée). Le texte n'impose aucune technique.
+
+**Règle** : le maillon hache aussi `horodatage`, `acteurId` et `centreId`. Les maillons de l'étape 14 restent en format 1. L'horodatage, pris sous le verrou, ne recule pas. Clôtures et archives sont signées en Ed25519, clé hors de la base.
+
+## R33 – Corrections de caisse (`remboursementSaisieSchema`)
+
+**Statut : Confirmé.** `fiscal/boi-tva-decla-30-10-30.html` § 90 : opérations de « plus » et de « moins ».
+
+**Règle** : remboursement et annulation sont des lignes inverses, motif obligatoire. Une annulation reprend tout le reste, dans le mode d'origine ; un remboursement peut être partiel et dans un autre mode. Mêmes rôles qu'un avoir.
+
+## R34 – Plafond d'encaissement (`calculerSolde`)
+
+**Statut : À VÉRIFIER.** Choix applicatif, faute de drapeau de tiers payant avant l'étape 16.
+
+**Règle** : on encaisse au plus le TTC net d'avoirs. Le formulaire propose le reste à charge : le patient peut avancer la part des organismes. Le solde se calcule, il n'est jamais stocké. Espèces : une session ouverte du jour est exigée, et `remis - rendu = montant`.
+
+**À VÉRIFIER** : plafond légal des paiements en espèces, non codé.
+
+## R35 – Acomptes (`acomptesADeduire`)
+
+**Statut : À VÉRIFIER.** Choix applicatif.
+
+**Règle** : un acompte se prend sur un devis `SIGNE`, au plus le TTC de l'offre retenue. À la validation, la facture du dossier reprend les acomptes nets, jamais plus que son reste à charge ; le montant est figé et imprimé. Le solde d'un dossier se lit au dossier : après un avoir total, acomptes et paiements suivent la facture suivante. Sur une vente directe, un avoir total laisse un trop-perçu à rembourser.
+
+## R36 – TVA sur acomptes
+
+**Statut : À VÉRIFIER.** Aucun texte de docs/ref. Exigibilité sur les acomptes et obligation d'une facture d'acompte à confirmer par l'expert-comptable.
+
+**Règle en attendant** : les acomptes figurent à part dans les clôtures, hors des totaux par taux.
+
+## R37 – Clôtures (`cloturerCentre`)
+
+**Statut : Confirmé avec écart.** `fiscal/boi-tva-decla-30-10-30.html` § 170 : journalière, mensuelle et annuelle ou par exercice, cumulatives et impératives ; grand total et total perpétuel.
+
+**Règle** : automatique chaque nuit, avec rattrapage, jamais sur la journée en cours. Une clôture couvre une plage de rangs. Le mois additionne ses jours, l'exercice ses mois. Le grand total repart à l'ouverture de l'exercice, le total perpétuel jamais.
+
+**Écart** : le § 170 dispense les logiciels de facturation avec fonction de caisse ; la dispense n'est pas utilisée.
+
+**À VÉRIFIER** : un jour sans opération ne produit pas de clôture.
+
+## R38 – Archivage (`archiverCentre`)
+
+**Statut : Confirmé avec écart.** `fiscal/boi-tva-decla-30-10-30.html` § 220 à § 250.
+
+**Règle** : une archive par mois clôturé, JSON avec notice en français, empreinte du fichier en clair chaînée, signée. Aucune purge à cette étape.
+
+**À VÉRIFIER** : art. 286 I 3° bis, version du 27/06/2026 : restitution « dans un format répondant aux normes établies par l'administration » ; aucune norme trouvée, texte absent de docs/ref. Transfert au CIBS, art. L. 216-48.
+
+## R39 – Écritures comptables (`ecrituresDepuisMaillon`)
+
+**Statut : À VÉRIFIER.** Aucun plan de comptes dans docs/ref. Valeurs par défaut à faire valider par l'expert-comptable.
+
+**Règle** : les écritures se déduisent des maillons, donc de ce qui est chaîné. Facture : clients, AMO et AMC contre ventes et TVA ; un avoir la retourne. Encaissement : trésorerie contre clients, ou contre acomptes pour un devis. Comptes de tiers collectifs : aucune identité de patient.
+
+## R40 – FEC (`formaterEcritures`, `descriptionFec`)
+
+**Statut : À VÉRIFIER.** `fiscal/boi-cf-ior-60-40-20.html` donne les 18 champs (§ 80 à § 270), la première ligne (§ 10), la numérotation (§ 100), le nom par ses exemples (§ 370). Séparateur, codage, dates et virgule viennent de l'art. A47 A-1 du LPF, absent de docs/ref.
+
+**Règle** : un fichier par SIREN et par exercice, centres de même SIREN regroupés. Il couvre les ventes et les encaissements, pas la comptabilité, ce que dit sa description.
+
+## R41 – Journal des événements de caisse
+
+**Statut : Confirmé avec écart.** `fiscal/boi-tva-decla-30-10-30.html` § 100 (suivi des modifications), § 240 (traçabilité de l'archivage).
+
+**Règle** : `evenement_caisse` trace ouverture, comptage, encaissement, remboursement, annulation, duplicata, clôture, archivage, changement de paramètres avec l'avant et l'après (préfixe, comptes, identité de l'entreprise), et échec de vérification, une fois par rupture.
 
 ## Points À VÉRIFIER
 
@@ -571,7 +640,6 @@ L'anamnèse, les questionnaires livrés et la synthèse en PDF sont des proposit
 | Délai de la lecture Vitale, confirmation manuelle        | R22   | Convention, cahier des charges SESAM-Vitale   |
 | Procédure de PEC, répartition d'un montant global        | R23   | Conventions des complémentaires               |
 | C2S gérée par un organisme complémentaire                | R23   | Texte C2S                                     |
-| Obligations des logiciels de caisse, format et hachage   | R28   | Code général des impôts ou comptable          |
 | Mentions obligatoires de la facture                      | R27   | Code de commerce, CGI ou comptable            |
 | TVA de l'entretien, fait générateur                      | R18   | Code général des impôts ou comptable          |
 | Série commune aux factures et aux avoirs                 | R28   | Code général des impôts ou comptable          |
@@ -579,6 +647,14 @@ L'anamnèse, les questionnaires livrés et la synthèse en PDF sont des proposit
 | Prescription et taux AMO d'une vente directe             | R30   | Nomenclature LPP, cahier des charges          |
 | Contrat `BillingEngine`, champs de `FseDraft`            | R31   | Documentation AreaFSE                         |
 | Correction d'une FSE après un avoir                      | R31   | Documentation AreaFSE                         |
+| Plafond d'encaissement avant le tiers payant             | R34   | Étape 16, comptable                           |
+| TVA sur acomptes, facture d'acompte                      | R36   | Code général des impôts ou comptable          |
+| Plafond légal des espèces                                | R34   | Code monétaire et financier ou comptable      |
+| Jour sans opération sans clôture                         | R37   | Conseil fiscal                                |
+| Format de restitution des archives (art. 286 I 3° bis)   | R38   | Art. 286 du CGI, normes de l'administration   |
+| Transfert au CIBS, référence de l'attestation            | R38   | Art. L. 216-48 du CIBS, ordonnance 2025-1247  |
+| Plan de comptes et écritures d'écart                     | R39   | Expert-comptable                              |
+| Format du FEC, description                               | R40   | Art. A47 A-1 du LPF, expert-comptable         |
 | Durée de l'article L. 332-1 CSS                          | R17   | Code de la sécurité sociale                   |
 | Numéro de lot à conserver                                | R17   | Vigilance ANSM                                |
 | Format des numéros et codes lus à la douchette           | R17   | Étiquettes réelles des fabricants             |

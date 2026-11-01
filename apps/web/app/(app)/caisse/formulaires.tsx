@@ -52,11 +52,11 @@ function ChampsEncaissement({
     <form action={envoyer} className="grid max-w-md gap-4">
       <MessageFormulaire etat={etat} />
       <div className="grid gap-1">
-        <label htmlFor="mode" className="text-sm font-medium">
+        <label htmlFor="encaissement-mode" className="text-sm font-medium">
           Mode de paiement
         </label>
         <select
-          id="mode"
+          id="encaissement-mode"
           name="mode"
           required
           value={mode}
@@ -73,12 +73,24 @@ function ChampsEncaissement({
           ))}
         </select>
       </div>
-      <ChampTexte etat={etat} nom="montant" libelle="Montant (€)" defaut={montantPropose} requis />
+      <ChampTexte
+        etat={etat}
+        id="encaissement-montant"
+        nom="montant"
+        libelle="Montant (€)"
+        defaut={montantPropose}
+        requis
+      />
       {mode === 'ESPECES' ? (
-        <ChampTexte etat={etat} nom="remis" libelle="Montant remis par le patient (€)" />
+        <ChampTexte
+          etat={etat}
+          id="encaissement-remis"
+          nom="remis"
+          libelle="Montant remis par le patient (€)"
+        />
       ) : null}
       {mode === 'CHEQUE' || mode === 'VIREMENT' ? (
-        <ChampTexte etat={etat} nom="reference" libelle="Référence" />
+        <ChampTexte etat={etat} id="encaissement-reference" nom="reference" libelle="Référence" />
       ) : null}
       {mode === 'FINANCEMENT' ? (
         <>

@@ -356,8 +356,12 @@ describe('preparerComparaison et appliquerCarteAuPatient : mises à jour', () =>
       champsAcceptes: ['finDroits', 'amc'],
       champsRefuses: ['caisse'],
     });
-    expect(JSON.stringify(maj)).not.toContain('AV-0206');
-    expect(JSON.stringify(maj)).not.toContain('591');
+    // Sans les UUID ni les instants : `591` peut y apparaître par hasard.
+    const sansAleatoire = JSON.stringify(maj)
+      .replace(/[0-9a-f]{8}-[0-9a-f-]{27}/g, '')
+      .replace(/\d{4}-\d{2}-\d{2}T[\d:.]+Z/g, '');
+    expect(sansAleatoire).not.toContain('AV-0206');
+    expect(sansAleatoire).not.toContain('591');
   });
 
   it('tout accepter : couverture d’origine Vitale, plus aucune différence', async () => {
