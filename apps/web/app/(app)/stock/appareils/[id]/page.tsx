@@ -23,6 +23,7 @@ import {
 import { BadgeStatut } from '../../badge-statut';
 import { ActionsAppareil } from './actions-appareil';
 import { BlocGarantie } from './bloc-garantie';
+import { BoutonParc } from './bouton-parc';
 
 export const metadata: Metadata = { title: 'Appareil – HA-Gestion' };
 
@@ -131,6 +132,7 @@ export default async function PageAppareil({ params }: PageProps<'/stock/apparei
         ) : null}
       </dl>
 
+      {fiche.parcModifiable ? <BoutonParc appareilId={fiche.id} parcPret={fiche.parcPret} /> : null}
       {fiche.garantie ? <BlocGarantie appareilId={fiche.id} garantie={fiche.garantie} /> : null}
 
       {/* Remonté après chaque mouvement : le panneau ouvert se referme. */}

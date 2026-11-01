@@ -11,10 +11,12 @@ import { EntetePage } from '@/components/entete-page';
 import { ListeDeroulante } from '@/components/formulaire';
 import { FormulaireFiltres } from '@/components/formulaire-filtres';
 import { TableauPagine, type Colonne } from '@/components/tableau-pagine';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { formaterDate } from '@/lib/format';
 import { ETAT_INITIAL } from '@/lib/formulaire';
 import { premieresValeurs, type ParametresRecherche } from '@/lib/parametres';
 import { perimetreCourant } from '@/server/auth/gardes';
+import { compterPretsEnRetard } from '@/server/services/prets';
 import { listerTickets, type TicketListe } from '@/server/services/tickets-sav';
 
 import { BadgeCouverture, BadgeTicket } from './badge-ticket';
@@ -54,12 +56,28 @@ export default async function PageSAV({
 }) {
   const parametres = premieresValeurs(await searchParams);
   const { acteur, perimetre } = await perimetreCourant();
-  const { lignes, pagination, filtre } = await listerTickets(acteur, perimetre, parametres);
+  const [{ lignes, pagination, filtre }, pretsEnRetard] = await Promise.all([
+    listerTickets(acteur, perimetre, parametres),
+    compterPretsEnRetard(acteur, perimetre),
+  ]);
   return (
     <div className="grid gap-6">
       <EntetePage titre="SAV" action={{ href: '/sav/nouveau', libelle: 'Nouveau ticket' }}>
         Réparations, garanties et prêts.
       </EntetePage>
+      {pretsEnRetard > 0 ? (
+        <Alert>
+          <AlertTitle>Prêts en retard</AlertTitle>
+          <AlertDescription>
+            <Link href="/sav/prets" className="underline underline-offset-4">
+              {pretsEnRetard === 1
+                ? '1 appareil prêté'
+                : `${String(pretsEnRetard)} appareils prêtés`}
+            </Link>{' '}
+            aurai{pretsEnRetard === 1 ? 't' : 'ent'} dû revenir.
+          </AlertDescription>
+        </Alert>
+      ) : null}
       <FormulaireFiltres chemin={CHEMIN}>
         <ListeDeroulante
           etat={ETAT_INITIAL}

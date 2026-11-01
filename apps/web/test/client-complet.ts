@@ -33,6 +33,7 @@ import { aujourdhui } from '@/server/services/patients';
 
 import { confirmerCouvertureVente, validerFacture } from '@/server/services/facturation';
 import { enregistrerParametresSav } from '@/server/services/garanties';
+import { affecterAuParc, preterAppareil } from '@/server/services/prets';
 import { preparerRetour } from '@/server/services/retours-fabricant';
 import { ouvrirTicket } from '@/server/services/tickets-sav';
 import {
@@ -477,6 +478,14 @@ export async function creerClientComplet(suffixe: string) {
     ecartId,
     descriptionPanne: '',
   });
+  const parcId = await creerAppareil(d, catalogue.classeI, `SERIE-PRET${suffixe}`.toUpperCase());
+  await affecterAuParc(d.acteurs.admin, parcId, { parcPret: true });
+  const pretId = await preterAppareil(audio, {
+    appareilId: parcId,
+    patientId,
+    dateRetourPrevue: '',
+    ticketId,
+  });
   await enregistrerSeuil(d.acteurs.admin, {
     centreId: d.centres.a.id,
     produit: `modele:${catalogue.classeI}`,
@@ -500,6 +509,7 @@ export async function creerClientComplet(suffixe: string) {
     commandeRecueId,
     ticketId,
     retourId,
+    pretId,
     ecartId,
     factureFournisseurId,
     releveId,

@@ -65,6 +65,7 @@ model Organisation {
   compteursSav             CompteurSav[]
   ticketsSav               TicketSav[]
   retoursFabricant         RetourFabricant[]
+  pretsAppareil            PretAppareil[]
   reglesCommande           RegleCommande[]
   compteursCommande        CompteurCommande[]
   commandes                Commande[]
@@ -177,6 +178,7 @@ model Centre {
   patients              Patient[]
   lecturesVitale        LectureVitale[]
   appareils             Appareil[]
+  pretsAppareil         PretAppareil[]
   retoursFabricant      RetourFabricant[]
   ticketsSav            TicketSav[]
   mouvementsDepart      MouvementAppareil[]       @relation("MouvementCentreAvant")
@@ -250,6 +252,7 @@ model Utilisateur {
   comptes                      Compte[]
   deuxFacteurs                 DeuxFacteurs[]
   lecturesVitale               LectureVitale[]
+  pretsAppareil                PretAppareil[]
   retoursFabricant             RetourFabricant[]
   ticketsSavOuverts            TicketSav[]
   mouvementsAppareil           MouvementAppareil[]
@@ -427,6 +430,7 @@ model Patient {
   appareils             Appareil[]
   mouvementsAppareil    MouvementAppareil[]
   garantiesAppareil     GarantieAppareil[]
+  pretsAppareil         PretAppareil[]
   ticketsSav            TicketSav[]
   dossiers              Dossier[]
   delivrances           Delivrance[]
@@ -1400,6 +1404,7 @@ model Appareil {
   tickets                   TicketSav[]             @relation("TicketAppareil")
   ticketsRemplacant         TicketSav[]             @relation("TicketRemplacant")
   retoursFabricant          RetourFabricant[]
+  prets                     PretAppareil[]
 
   @@unique([fabricantId, numeroSerie])
   @@index([organisationId, numeroSerie])
@@ -1518,6 +1523,7 @@ model TicketSav {
   ouvertPar            Utilisateur         @relation(fields: [ouvertParId], references: [id], onDelete: Restrict)
   mouvements           MouvementAppareil[]
   retours              RetourFabricant[]
+  prets                PretAppareil[]
 
   @@unique([organisationId, numero])
   @@index([centreId, statut])
@@ -1574,6 +1580,35 @@ model RetourFabricant {
   @@index([ecartAchatId])
   @@index([fournisseurId])
   @@map("retour_fabricant")
+}
+
+/// Prêt d'un appareil du parc (`Appareil.parcPret`). Au plus un prêt en cours par appareil (index unique partiel).
+/// `etatRetour` est chiffré : texte libre.
+model PretAppareil {
+  id               String       @id @default(uuid(7))
+  organisationId   String       @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  appareilId       String       @map("appareil_id")
+  centreId         String       @map("centre_id")
+  patientId        String       @map("patient_id")
+  ticketSavId      String?      @map("ticket_sav_id")
+  dateDebut        DateTime     @map("date_debut") @db.Date
+  dateRetourPrevue DateTime     @map("date_retour_prevue") @db.Date
+  dateRetour       DateTime?    @map("date_retour") @db.Date
+  etatRetour       String?      @map("etat_retour")
+  createdById      String       @map("created_by_id")
+  createdAt        DateTime     @default(now()) @map("created_at")
+  organisation     Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  appareil         Appareil     @relation(fields: [appareilId], references: [id], onDelete: Restrict)
+  centre           Centre       @relation(fields: [centreId], references: [id], onDelete: Restrict)
+  patient          Patient      @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  ticketSav        TicketSav?   @relation(fields: [ticketSavId], references: [id], onDelete: Restrict)
+  createdBy        Utilisateur  @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([centreId, dateRetour])
+  @@index([appareilId])
+  @@index([patientId])
+  @@index([ticketSavId])
+  @@map("pret_appareil")
 }
 
 /// Sans ligne, `PARAMETRES_SAV_DEFAUT` s'applique.

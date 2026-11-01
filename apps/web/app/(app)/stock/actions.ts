@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation';
 import { coche, liste, texte, type EtatFormulaire } from '@/lib/formulaire';
 import { executer } from '@/server/actions';
 import { enregistrerAssurance } from '@/server/services/garanties';
+import { affecterAuParc } from '@/server/services/prets';
 import { requireSession } from '@/server/auth/gardes';
 import { notifier } from '@/server/notifications';
 import { listerPatients, type PatientResume } from '@/server/services/patients';
@@ -82,6 +83,15 @@ export async function enregistrerAssuranceAction(
     assuranceFin: texte(formData, 'assuranceFin'),
   };
   const erreur = await executer(() => enregistrerAssurance(acteur, appareilId, donnees), donnees);
+  return erreur ?? terminerMouvement(appareilId);
+}
+
+export async function basculerParcAction(
+  appareilId: string,
+  parcPret: boolean,
+): Promise<EtatFormulaire> {
+  const acteur = await requireSession();
+  const erreur = await executer(() => affecterAuParc(acteur, appareilId, { parcPret }), {});
   return erreur ?? terminerMouvement(appareilId);
 }
 

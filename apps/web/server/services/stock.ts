@@ -18,6 +18,7 @@ import {
   peutAccederAuCentre,
   peutAnnulerVente,
   peutCorrigerIdentite,
+  peutGererParcPret,
   peutTransferer,
   peutVoirPrixAchat,
   STATUTS_TICKET_OUVERTS,
@@ -594,6 +595,8 @@ export interface FicheAppareil {
   annulable: boolean;
   garantie: GarantieAffichee | null;
   parcPret: boolean;
+  /** Entrée ou sortie du parc de prêt possible pour cet utilisateur. */
+  parcModifiable: boolean;
   /** Ticket ouvert qui pilote l'appareil. */
   ticketId: string | null;
   /** Appareil de l'autre côté d'un échange : l'historique du stock reste complet. */
@@ -714,6 +717,7 @@ async function lireFicheAppareil(
     prixAchatCentimes: voitPrix ? a.prixAchatCentimes : null,
     enConsignation: a.enConsignation,
     parcPret: a.parcPret,
+    parcModifiable: a.statut === 'EN_STOCK' && peutGererParcPret(acteur.role),
     mouvements,
     ticketId,
     remplacePar,

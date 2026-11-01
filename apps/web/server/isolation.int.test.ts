@@ -36,6 +36,7 @@ import {
   modifierTypeRdv,
 } from './services/agenda-parametres';
 import { appareilsDuPatient, enregistrerAssurance } from './services/garanties';
+import { rendrePret } from './services/prets';
 import { obtenirRetour, telechargerBonRetour } from './services/retours-fabricant';
 import { obtenirTicket } from './services/tickets-sav';
 import { lireParametresReservation } from './services/reservation-parametres';
@@ -74,6 +75,7 @@ const TABLES_ISOLEES = [
   'compteur_sav',
   'garantie_appareil',
   'parametres_sav',
+  'pret_appareil',
   'retour_fabricant',
   'ticket_sav',
   'cabine',
@@ -570,6 +572,10 @@ describe('identifiant d’un autre client forcé dans l’URL', () => {
     { entite: 'appareils du patient', appel: (x, c) => appareilsDuPatient(x, c.patientId) },
     { entite: 'ticket SAV', appel: (x, c) => obtenirTicket(x, c.ticketId) },
     { entite: 'retour fabricant', appel: (x, c) => obtenirRetour(x, c.retourId) },
+    {
+      entite: 'prêt',
+      appel: (x, c) => rendrePret(x, c.pretId, { etatRetour: '' }),
+    },
     { entite: 'bon de retour', appel: (x, c) => telechargerBonRetour(x, c.retourId) },
     {
       entite: 'assurance d’un appareil',

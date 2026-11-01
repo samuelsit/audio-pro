@@ -19,6 +19,8 @@ import {
 import { ETAT_INITIAL, type EtatFormulaire } from '@/lib/formulaire';
 import type { FicheTicket } from '@/server/services/tickets-sav';
 
+import { SelecteurPatient } from '../stock/selecteur-patient';
+
 import {
   abandonnerRemplacantAction,
   annulerAction,
@@ -32,7 +34,9 @@ import {
   facturerAction,
   ouvrirTicketAction,
   preparerRetourAction,
+  preterAction,
   remettreRemplacantAction,
+  rendrePretAction,
   restituerAction,
   terminerReparationAction,
 } from './actions';
@@ -368,5 +372,47 @@ export function ActionRemise({ ticketId }: { ticketId: string }) {
       libelle="Remettre le remplaçant au patient"
       action={remettreRemplacantAction.bind(null, ticketId)}
     />
+  );
+}
+
+export function FormulairePret({
+  appareilId,
+  centreId,
+  dureeJours,
+}: {
+  appareilId: string;
+  centreId: string;
+  dureeJours: number;
+}) {
+  const [etat, envoyer] = useActionState(preterAction, ETAT_INITIAL);
+  return (
+    <form action={envoyer} className="grid max-w-2xl gap-4">
+      <MessageFormulaire etat={etat} />
+      <input type="hidden" name="appareilId" value={appareilId} />
+      <SelecteurPatient centreId={centreId} erreurs={etat.erreurs?.patientId} />
+      <ChampTexte
+        etat={etat}
+        nom="dateRetourPrevue"
+        libelle="Retour prévu le"
+        type="date"
+        aide={`Sans date, ${String(dureeJours)} jours.`}
+      />
+      <div>
+        <BoutonEnvoi>Prêter</BoutonEnvoi>
+      </div>
+    </form>
+  );
+}
+
+export function FormulaireRetourPret({ pretId }: { pretId: string }) {
+  const [etat, envoyer] = useActionState(rendrePretAction.bind(null, pretId), ETAT_INITIAL);
+  return (
+    <form action={envoyer} className="grid gap-2">
+      <MessageFormulaire etat={etat} />
+      <ChampTexte etat={etat} nom="etatRetour" libelle="État au retour" id={`etat-${pretId}`} />
+      <div>
+        <BoutonEnvoi variant="outline">Enregistrer le retour</BoutonEnvoi>
+      </div>
+    </form>
   );
 }

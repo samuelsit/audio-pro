@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation';
 import { texte, type EtatFormulaire } from '@/lib/formulaire';
 import { executer } from '@/server/actions';
 import { requireSession } from '@/server/auth/gardes';
+import { preterAppareil, rendrePret } from '@/server/services/prets';
 import {
   abandonnerRemplacant,
   annulerRetour,
@@ -232,4 +233,35 @@ export async function remettreRemplacantAction(ticketId: string): Promise<EtatFo
   const acteur = await requireSession();
   const erreur = await executer(() => remettreRemplacant(acteur, ticketId), {});
   return erreur ?? terminerTicket(ticketId);
+}
+
+export async function preterAction(_: EtatFormulaire, formData: FormData): Promise<EtatFormulaire> {
+  const acteur = await requireSession();
+  const donnees = {
+    appareilId: texte(formData, 'appareilId'),
+    patientId: texte(formData, 'patientId'),
+    dateRetourPrevue: texte(formData, 'dateRetourPrevue'),
+    ticketId: '',
+  };
+  const erreur = await executer(() => preterAppareil(acteur, donnees), donnees);
+  if (erreur) {
+    return erreur;
+  }
+  revalidatePath('/sav/prets');
+  redirect('/sav/prets');
+}
+
+export async function rendrePretAction(
+  pretId: string,
+  _: EtatFormulaire,
+  formData: FormData,
+): Promise<EtatFormulaire> {
+  const acteur = await requireSession();
+  const donnees = { etatRetour: texte(formData, 'etatRetour') };
+  const erreur = await executer(() => rendrePret(acteur, pretId, donnees), donnees);
+  if (erreur) {
+    return erreur;
+  }
+  revalidatePath('/sav/prets');
+  return {};
 }
