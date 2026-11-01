@@ -592,6 +592,7 @@ export async function appareilsProposables(
     where: {
       organisationId: acteur.organisationId,
       centreId: dossier.centreId,
+      parcPret: false,
       OR: [{ statut: 'EN_STOCK' }, { statut: 'RESERVE', patientId: dossier.patientId }],
     },
     select: selectionAppareilAffiche,

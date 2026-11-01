@@ -2,6 +2,7 @@ import type { StatutAppareil } from '../stock/etats';
 
 export const CODES_REFUS_APPAREIL_ESSAI = [
   'AUTRE_CENTRE',
+  'APPAREIL_DE_PRET',
   'DEJA_EN_ESSAI',
   'RESERVE_AUTRE_PATIENT',
   'INDISPONIBLE',
@@ -11,6 +12,7 @@ export type CodeRefusAppareilEssai = (typeof CODES_REFUS_APPAREIL_ESSAI)[number]
 
 export const MESSAGES_REFUS_APPAREIL_ESSAI: Readonly<Record<CodeRefusAppareilEssai, string>> = {
   AUTRE_CENTRE: 'Cet appareil n’est pas dans le stock du centre du dossier.',
+  APPAREIL_DE_PRET: 'Cet appareil appartient au parc de prêt du centre.',
   DEJA_EN_ESSAI: 'Cet appareil est déjà en essai.',
   RESERVE_AUTRE_PATIENT: 'Cet appareil est réservé à un autre patient.',
   INDISPONIBLE: 'Cet appareil n’est pas disponible : il doit être en stock ou réservé.',
@@ -22,6 +24,7 @@ export interface AppareilCandidat {
   readonly centreId: string;
   readonly patientId: string | null;
   readonly modeleId: string;
+  readonly parcPret: boolean;
 }
 
 export interface CibleEssai {
@@ -41,6 +44,9 @@ export function refusAppareilEssai(
 ): CodeRefusAppareilEssai | null {
   if (appareil.centreId !== cible.centreId) {
     return 'AUTRE_CENTRE';
+  }
+  if (appareil.parcPret) {
+    return 'APPAREIL_DE_PRET';
   }
   if (appareil.statut === 'EN_ESSAI') {
     return 'DEJA_EN_ESSAI';

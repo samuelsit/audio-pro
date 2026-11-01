@@ -54,7 +54,8 @@ async function calculerValeur(
   const filtreCentre = centres === null ? {} : { centreId: { in: [...centres] } };
   const groupes = await client.appareil.groupBy({
     by: ['statut', 'enConsignation', 'prixAchatCentimes'],
-    where: { organisationId, ...filtreCentre },
+    // Vendu puis passé au SAV : l'appareil reste celui du patient, il ne revient pas dans le stock.
+    where: { organisationId, ...filtreCentre, NOT: { statut: 'SAV', patientId: { not: null } } },
     _count: { _all: true },
   });
   const accessoires = await client.stockAccessoire.findMany({

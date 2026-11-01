@@ -8,6 +8,7 @@ import {
   peutEmettreAvoir,
   reprisesTotales,
   totauxAvoir,
+  verifierTransition,
   type LigneAAvoir,
   type MontantsLigne,
 } from '@ha/domain';
@@ -28,7 +29,7 @@ import {
 } from './facturation';
 import { creerBrouillonDossier } from './factures';
 import { aujourdhui } from './patients';
-import { appliquerMouvement, evenementMouvement, lireAppareil } from './stock';
+import { appareilCourant, appliquerMouvement, etatAppareil, evenementMouvement } from './stock';
 
 type LigneEnBase = Awaited<ReturnType<typeof lirePiece>>['lignes'][number];
 
@@ -125,7 +126,14 @@ async function annulerVente(
     if (appareilId === null) {
       continue;
     }
-    const appareil = await lireAppareil(tx, acteur, appareilId);
+    // Après un échange, c'est le remplaçant qui revient : la ligne figée garde l'ancien numéro (ADR-032).
+    const appareil = await appareilCourant(tx, acteur, appareilId);
+    if (!verifierTransition(etatAppareil(appareil), 'RESERVE', false).autorisee) {
+      throw new ErreurSaisie(
+        {},
+        'Un appareil de cette facture est au SAV : clore le ticket d’abord.',
+      );
+    }
     const mouvement = {
       type: 'CHANGEMENT_STATUT',
       statut: 'RESERVE',
@@ -140,12 +148,24 @@ async function annulerVente(
     const lien = await tx.essaiAppareil.findFirstOrThrow({
       where: { appareilId, essai: { dossierId } },
       orderBy: { id: 'desc' },
-      select: { id: true },
+      select: { id: true, essaiId: true, oreille: true },
     });
-    await tx.essaiAppareil.update({
-      where: { id: lien.id },
-      data: { retireLe: null, retireParId: null },
-    });
+    if (appareil.id === appareilId) {
+      await tx.essaiAppareil.update({
+        where: { id: lien.id },
+        data: { retireLe: null, retireParId: null },
+      });
+    } else {
+      await tx.essaiAppareil.create({
+        data: {
+          essaiId: lien.essaiId,
+          appareilId: appareil.id,
+          oreille: lien.oreille,
+          poseLe: versDate(aujourdhui()),
+          poseParId: acteur.id,
+        },
+      });
+    }
   }
   await appliquerTransition(tx, acteur, dossier, 'A_FACTURER', 'Avoir total');
   evenements.push(evenementTransition(dossier, 'A_FACTURER'));

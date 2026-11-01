@@ -87,7 +87,7 @@ export async function proposerReappro(
   const [stocksAppareils, stocksAccessoires, enCours] = await Promise.all([
     client.appareil.groupBy({
       by: ['modeleId'],
-      where: { centreId, statut: 'EN_STOCK', enConsignation: false },
+      where: { centreId, statut: 'EN_STOCK', enConsignation: false, parcPret: false },
       _count: { _all: true },
     }),
     client.stockAccessoire.findMany({

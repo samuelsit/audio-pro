@@ -703,12 +703,7 @@ describe('refus d’un appareil', () => {
 
   it('indisponible (SAV), et rien sans numéro', async () => {
     const id = await creerAppareil(d, catalogue.classeI, 'SN-A');
-    await changerStatut(audio, id, {
-      statut: 'SAV',
-      statutAttendu: 'EN_STOCK',
-      patientId: '',
-      motif: 'Panne',
-    });
+    await prisma().appareil.update({ where: { id }, data: { statut: 'SAV' } });
     await expect(demarrerEssai(audio, devisId, debutEssai('SN-A'))).rejects.toThrow(
       'Cet appareil n’est pas disponible : il doit être en stock ou réservé.',
     );

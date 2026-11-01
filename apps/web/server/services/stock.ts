@@ -25,6 +25,7 @@ import {
   transitionsPossibles,
   verifierAnnulationVente,
   verifierTransitionManuelle,
+  type EtatAppareil,
   type FiltreStock,
   type NatureAccessoire,
   type Pagination,
@@ -77,6 +78,8 @@ export const selectionAppareil = {
   referenceFactureFabricant: true,
   prixAchatCentimes: true,
   enConsignation: true,
+  parcPret: true,
+  remplaceParId: true,
 } as const;
 
 export type AppareilLu = Prisma.AppareilGetPayload<{ select: typeof selectionAppareil }>;
@@ -98,14 +101,33 @@ export async function lireAppareil(
   return appareil;
 }
 
+/** Appareil que détient le patient au titre d'une ligne de facture : suit les échanges (ADR-032). */
+export async function appareilCourant(
+  tx: ClientTransaction,
+  acteur: UtilisateurConnecte,
+  appareilId: string,
+): Promise<AppareilLu> {
+  let appareil = await lireAppareil(tx, acteur, appareilId);
+  while (appareil.remplaceParId !== null) {
+    appareil = await lireAppareil(tx, acteur, appareil.remplaceParId);
+  }
+  return appareil;
+}
+
+export function etatAppareil({ statut, patientId, parcPret }: AppareilLu): EtatAppareil {
+  return { statut, patientRattache: patientId !== null, parcPret };
+}
+
 export interface Mouvement {
-  readonly type: 'CHANGEMENT_STATUT' | 'TRANSFERT' | 'ANNULATION_VENTE';
+  readonly type: 'CHANGEMENT_STATUT' | 'TRANSFERT' | 'ANNULATION_VENTE' | 'ECHANGE';
   readonly statut: StatutAppareil;
   readonly centreId: string;
   readonly patientId: string | null;
   readonly motif: string;
   /** Dossier qui provoque le mouvement : essai, puis vente. */
   readonly dossierId?: string;
+  /** Appareil qui le remplace, avec le statut `REMPLACE`. */
+  readonly remplaceParId?: string;
 }
 
 /**
@@ -127,7 +149,7 @@ export async function appliquerMouvement(
       centreId: appareil.centreId,
       patientId: appareil.patientId,
     },
-    data: { statut, centreId, patientId },
+    data: { statut, centreId, patientId, remplaceParId: mouvement.remplaceParId ?? null },
   });
   if (count !== 1) {
     throw new ErreurConflitStock();
@@ -231,7 +253,7 @@ export async function changerStatut(
         );
       }
       const transition = verifierTransitionManuelle(
-        { statut: appareil.statut, patientRattache: appareil.patientId !== null },
+        etatAppareil(appareil),
         statut,
         patientId !== null,
       );
@@ -328,7 +350,9 @@ export async function annulerVente(
           facture: { lignes: { some: { appareilId } } },
         },
       });
-      if (facturee > 0) {
+      // Le remplaçant d'un échange n'a pas de ligne de facture : sa vente est celle de l'appareil échangé.
+      const echange = await tx.appareil.count({ where: { remplaceParId: appareilId } });
+      if (facturee > 0 || echange > 0) {
         throw ErreurSaisie.surChamp(
           'motif',
           'Cette vente vient d’une facture : elle s’annule par un avoir.',
@@ -508,7 +532,7 @@ export interface PatientAffiche {
 
 export interface MouvementAffiche {
   id: string;
-  type: 'RECEPTION' | 'CHANGEMENT_STATUT' | 'TRANSFERT' | 'ANNULATION_VENTE';
+  type: 'RECEPTION' | 'CHANGEMENT_STATUT' | 'TRANSFERT' | 'ANNULATION_VENTE' | 'ECHANGE';
   horodatage: Date;
   utilisateur: string;
   statutAvant: StatutAppareil | null;
@@ -625,12 +649,13 @@ async function lireFicheAppareil(
       motif: affiche.patientMasque ? null : m.motif,
     };
   });
-  const etat = { statut: a.statut, patientRattache: a.patientId !== null };
+  const etat = { statut: a.statut, patientRattache: a.patientId !== null, parcPret: a.parcPret };
   const voitPrix = peutVoirPrixAchat(acteur.role);
   const lienEssai = await client.essaiAppareil.findFirst({
     where: { appareilId, retireLe: null },
     select: { essai: { select: { dossierId: true } } },
   });
+  const issuDunEchange = await client.appareil.count({ where: { remplaceParId: appareilId } });
   const fiche: FicheAppareil = {
     id: a.id,
     numeroSerie: a.numeroSerie,
@@ -655,7 +680,8 @@ async function lireFicheAppareil(
         })),
     dossierEssaiId: lienEssai?.essai.dossierId ?? null,
     transferable: peutTransferer(a.statut),
-    annulable: verifierAnnulationVente(a.statut) && peutAnnulerVente(acteur.role),
+    annulable:
+      verifierAnnulationVente(a.statut) && peutAnnulerVente(acteur.role) && issuDunEchange === 0,
     corrigeable: lignes.length === 1 && peutCorrigerIdentite(acteur.role),
     voitPrix,
   };

@@ -5,7 +5,7 @@ import { appareilValorise, valeurStock } from './valeur';
 
 describe('appareilValorise', () => {
   it.each(STATUTS_APPAREIL)('%s', (statut) => {
-    const attendu = statut !== 'VENDU' && statut !== 'RETOUR_FABRICANT';
+    const attendu = !['VENDU', 'RETOUR_FABRICANT', 'REMPLACE'].includes(statut);
     expect(appareilValorise(statut, false)).toBe(attendu);
     expect(appareilValorise(statut, true)).toBe(false);
   });

@@ -10,7 +10,10 @@ const STATUTS_VALORISES: readonly StatutAppareil[] = [
   'SAV',
 ];
 
-/** Un appareil en consignation appartient au fabricant ; un appareil vendu ou retourné est sorti. */
+/**
+ * Un appareil en consignation appartient au fabricant ; un appareil vendu, retourné ou remplacé est sorti.
+ * Un appareil vendu passé au SAV reste celui du patient : `calculerValeur` l'écarte de sa requête.
+ */
 export function appareilValorise(statut: StatutAppareil, enConsignation: boolean): boolean {
   return !enConsignation && STATUTS_VALORISES.includes(statut);
 }

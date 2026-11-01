@@ -1,4 +1,5 @@
 import { prisma } from '@ha/db/admin';
+import type { StatutAppareil } from '@ha/domain';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { creerJeuDeDonnees, viderBase, type JeuDeDonnees } from '@/test/donnees';
@@ -109,13 +110,19 @@ async function recevoirUn(numero = 'SN0001'): Promise<string> {
 async function amener(id: string, statuts: string[], patientId: string | null = patientA) {
   for (const statut of statuts) {
     const avant = await prisma().appareil.findUniqueOrThrow({ where: { id } });
-    const pilote = statut === 'EN_ESSAI' || (statut === 'VENDU' && avant.statut === 'EN_ESSAI');
+    const reparation = statut === 'SAV' || statut === 'RETOUR_FABRICANT';
+    const pilote =
+      reparation || statut === 'EN_ESSAI' || (statut === 'VENDU' && avant.statut === 'EN_ESSAI');
     if (pilote) {
-      // L'essai et la vente se pilotent depuis le dossier : la fiche refuse ces changements.
+      // Essai et vente se pilotent par le dossier, SAV par le ticket : la fiche refuse ces changements.
       const patientEssai = avant.patientId ?? patientId;
+      const quitteEssai = reparation && avant.statut === 'EN_ESSAI';
       await prisma().appareil.update({
         where: { id },
-        data: { statut, patientId: patientEssai },
+        data: {
+          statut: statut as StatutAppareil,
+          patientId: quitteEssai ? null : reparation ? avant.patientId : patientEssai,
+        },
       });
       await base({ organisationId: avant.organisationId }).mouvementAppareil.create({
         data: {
@@ -124,10 +131,10 @@ async function amener(id: string, statuts: string[], patientId: string | null = 
           type: 'CHANGEMENT_STATUT',
           utilisateurId: admin.id,
           statutAvant: avant.statut,
-          statutApres: statut,
+          statutApres: statut as StatutAppareil,
           centreAvantId: avant.centreId,
           centreApresId: avant.centreId,
-          patientId: patientEssai,
+          patientId: reparation ? avant.patientId : patientEssai,
           motif: 'Préparation',
         },
       });
@@ -448,41 +455,30 @@ describe('machine à états, par le service', () => {
   });
 });
 
-describe('prêt', () => {
-  it('prête un appareil à un patient, puis le reprend en stock', async () => {
-    const id = await recevoirUn();
-    await changerStatut(audio, id, {
-      statut: 'PRET',
-      statutAttendu: 'EN_STOCK',
-      patientId: patientA,
-      motif: 'Appareil de prêt pendant une réparation',
-    });
-    expect(await prisma().appareil.findUniqueOrThrow({ where: { id } })).toMatchObject({
-      statut: 'PRET',
-      patientId: patientA,
-    });
-    await changerStatut(audio, id, {
-      statut: 'EN_STOCK',
-      statutAttendu: 'PRET',
-      patientId: '',
-      motif: 'Rendu par le patient',
-    });
-    expect(await prisma().appareil.findUniqueOrThrow({ where: { id } })).toMatchObject({
-      statut: 'EN_STOCK',
-      patientId: null,
-    });
-  });
-
-  it('refuse un prêt sans patient', async () => {
+describe('chemin manuel', () => {
+  it.each(['SAV', 'RETOUR_FABRICANT', 'PRET'] as const)('la fiche refuse %s', async (statut) => {
     const id = await recevoirUn();
     await expect(
       changerStatut(audio, id, {
-        statut: 'PRET',
+        statut,
         statutAttendu: 'EN_STOCK',
-        patientId: '',
-        motif: 'Prêt',
+        patientId: patientA,
+        motif: 'x',
       }),
-    ).rejects.toBeInstanceOf(ErreurSaisie);
+    ).rejects.toMatchObject({ erreurs: { statut: [expect.stringContaining('menu SAV')] } });
+    expect((await etat(id)).statut).toBe('EN_STOCK');
+  });
+
+  it('un appareil déjà en SAV sans patient revient par la fiche', async () => {
+    const id = await recevoirUn();
+    await amener(id, ['SAV']);
+    await changerStatut(audio, id, {
+      statut: 'EN_STOCK',
+      statutAttendu: 'SAV',
+      patientId: '',
+      motif: 'Réparé',
+    });
+    expect(await etat(id)).toMatchObject({ statut: 'EN_STOCK', patientId: null });
   });
 });
 
@@ -850,7 +846,7 @@ describe('recherche et fiche', () => {
     expect(fiche.transferable).toBe(true);
     expect(fiche.corrigeable).toBe(false);
     expect(fiche.transitions).toContainEqual({ statut: 'RESERVE', patientAChoisir: true });
-    expect(fiche.transitions).toContainEqual({ statut: 'SAV', patientAChoisir: false });
+    expect(fiche.transitions).not.toContainEqual({ statut: 'SAV', patientAChoisir: false });
   });
 
   it('écrit une ligne READ par patient affiché, une seule sans patient', async () => {

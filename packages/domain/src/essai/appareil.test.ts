@@ -15,6 +15,7 @@ const appareil = (statut: StatutAppareil, reste: object = {}) => ({
   centreId: 'centre-a',
   patientId: null,
   modeleId: 'modele-a',
+  parcPret: false,
   ...reste,
 });
 
@@ -27,6 +28,7 @@ describe('refusAppareilEssai', () => {
     RETOUR_FABRICANT: 'INDISPONIBLE',
     SAV: 'INDISPONIBLE',
     PRET: 'INDISPONIBLE',
+    REMPLACE: 'INDISPONIBLE',
   };
 
   it.each(STATUTS_APPAREIL)('statut %s, sans patient rattaché', (statut) => {
@@ -48,6 +50,11 @@ describe('refusAppareilEssai', () => {
       cas: 'autre centre : le statut n’est pas révélé',
       candidat: appareil('EN_ESSAI', { centreId: 'centre-b' }),
       attendu: 'AUTRE_CENTRE',
+    },
+    {
+      cas: 'appareil du parc de prêt',
+      candidat: appareil('EN_STOCK', { parcPret: true }),
+      attendu: 'APPAREIL_DE_PRET',
     },
     {
       cas: 'autre modèle que celui du devis',

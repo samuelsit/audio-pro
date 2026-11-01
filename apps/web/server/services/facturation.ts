@@ -84,6 +84,7 @@ import {
   debiter,
   ecrireMouvementAccessoire,
   evenementMouvement,
+  etatAppareil,
   lireAppareil,
 } from './stock';
 import { tauxTvaDates } from './taux-tva';
@@ -530,9 +531,9 @@ async function vendreAppareils(
       },
     });
     const appareil = await lireAppareil(tx, acteur, appareilId);
-    const etat = { statut: appareil.statut, patientRattache: appareil.patientId !== null };
-    const transition = verifierTransition(etat, 'VENDU', false);
-    if (!transition.autorisee) {
+    // `verifierTransition` accepte aussi le retour d'un appareil réparé : la vente exige une réservation.
+    const transition = verifierTransition(etatAppareil(appareil), 'VENDU', false);
+    if (appareil.statut !== 'RESERVE' || !transition.autorisee) {
       throw new ErreurSaisie({}, 'Cet appareil n’est plus réservé à ce patient.');
     }
     const mouvement = {

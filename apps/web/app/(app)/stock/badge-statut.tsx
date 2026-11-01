@@ -10,6 +10,7 @@ const VARIANTES: Readonly<Record<StatutAppareil, 'default' | 'secondary' | 'outl
   VENDU: 'outline',
   SAV: 'outline',
   RETOUR_FABRICANT: 'outline',
+  REMPLACE: 'outline',
 };
 
 export function BadgeStatut({ statut }: { statut: StatutAppareil }) {

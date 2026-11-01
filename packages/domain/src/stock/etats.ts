@@ -6,6 +6,7 @@ export const STATUTS_APPAREIL = [
   'RETOUR_FABRICANT',
   'SAV',
   'PRET',
+  'REMPLACE',
 ] as const;
 export type StatutAppareil = (typeof STATUTS_APPAREIL)[number];
 
@@ -17,6 +18,7 @@ export const LIBELLES_STATUTS_APPAREIL: Readonly<Record<StatutAppareil, string>>
   RETOUR_FABRICANT: 'Retour fabricant',
   SAV: 'SAV',
   PRET: 'Prêté',
+  REMPLACE: 'Remplacé',
 };
 
 /**
@@ -25,6 +27,7 @@ export const LIBELLES_STATUTS_APPAREIL: Readonly<Record<StatutAppareil, string>>
  * VENDU depuis SAV ou RETOUR_FABRICANT rendent au patient l'appareil qu'il a acheté. EN_ESSAI → RESERVE :
  * l'achat est confirmé, l'appareil reste réservé au patient jusqu'à la facturation (ADR-013).
  * VENDU → RESERVE : un avoir total annule la vente, et l'appareil attend la nouvelle facture (ADR-028).
+ * REMPLACE est terminal : l'appareil échangé sous un autre numéro reste dans l'historique (ADR-032).
  */
 const TRANSITIONS: Readonly<Record<StatutAppareil, readonly StatutAppareil[]>> = {
   EN_STOCK: ['RESERVE', 'EN_ESSAI', 'PRET', 'SAV', 'RETOUR_FABRICANT'],
@@ -32,8 +35,9 @@ const TRANSITIONS: Readonly<Record<StatutAppareil, readonly StatutAppareil[]>> =
   EN_ESSAI: ['EN_STOCK', 'RESERVE', 'SAV'],
   PRET: ['EN_STOCK', 'SAV'],
   VENDU: ['SAV', 'RESERVE'],
-  SAV: ['RETOUR_FABRICANT', 'EN_STOCK', 'VENDU'],
-  RETOUR_FABRICANT: ['SAV', 'EN_STOCK', 'VENDU'],
+  SAV: ['RETOUR_FABRICANT', 'EN_STOCK', 'VENDU', 'REMPLACE'],
+  RETOUR_FABRICANT: ['SAV', 'EN_STOCK', 'VENDU', 'REMPLACE'],
+  REMPLACE: [],
 };
 
 const STATUTS_AVEC_PATIENT: readonly StatutAppareil[] = ['RESERVE', 'EN_ESSAI', 'PRET'];
@@ -41,10 +45,23 @@ const STATUTS_AVEC_PATIENT: readonly StatutAppareil[] = ['RESERVE', 'EN_ESSAI', 
 /** Appareil de retour de réparation : sa destination dépend du patient qui le porte. */
 const STATUTS_DE_REPARATION: readonly StatutAppareil[] = ['SAV', 'RETOUR_FABRICANT'];
 
+/** Un appareil du parc de prêt ne se réserve, ne s'essaie ni ne se vend (ADR-032). */
+const STATUTS_INTERDITS_AU_PARC: readonly StatutAppareil[] = ['RESERVE', 'EN_ESSAI', 'VENDU'];
+
+/** Le ticket, le retour fabricant et le prêt pilotent ces statuts : la fiche ne fait qu'en sortir (ADR-032). */
+const STATUTS_PILOTES_PAR_SAV: readonly StatutAppareil[] = [
+  'SAV',
+  'RETOUR_FABRICANT',
+  'PRET',
+  'REMPLACE',
+];
+
 export interface EtatAppareil {
   readonly statut: StatutAppareil;
   /** Un patient est rattaché à l'appareil. En SAV ou en retour fabricant : l'appareil lui a été vendu. */
   readonly patientRattache: boolean;
+  /** L'appareil appartient au parc de prêt de son centre. */
+  readonly parcPret: boolean;
 }
 
 export type EffetPatient = 'RATTACHER' | 'CONSERVER' | 'DETACHER';
@@ -56,6 +73,8 @@ export const CODES_REFUS_TRANSITION = [
   'APPAREIL_DU_PATIENT',
   'APPAREIL_NON_VENDU',
   'PILOTE_PAR_DOSSIER',
+  'PILOTE_PAR_SAV',
+  'APPAREIL_DE_PRET',
 ] as const;
 export type CodeRefusTransition = (typeof CODES_REFUS_TRANSITION)[number];
 
@@ -67,6 +86,8 @@ export const MESSAGES_REFUS_TRANSITION: Readonly<Record<CodeRefusTransition, str
     'Cet appareil a été vendu à un patient : il lui revient, il ne peut pas retourner en stock.',
   APPAREIL_NON_VENDU: 'Cet appareil n’a pas été vendu : il ne peut que retourner en stock.',
   PILOTE_PAR_DOSSIER: 'L’essai et la vente se pilotent depuis le dossier du patient.',
+  PILOTE_PAR_SAV: 'Le SAV, les retours fabricant et les prêts se pilotent depuis le menu SAV.',
+  APPAREIL_DE_PRET: 'Cet appareil appartient au parc de prêt : le retirer du parc d’abord.',
 };
 
 export type ResultatTransition =
@@ -82,7 +103,11 @@ function effetPatient(de: StatutAppareil, vers: StatutAppareil): EffetPatient {
     return de === 'EN_STOCK' ? 'RATTACHER' : 'CONSERVER';
   }
   // L'appareil d'essai ou de prêt en panne n'est pas celui du patient : seul un appareil vendu le garde.
-  if (vers === 'EN_STOCK' || (vers === 'SAV' && (de === 'EN_ESSAI' || de === 'PRET'))) {
+  if (
+    vers === 'EN_STOCK' ||
+    vers === 'REMPLACE' ||
+    (vers === 'SAV' && (de === 'EN_ESSAI' || de === 'PRET'))
+  ) {
     return 'DETACHER';
   }
   return 'CONSERVER';
@@ -94,12 +119,15 @@ export function verifierTransition(
   vers: StatutAppareil,
   patientFourni: boolean,
 ): ResultatTransition {
-  const { statut: de, patientRattache } = etat;
+  const { statut: de, patientRattache, parcPret } = etat;
   if (de === 'VENDU' && vers === 'EN_STOCK') {
     return refus('ANNULATION_REQUISE');
   }
   if (!TRANSITIONS[de].includes(vers)) {
     return refus('TRANSITION_INTERDITE');
+  }
+  if (parcPret && STATUTS_INTERDITS_AU_PARC.includes(vers)) {
+    return refus('APPAREIL_DE_PRET');
   }
   if (STATUTS_DE_REPARATION.includes(de)) {
     if (vers === 'EN_STOCK' && patientRattache) {
@@ -128,7 +156,12 @@ export function verifierTransitionManuelle(
     (etat.statut === 'EN_ESSAI' && vers === 'RESERVE') ||
     (etat.statut === 'RESERVE' && vers === 'VENDU') ||
     (etat.statut === 'VENDU' && vers === 'RESERVE');
-  return resultat.autorisee && pilote ? refus('PILOTE_PAR_DOSSIER') : resultat;
+  if (resultat.autorisee && pilote) {
+    return refus('PILOTE_PAR_DOSSIER');
+  }
+  return resultat.autorisee && STATUTS_PILOTES_PAR_SAV.includes(vers)
+    ? refus('PILOTE_PAR_SAV')
+    : resultat;
 }
 
 /** Statuts atteignables depuis la fiche (un patient sera demandé si le statut l'exige). */

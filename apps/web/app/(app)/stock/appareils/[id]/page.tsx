@@ -30,6 +30,7 @@ const LIBELLES_MOUVEMENT: Readonly<Record<MouvementAffiche['type'], string>> = {
   CHANGEMENT_STATUT: 'Changement de statut',
   TRANSFERT: 'Transfert',
   ANNULATION_VENTE: 'Annulation de vente',
+  ECHANGE: 'Échange',
 };
 
 const MENTION_PATIENT_MASQUE = 'Patient d’un autre centre';

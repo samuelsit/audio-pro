@@ -1319,6 +1319,7 @@ enum StatutAppareil {
   RETOUR_FABRICANT
   SAV
   PRET
+  REMPLACE
 }
 
 enum TypeMouvementAppareil {
@@ -1326,6 +1327,7 @@ enum TypeMouvementAppareil {
   CHANGEMENT_STATUT
   TRANSFERT
   ANNULATION_VENTE
+  ECHANGE
 }
 
 enum TypeMouvementAccessoire {
@@ -1354,7 +1356,8 @@ model Appareil {
   /// Forme normalisée (sans espaces, majuscules).
   numeroSerie               String                  @map("numero_serie")
   statut                    StatutAppareil          @default(EN_STOCK)
-  /// Patient rattaché : réservation, essai, prêt, vente, et SAV ou retour d'un appareil vendu.
+  /// Patient rattaché : réservation, essai, prêt, vente, et SAV ou retour d'un appareil vendu. Un appareil
+  /// `REMPLACE` n'a plus de détenteur : son historique garde le patient.
   patientId                 String?                 @map("patient_id")
   dateReception             DateTime                @map("date_reception") @db.Date
   referenceBonLivraison     String                  @map("reference_bon_livraison")
@@ -1362,6 +1365,10 @@ model Appareil {
   /// Réservé à l'ADMIN_CLIENT (lecture et saisie).
   prixAchatCentimes         Int?                    @map("prix_achat_centimes")
   enConsignation            Boolean                 @default(false) @map("en_consignation")
+  /// Appareil du parc de prêt du centre : ni réservé, ni essayé, ni vendu (ADR-032).
+  parcPret                  Boolean                 @default(false) @map("parc_pret")
+  /// Appareil qui remplace celui-ci après un échange. Renseigné si et seulement si le statut est `REMPLACE`.
+  remplaceParId             String?                 @unique @map("remplace_par_id")
   createdAt                 DateTime                @default(now()) @map("created_at")
   updatedAt                 DateTime                @updatedAt @map("updated_at")
   organisation              Organisation            @relation(fields: [organisationId], references: [id], onDelete: Restrict)
@@ -1374,6 +1381,8 @@ model Appareil {
   lignesInventaire          InventaireLigne[]
   lignesFacture             LigneFacture[]
   receptionLigne            ReceptionLigneAppareil?
+  remplacePar               Appareil?               @relation("EchangeAppareil", fields: [remplaceParId], references: [id], onDelete: Restrict)
+  remplace                  Appareil?               @relation("EchangeAppareil")
 
   @@unique([fabricantId, numeroSerie])
   @@index([organisationId, numeroSerie])

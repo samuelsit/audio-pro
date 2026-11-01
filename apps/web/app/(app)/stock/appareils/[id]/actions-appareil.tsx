@@ -31,6 +31,7 @@ const LIBELLES_ACTION: Readonly<Record<StatutAppareil, string>> = {
   RETOUR_FABRICANT: 'Retour fabricant',
   SAV: 'Passer en SAV',
   PRET: 'Prêter',
+  REMPLACE: 'Remplacer',
 };
 
 /** Depuis la réparation, VENDU rend l'appareil au patient : ce n'est pas une nouvelle vente. */
