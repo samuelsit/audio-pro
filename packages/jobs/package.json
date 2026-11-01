@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@ha/adapters": "workspace:*",
+    "@ha/caisse": "workspace:*",
     "@ha/db": "workspace:*",
     "@ha/domain": "workspace:*",
     "dotenv": "^17.2.3",

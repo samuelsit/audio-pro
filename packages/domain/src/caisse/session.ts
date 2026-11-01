@@ -85,11 +85,14 @@ export interface OuvertureAChainer {
   readonly justification: string | null;
 }
 
-export function chargeOuverture(
-  { justification, ...probant }: OuvertureAChainer,
-  hacheur: Hacheur,
-): unknown {
-  return { ...probant, justificationEmpreinte: empreinteTexte(justification, hacheur) };
+export function chargeOuverture(o: OuvertureAChainer, hacheur: Hacheur): unknown {
+  return {
+    id: o.id,
+    journee: o.journee,
+    fondCentimes: o.fondCentimes,
+    fondAttenduCentimes: o.fondAttenduCentimes,
+    justificationEmpreinte: empreinteTexte(o.justification, hacheur),
+  };
 }
 
 export interface ComptageAChainer {
@@ -103,9 +106,15 @@ export interface ComptageAChainer {
   readonly justification: string | null;
 }
 
-export function chargeComptage(
-  { justification, ...probant }: ComptageAChainer,
-  hacheur: Hacheur,
-): unknown {
-  return { ...probant, justificationEmpreinte: empreinteTexte(justification, hacheur) };
+export function chargeComptage(c: ComptageAChainer, hacheur: Hacheur): unknown {
+  return {
+    id: c.id,
+    sessionId: c.sessionId,
+    journee: c.journee,
+    compteesCentimes: c.compteesCentimes,
+    theoriqueCentimes: c.theoriqueCentimes,
+    ecartCentimes: c.ecartCentimes,
+    remiseCentimes: c.remiseCentimes,
+    justificationEmpreinte: empreinteTexte(c.justification, hacheur),
+  };
 }

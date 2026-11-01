@@ -21,6 +21,7 @@ import {
 import { withAudit } from '../audit/journal';
 import { traduireDoublon, valider } from '../erreurs';
 import { centresDuPerimetre } from '../perimetre';
+import { ajouterMaillon } from './chaine-caisse';
 
 export interface CentreDetail {
   id: string;
@@ -146,6 +147,20 @@ export async function creerCentre(acteur: UtilisateurConnecte, saisie: unknown):
   }
 }
 
+const CHAMPS_IDENTITE = ['raisonSociale', 'siret', 'rcs', 'tvaIntracommunautaire'] as const;
+
+/** Identité imprimée sur les pièces : un changement passe au journal de caisse, avec l'avant et l'après. */
+function differencesIdentite(
+  avant: Readonly<Record<(typeof CHAMPS_IDENTITE)[number], string | null>>,
+  apres: Readonly<Record<(typeof CHAMPS_IDENTITE)[number], string | null>>,
+) {
+  return CHAMPS_IDENTITE.filter((champ) => avant[champ] !== apres[champ]).map((champ) => ({
+    champ,
+    avant: avant[champ],
+    apres: apres[champ],
+  }));
+}
+
 export async function modifierCentre(
   acteur: UtilisateurConnecte,
   centreId: string,
@@ -155,13 +170,27 @@ export async function modifierCentre(
   const { id, ...avant } = await obtenirCentre(acteur, centreId);
   const donnees = valider(centreSaisieSchema, saisie);
   try {
-    await withAudit(acteur, (tx) => tx.centre.update({ where: { id }, data: donnees }), {
-      action: 'UPDATE',
-      entiteType: 'CENTRE',
-      entiteId: id,
-      centreId: id,
-      champs: differencesAuditees('CENTRE', avant, donnees),
-    });
+    await withAudit(
+      acteur,
+      async (tx) => {
+        await tx.centre.update({ where: { id }, data: donnees });
+        const identite = differencesIdentite(avant, donnees);
+        if (identite.length > 0) {
+          await ajouterMaillon(tx, acteur, {
+            centreId: id,
+            type: 'PARAMETRE_MODIFIE',
+            charge: { parametre: 'IDENTITE_ENTREPRISE', champs: identite },
+          });
+        }
+      },
+      {
+        action: 'UPDATE',
+        entiteType: 'CENTRE',
+        entiteId: id,
+        centreId: id,
+        champs: differencesAuditees('CENTRE', avant, donnees),
+      },
+    );
   } catch (erreur) {
     traduireDoublon(erreur, MESSAGES_DOUBLON, 'Ce centre existe déjà.');
   }

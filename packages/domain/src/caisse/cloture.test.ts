@@ -11,6 +11,7 @@ import {
   moisACloturer,
   moisDe,
   TOTAUX_VIDES,
+  totauxClotureSchema,
   totauxDepuisMaillons,
   VERSION_CAISSE,
   type MaillonCloture,
@@ -94,6 +95,10 @@ describe('totauxDepuisMaillons', () => {
       { taux: null, ttc: 100, ht: 100, tva: 0 },
       { taux: 550, ttc: 1_055, ht: 1_000, tva: 55 },
     ]);
+  });
+
+  it('se relit depuis la base', () => {
+    expect(totauxClotureSchema.parse(JSON.parse(JSON.stringify(totaux)))).toEqual(totaux);
   });
 
   it('une période vide donne des zéros', () => {

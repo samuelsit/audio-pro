@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@ha/adapters": "workspace:*",
+    "@ha/caisse": "workspace:*",
     "@ha/db": "workspace:*",
     "@ha/domain": "workspace:*",
     "altcha-lib": "2.8.0",

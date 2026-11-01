@@ -552,6 +552,7 @@ describe('chaînage', () => {
     await expect(verifierChaineCaisse(audio, centreA())).resolves.toEqual({
       valide: false,
       rang: 1,
+      raison: 'PIECE',
     });
   });
 
@@ -566,6 +567,7 @@ describe('chaînage', () => {
     await expect(verifierChaineCaisse(audio, centreA())).resolves.toEqual({
       valide: false,
       rang: 2,
+      raison: 'MAILLON',
     });
   });
 

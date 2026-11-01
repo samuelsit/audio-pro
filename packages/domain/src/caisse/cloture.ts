@@ -73,6 +73,23 @@ export interface TotauxCloture {
   readonly acomptesNets: number;
 }
 
+/** Totaux relus de la base, pour additionner les journées d'un mois. */
+export const totauxClotureSchema = z.object({
+  factures: z.number(),
+  avoirs: z.number(),
+  ttc: z.number(),
+  ht: z.number(),
+  tva: z.number(),
+  parTaux: z.array(
+    z.object({ taux: z.number().nullable(), ttc: z.number(), ht: z.number(), tva: z.number() }),
+  ),
+  parMode: z.array(
+    z.object({ mode: z.enum(MODES_PAIEMENT), encaisse: z.number(), rendu: z.number() }),
+  ),
+  encaissementsNets: z.number(),
+  acomptesNets: z.number(),
+}) satisfies z.ZodType<TotauxCloture>;
+
 export const TOTAUX_VIDES: TotauxCloture = {
   factures: 0,
   avoirs: 0,

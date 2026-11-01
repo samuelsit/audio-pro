@@ -13,6 +13,13 @@ export const CHAMPS_CHIFFRES: ConfigurationChampsChiffres = {
   Dossier: { surdicecite: 'dossier.surdicecite' },
   Facture: { motif: 'facture.motif' },
   Fse: { contenu: 'fse.contenu' },
+  Encaissement: {
+    partenaire: 'encaissement.partenaire',
+    reference: 'encaissement.reference',
+    motif: 'encaissement.motif',
+  },
+  SessionCaisse: { justification: 'session_caisse.justification' },
+  ComptageCaisse: { justification: 'comptage_caisse.justification' },
   TransitionDossier: { motif: 'transition_dossier.motif' },
   Prescription: { motifForcage: 'prescription.motif_forcage' },
   EssaiAppareil: { motifRetrait: 'essai_appareil.motif_retrait' },

@@ -71,6 +71,11 @@ model Organisation {
   seriesFacture         SerieFacture[]
   chainesCaisse         ChaineCaisse[]
   evenementsCaisse      EvenementCaisse[]
+  encaissements         Encaissement[]
+  sessionsCaisse        SessionCaisse[]
+  comptagesCaisse       ComptageCaisse[]
+  cloturesCaisse        ClotureCaisse[]
+  archivesCaisse        ArchiveCaisse[]
   fses                  Fse[]
   journalAudit          JournalAudit[]
   utilisateursCentres   UtilisateurCentre[]
@@ -94,6 +99,7 @@ model Organisation {
   exceptionsAgenda      ExceptionAgenda[]
   rendezVous            RendezVous[]
   evenementsDomaine     EvenementDomaine[]
+  parametresComptables  ParametresComptables[]
   parametresReservation ParametresReservation[]
   typesRdvEnLigne       TypeRdvEnLigne[]
   reservationsEnLigne   ReservationEnLigne[]
@@ -156,6 +162,12 @@ model Centre {
   serieFacture          SerieFacture?
   chaineCaisse          ChaineCaisse?
   evenementsCaisse      EvenementCaisse[]
+  encaissements         Encaissement[]
+  sessionsCaisse        SessionCaisse[]
+  comptagesCaisse       ComptageCaisse[]
+  cloturesCaisse        ClotureCaisse[]
+  archivesCaisse        ArchiveCaisse[]
+  parametresComptables  ParametresComptables?
   parametresReservation ParametresReservation?
   typesRdvEnLigne       TypeRdvEnLigne[]
   reservationsEnLigne   ReservationEnLigne[]
@@ -212,6 +224,11 @@ model Utilisateur {
   couverturesConfirmees Facture[]             @relation("CouvertureConfirmee")
   facturesValidees      Facture[]             @relation("FactureValidee")
   evenementsCaisse      EvenementCaisse[]
+  encaissements         Encaissement[]
+  sessionsCaisse        SessionCaisse[]
+  comptagesCaisse       ComptageCaisse[]
+  cloturesCaisse        ClotureCaisse[]
+  archivesCaisse        ArchiveCaisse[]
   fsesSoumises          Fse[]
   priseEnChargeSaisies  PriseEnCharge[]
   rendezVousCrees       RendezVous[]          @relation("RendezVousCreateur")
@@ -356,6 +373,7 @@ model Patient {
   dossiers              Dossier[]
   delivrances           Delivrance[]
   factures              Facture[]
+  encaissements         Encaissement[]
   liensDocument         LienDocument[]
   rendezVous            RendezVous[]
   bilansAudiologiques   BilanAudiologique[]
@@ -1203,6 +1221,7 @@ model Devis {
   emisPar               Utilisateur?    @relation("DevisEmis", fields: [emisParId], references: [id], onDelete: Restrict)
   offres                DevisOffre[]
   signature             SignatureDevis?
+  encaissements         Encaissement[]
 
   @@unique([dossierId, version])
   @@unique([organisationId, numero, version])
@@ -1425,6 +1444,35 @@ enum TypeEvenementCaisse {
   ORIGINAL_EMIS
   DUPLICATA_EMIS
   FACTURE_ENVOYEE
+  ENCAISSEMENT
+  REMBOURSEMENT
+  ANNULATION_ENCAISSEMENT
+  CAISSE_OUVERTE
+  CAISSE_COMPTEE
+  CLOTURE
+  ARCHIVAGE
+  PARAMETRE_MODIFIE
+  VERIFICATION_ECHEC
+}
+
+enum ModePaiement {
+  CB
+  ESPECES
+  CHEQUE
+  VIREMENT
+  FINANCEMENT
+}
+
+enum NatureMouvement {
+  ENCAISSEMENT
+  REMBOURSEMENT
+  ANNULATION
+}
+
+enum PorteeCloture {
+  JOUR
+  MOIS
+  EXERCICE
 }
 
 enum StatutFse {
@@ -1437,64 +1485,67 @@ enum StatutFse {
 /// Facture ou avoir d'un centre (ADR-028). Issue de `FacturePreparee` : un brouillon de dossier calcule ses
 /// lignes à la lecture, tout est figé à la validation. Lue directement : `motif` est chiffré.
 model Facture {
-  id                  String            @id @default(uuid(7))
-  organisationId      String            @map("organisation_id")
-  centreId            String            @map("centre_id")
-  patientId           String            @map("patient_id")
+  id                      String            @id @default(uuid(7))
+  organisationId          String            @map("organisation_id")
+  centreId                String            @map("centre_id")
+  patientId               String            @map("patient_id")
   /// Nul sur une vente directe.
-  dossierId           String?           @map("dossier_id")
-  nature              NaturePiece       @default(FACTURE)
-  statut              StatutFacture     @default(BROUILLON)
+  dossierId               String?           @map("dossier_id")
+  nature                  NaturePiece       @default(FACTURE)
+  statut                  StatutFacture     @default(BROUILLON)
   /// Rang dans la série du centre et numéro imprimé, attribués à la validation.
-  numeroSequence      Int?              @map("numero_sequence")
-  numero              String?
+  numeroSequence          Int?              @map("numero_sequence")
+  numero                  String?
   /// Sur un avoir : la facture reprise.
-  factureOrigineId    String?           @map("facture_origine_id")
+  factureOrigineId        String?           @map("facture_origine_id")
   /// Vente directe : la prescription ouvre le remboursement des lignes LPP (R30).
-  prescriptionId      String?           @map("prescription_id")
+  prescriptionId          String?           @map("prescription_id")
   /// Motif d'un avoir, chiffré (contexte « facture.motif ») : saisie libre.
-  motif               String?
+  motif                   String?
   /// Jour de la validation, qui vaut date de délivrance (R8, devis p. 2 § 5). Nul sur un brouillon.
-  dateFacture         DateTime?         @map("date_facture") @db.Date
+  dateFacture             DateTime?         @map("date_facture") @db.Date
   /// Taux AMO d'une vente directe remboursable, en pour cent.
-  tauxAmo             Int?              @map("taux_amo")
-  totalTtcCentimes    Int               @default(0) @map("total_ttc_centimes")
-  totalHtCentimes     Int               @default(0) @map("total_ht_centimes")
-  totalTvaCentimes    Int               @default(0) @map("total_tva_centimes")
-  totalAmoCentimes    Int               @default(0) @map("total_amo_centimes")
-  totalAmcCentimes    Int               @default(0) @map("total_amc_centimes")
-  totalResteCentimes  Int               @default(0) @map("total_reste_centimes")
+  tauxAmo                 Int?              @map("taux_amo")
+  totalTtcCentimes        Int               @default(0) @map("total_ttc_centimes")
+  totalHtCentimes         Int               @default(0) @map("total_ht_centimes")
+  totalTvaCentimes        Int               @default(0) @map("total_tva_centimes")
+  totalAmoCentimes        Int               @default(0) @map("total_amo_centimes")
+  totalAmcCentimes        Int               @default(0) @map("total_amc_centimes")
+  totalResteCentimes      Int               @default(0) @map("total_reste_centimes")
+  /// Acomptes repris à la validation (R35) : le solde reste calculé, ce montant fige la ligne du PDF.
+  acomptesDeduitsCentimes Int               @default(0) @map("acomptes_deduits_centimes")
   /// Instantanés à la validation, `vendeurFactureSchema` et `clientFactureSchema`.
-  vendeur             Json?
-  client              Json?
+  vendeur                 Json?
+  client                  Json?
   /// Clé opaque de l'original dans le DocumentStore. Seul champ posé après la validation.
-  pdfCle              String?           @unique @map("pdf_cle")
-  valideeLe           DateTime?         @map("validee_le") @db.Timestamptz(3)
-  valideeParId        String?           @map("validee_par_id")
+  pdfCle                  String?           @unique @map("pdf_cle")
+  valideeLe               DateTime?         @map("validee_le") @db.Timestamptz(3)
+  valideeParId            String?           @map("validee_par_id")
   /// Empreinte du maillon de validation dans la chaîne du centre.
-  empreinte           String?           @db.Char(64)
+  empreinte               String?           @db.Char(64)
   /// Renseignés ensemble (contrainte CHECK) : saisie de la couverture AMO confirmée.
-  amoConfirmeeLe      DateTime?         @map("amo_confirmee_le")
-  amoConfirmeeParId   String?           @map("amo_confirmee_par_id")
-  createdById         String            @map("created_by_id")
-  createdAt           DateTime          @default(now()) @map("created_at")
-  updatedAt           DateTime          @updatedAt @map("updated_at")
-  organisation        Organisation      @relation(fields: [organisationId], references: [id], onDelete: Restrict)
-  centre              Centre            @relation(fields: [centreId], references: [id], onDelete: Restrict)
-  patient             Patient           @relation(fields: [patientId], references: [id], onDelete: Restrict)
-  dossier             Dossier?          @relation(fields: [dossierId], references: [id], onDelete: Restrict)
-  prescription        Prescription?     @relation(fields: [prescriptionId], references: [id], onDelete: Restrict)
-  factureOrigine      Facture?          @relation("AvoirDeFacture", fields: [factureOrigineId], references: [id], onDelete: Restrict)
-  avoirs              Facture[]         @relation("AvoirDeFacture")
-  createdBy           Utilisateur       @relation("FactureCreee", fields: [createdById], references: [id], onDelete: Restrict)
-  amoConfirmeePar     Utilisateur?      @relation("CouvertureConfirmee", fields: [amoConfirmeeParId], references: [id], onDelete: Restrict)
-  valideePar          Utilisateur?      @relation("FactureValidee", fields: [valideeParId], references: [id], onDelete: Restrict)
-  lignes              LigneFacture[]
-  evenementsCaisse    EvenementCaisse[]
-  fse                 Fse?
-  liensDocument       LienDocument[]
-  delivrances         Delivrance[]      @relation("DelivranceFacture")
-  delivrancesAnnulees Delivrance[]      @relation("DelivranceAvoir")
+  amoConfirmeeLe          DateTime?         @map("amo_confirmee_le")
+  amoConfirmeeParId       String?           @map("amo_confirmee_par_id")
+  createdById             String            @map("created_by_id")
+  createdAt               DateTime          @default(now()) @map("created_at")
+  updatedAt               DateTime          @updatedAt @map("updated_at")
+  organisation            Organisation      @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  centre                  Centre            @relation(fields: [centreId], references: [id], onDelete: Restrict)
+  patient                 Patient           @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  dossier                 Dossier?          @relation(fields: [dossierId], references: [id], onDelete: Restrict)
+  prescription            Prescription?     @relation(fields: [prescriptionId], references: [id], onDelete: Restrict)
+  factureOrigine          Facture?          @relation("AvoirDeFacture", fields: [factureOrigineId], references: [id], onDelete: Restrict)
+  avoirs                  Facture[]         @relation("AvoirDeFacture")
+  createdBy               Utilisateur       @relation("FactureCreee", fields: [createdById], references: [id], onDelete: Restrict)
+  amoConfirmeePar         Utilisateur?      @relation("CouvertureConfirmee", fields: [amoConfirmeeParId], references: [id], onDelete: Restrict)
+  valideePar              Utilisateur?      @relation("FactureValidee", fields: [valideeParId], references: [id], onDelete: Restrict)
+  lignes                  LigneFacture[]
+  evenementsCaisse        EvenementCaisse[]
+  fse                     Fse?
+  liensDocument           LienDocument[]
+  delivrances             Delivrance[]      @relation("DelivranceFacture")
+  delivrancesAnnulees     Delivrance[]      @relation("DelivranceAvoir")
+  encaissements           Encaissement[]
 
   @@unique([centreId, numeroSequence])
   @@index([organisationId])
@@ -1579,29 +1630,215 @@ model ChaineCaisse {
   @@map("chaine_caisse")
 }
 
-/// Journal des événements de caisse et chaîne d'un centre, en ajout seul (ADR-028). L'étape 15 y ajoutera
-/// encaissements et clôtures. Aucune donnée de santé ni NIR dans `charge`.
+/// Journal des événements de caisse et chaîne d'un centre, en ajout seul (ADR-028, ADR-029). Aucune donnée de
+/// santé ni NIR dans `charge`. Format 2 : `createdAt`, `acteurId` et `centreId` entrent dans l'empreinte.
 model EvenementCaisse {
   id                  String              @id @default(uuid(7))
   organisationId      String              @map("organisation_id")
   centreId            String              @map("centre_id")
   rang                Int
+  /// 1 pour les maillons de l'étape 14, recalculés sans horodatage ni acteur.
+  format              Int                 @default(1)
   type                TypeEvenementCaisse
   factureId           String?             @map("facture_id")
   charge              Json
   empreintePrecedente String              @map("empreinte_precedente") @db.Char(64)
   empreinte           String              @db.Char(64)
-  acteurId            String              @map("acteur_id")
+  /// Nul sur une clôture, un archivage ou un échec de vérification venus d'un travail planifié (CHECK).
+  acteurId            String?             @map("acteur_id")
   createdAt           DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
   organisation        Organisation        @relation(fields: [organisationId], references: [id], onDelete: Restrict)
   centre              Centre              @relation(fields: [centreId], references: [id], onDelete: Restrict)
   facture             Facture?            @relation(fields: [factureId], references: [id], onDelete: Restrict)
-  acteur              Utilisateur         @relation(fields: [acteurId], references: [id], onDelete: Restrict)
+  acteur              Utilisateur?        @relation(fields: [acteurId], references: [id], onDelete: Restrict)
 
   @@unique([centreId, rang])
   @@index([organisationId])
   @@index([factureId])
   @@map("evenement_caisse")
+}
+
+/// Encaissement, remboursement ou annulation, en ajout seul (ADR-029). Une correction est une ligne inverse
+/// qui pointe vers `origine`. Rattaché à une facture ou, pour un acompte, à un devis signé (CHECK). `rang` et
+/// `empreinte` copient le maillon, qui reprend chaque champ probant. Lue directement : champs libres chiffrés.
+model Encaissement {
+  id              String          @id
+  organisationId  String          @map("organisation_id")
+  centreId        String          @map("centre_id")
+  patientId       String          @map("patient_id")
+  factureId       String?         @map("facture_id")
+  devisId         String?         @map("devis_id")
+  origineId       String?         @map("origine_id")
+  nature          NatureMouvement
+  mode            ModePaiement
+  montantCentimes Int             @map("montant_centimes")
+  /// Espèces seulement : remis moins rendu vaut le montant (CHECK).
+  remisCentimes   Int?            @map("remis_centimes")
+  renduCentimes   Int             @default(0) @map("rendu_centimes")
+  /// Chiffrés : saisie libre. Financement saisi à la main, partenaire et nombre d'échéances.
+  partenaire      String?
+  echeances       Int?
+  reference       String?
+  motif           String?
+  rang            Int
+  empreinte       String          @db.Char(64)
+  acteurId        String          @map("acteur_id")
+  createdAt       DateTime        @map("created_at") @db.Timestamptz(3)
+  organisation    Organisation    @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  centre          Centre          @relation(fields: [centreId], references: [id], onDelete: Restrict)
+  patient         Patient         @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  facture         Facture?        @relation(fields: [factureId], references: [id], onDelete: Restrict)
+  devis           Devis?          @relation(fields: [devisId], references: [id], onDelete: Restrict)
+  origine         Encaissement?   @relation("MouvementInverse", fields: [origineId], references: [id], onDelete: Restrict)
+  inverses        Encaissement[]  @relation("MouvementInverse")
+  acteur          Utilisateur     @relation(fields: [acteurId], references: [id], onDelete: Restrict)
+
+  @@unique([centreId, rang])
+  @@index([organisationId])
+  @@index([centreId, createdAt])
+  @@index([patientId])
+  @@index([factureId])
+  @@index([devisId])
+  @@index([origineId])
+  @@map("encaissement")
+}
+
+/// Ouverture de la caisse physique d'un centre pour une journée, en ajout seul. Distincte de la clôture fiscale.
+model SessionCaisse {
+  id                  String           @id
+  organisationId      String           @map("organisation_id")
+  centreId            String           @map("centre_id")
+  journee             DateTime         @db.Date
+  fondCentimes        Int              @map("fond_centimes")
+  /// Ce qui restait au tiroir à la dernière fermeture.
+  fondAttenduCentimes Int              @map("fond_attendu_centimes")
+  /// Chiffrée : saisie libre, obligatoire si le fond diffère de celui attendu.
+  justification       String?
+  rang                Int
+  empreinte           String           @db.Char(64)
+  acteurId            String           @map("acteur_id")
+  createdAt           DateTime         @map("created_at") @db.Timestamptz(3)
+  organisation        Organisation     @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  centre              Centre           @relation(fields: [centreId], references: [id], onDelete: Restrict)
+  acteur              Utilisateur      @relation(fields: [acteurId], references: [id], onDelete: Restrict)
+  comptages           ComptageCaisse[]
+
+  @@unique([centreId, journee])
+  @@unique([centreId, rang])
+  @@index([organisationId])
+  @@map("session_caisse")
+}
+
+/// Comptage des espèces, en ajout seul : on peut recompter, le dernier fait foi.
+model ComptageCaisse {
+  id                String        @id
+  organisationId    String        @map("organisation_id")
+  centreId          String        @map("centre_id")
+  sessionId         String        @map("session_id")
+  compteesCentimes  Int           @map("comptees_centimes")
+  theoriqueCentimes Int           @map("theorique_centimes")
+  ecartCentimes     Int           @map("ecart_centimes")
+  /// Sorti du tiroir pour la banque : le fond attendu du lendemain en tient compte.
+  remiseCentimes    Int           @default(0) @map("remise_centimes")
+  /// Chiffrée : saisie libre, obligatoire si l'écart n'est pas nul (CHECK).
+  justification     String?
+  rang              Int
+  empreinte         String        @db.Char(64)
+  acteurId          String        @map("acteur_id")
+  createdAt         DateTime      @map("created_at") @db.Timestamptz(3)
+  organisation      Organisation  @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  centre            Centre        @relation(fields: [centreId], references: [id], onDelete: Restrict)
+  session           SessionCaisse @relation(fields: [sessionId], references: [id], onDelete: Restrict)
+  acteur            Utilisateur   @relation(fields: [acteurId], references: [id], onDelete: Restrict)
+
+  @@unique([centreId, rang])
+  @@index([organisationId])
+  @@index([sessionId])
+  @@map("comptage_caisse")
+}
+
+/// Clôture journalière, mensuelle ou annuelle d'un centre, en ajout seul et signée (ADR-029). Elle couvre une plage
+/// de rangs : rien n'est compté deux fois ni oublié. `signature` porte sur l'empreinte du maillon de clôture.
+model ClotureCaisse {
+  id                        String        @id
+  organisationId            String        @map("organisation_id")
+  centreId                  String        @map("centre_id")
+  portee                    PorteeCloture
+  debut                     DateTime      @db.Date
+  fin                       DateTime      @db.Date
+  rangDebut                 Int           @map("rang_debut")
+  rangFin                   Int           @map("rang_fin")
+  /// `TotauxCloture` : par mode de paiement et par taux de TVA.
+  totaux                    Json
+  grandTotalCentimes        BigInt        @map("grand_total_centimes")
+  perpetuelCentimes         BigInt        @map("perpetuel_centimes")
+  encaissePerpetuelCentimes BigInt        @map("encaisse_perpetuel_centimes")
+  versionCaisse             String        @map("version_caisse")
+  rang                      Int
+  empreinte                 String        @db.Char(64)
+  signature                 String
+  cleId                     String        @map("cle_id")
+  /// Nul : clôture du travail de nuit.
+  acteurId                  String?       @map("acteur_id")
+  createdAt                 DateTime      @map("created_at") @db.Timestamptz(3)
+  organisation              Organisation  @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  centre                    Centre        @relation(fields: [centreId], references: [id], onDelete: Restrict)
+  acteur                    Utilisateur?  @relation(fields: [acteurId], references: [id], onDelete: Restrict)
+
+  @@unique([centreId, portee, debut])
+  @@unique([centreId, rang])
+  @@index([organisationId])
+  @@map("cloture_caisse")
+}
+
+/// Archive périodique d'un centre, en ajout seul et signée. `empreinteContenu` porte sur le fichier en clair : le
+/// DocumentStore le chiffre avec un IV aléatoire. Aucune purge à l'étape 15.
+model ArchiveCaisse {
+  id               String       @id
+  organisationId   String       @map("organisation_id")
+  centreId         String       @map("centre_id")
+  debut            DateTime     @db.Date
+  fin              DateTime     @db.Date
+  rangDebut        Int          @map("rang_debut")
+  rangFin          Int          @map("rang_fin")
+  /// Clé opaque dans le DocumentStore.
+  cle              String       @unique
+  tailleOctets     Int          @map("taille_octets")
+  empreinteContenu String       @map("empreinte_contenu") @db.Char(64)
+  versionCaisse    String       @map("version_caisse")
+  rang             Int
+  empreinte        String       @db.Char(64)
+  signature        String
+  cleId            String       @map("cle_id")
+  acteurId         String?      @map("acteur_id")
+  createdAt        DateTime     @map("created_at") @db.Timestamptz(3)
+  organisation     Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  centre           Centre       @relation(fields: [centreId], references: [id], onDelete: Restrict)
+  acteur           Utilisateur? @relation(fields: [acteurId], references: [id], onDelete: Restrict)
+
+  @@unique([centreId, debut, fin])
+  @@unique([centreId, rang])
+  @@index([organisationId])
+  @@map("archive_caisse")
+}
+
+/// Plan de comptes et profil d'export d'un centre. Sans ligne, les valeurs par défaut s'appliquent. Un changement
+/// passe au journal de caisse, avec l'avant et l'après.
+model ParametresComptables {
+  centreId            String       @id @map("centre_id")
+  organisationId      String       @map("organisation_id")
+  /// `parametresComptablesSchema`.
+  comptes             Json
+  /// `profilExportSchema`.
+  profil              Json
+  /// Dernier mois de l'exercice : 12 pour une année civile.
+  moisClotureExercice Int          @default(12) @map("mois_cloture_exercice")
+  updatedAt           DateTime     @updatedAt @map("updated_at")
+  organisation        Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  centre              Centre       @relation(fields: [centreId], references: [id], onDelete: Restrict)
+
+  @@index([organisationId])
+  @@map("parametres_comptables")
 }
 
 /// FSE préparée depuis une facture validée. Le contenu porte le NIR : chiffré (contexte « fse.contenu »).

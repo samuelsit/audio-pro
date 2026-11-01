@@ -1,4 +1,7 @@
+import { FakeClock } from '@ha/adapters';
+import { archiverCentre, cloturerCentre } from '@ha/caisse';
 import { prisma } from '@ha/db/admin';
+import { PARAMETRES_COMPTABLES_DEFAUT, PROFIL_ECRITURES_DEFAUT } from '@ha/domain';
 
 import { base } from '@/server/chiffrement';
 import { documents } from '@/server/documents';
@@ -9,6 +12,9 @@ import {
   enregistrerOtoscopie,
   enregistrerTonale,
 } from '@/server/services/audiologie';
+import { compterCaisse, ouvrirCaisse } from '@/server/services/caisse';
+import { depsCaisse } from '@/server/services/chaine-caisse';
+import { encaisserFacture } from '@/server/services/encaissements';
 import { enregistrerPec } from '@/server/services/factures';
 import { aujourdhui } from '@/server/services/patients';
 
@@ -247,6 +253,33 @@ export async function creerClientComplet(suffixe: string) {
   await confirmerCouvertureVente(audio, venteId);
   await validerFacture(audio, venteId);
   await preparerFse(audio, venteId);
+  await ouvrirCaisse(audio, d.centres.a.id, { fond: '10', justification: '' });
+  await encaisserFacture(audio, venteId, {
+    mode: 'ESPECES',
+    montant: '1,00',
+    remis: '',
+    reference: '',
+    partenaire: '',
+    echeances: '',
+  });
+  await compterCaisse(audio, d.centres.a.id, {
+    comptees: '11',
+    remiseBanque: '',
+    justification: '',
+  });
+  // Un mois plus tard : la journée et le mois se clôturent, le mois s'archive.
+  const plusTard = new FakeClock(new Date(Date.now() + 45 * 86_400_000).toISOString());
+  const depsPlusTard = { ...depsCaisse(audio), horloge: plusTard };
+  await cloturerCentre(depsPlusTard, d.centres.a.id);
+  await archiverCentre(depsPlusTard, documents(), d.centres.a.id);
+  await prisma().parametresComptables.create({
+    data: {
+      centreId: d.centres.a.id,
+      organisationId,
+      comptes: { ...PARAMETRES_COMPTABLES_DEFAUT },
+      profil: { ...PROFIL_ECRITURES_DEFAUT },
+    },
+  });
   const inventaire = await prisma().inventaire.create({
     data: { organisationId, centreId: d.centres.a.id, ouvertParId: utilisateurId },
   });

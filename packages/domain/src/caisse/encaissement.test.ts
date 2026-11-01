@@ -206,6 +206,11 @@ describe('chargeMouvement', () => {
     expect(JSON.stringify(chargeMouvement(mouvement, HACHEUR))).not.toContain('"Motif libre"');
   });
 
+  it('ignore les colonnes qui ne sont pas probantes', () => {
+    const ligneEnBase = { ...mouvement, createdAt: 'x', organisationId: 'o', rang: 3 };
+    expect(chargeMouvement(ligneEnBase, HACHEUR)).toEqual(chargeMouvement(mouvement, HACHEUR));
+  });
+
   it('laisse nul un texte absent', () => {
     expect(empreinteTexte(null, HACHEUR)).toBeNull();
   });

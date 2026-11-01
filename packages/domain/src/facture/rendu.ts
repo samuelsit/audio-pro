@@ -40,6 +40,8 @@ export interface VueFacture {
     readonly amc: Centimes;
     readonly resteACharge: Centimes;
   };
+  /** Acomptes repris à la validation (R35). */
+  readonly acomptesDeduits?: Centimes;
   /** Sur un avoir : numéro et date de la facture reprise, et motif. */
   readonly origine: {
     readonly numero: string;
@@ -183,6 +185,11 @@ ${origine === null ? '' : `<p>Avoir sur la facture n° ${echapperHtml(origine.nu
     <tr><td>Part AMO</td><td class="n">${euros(totaux.amo)}</td></tr>
     <tr><td>Part AMC</td><td class="n">${euros(totaux.amc)}</td></tr>
     <tr class="fort"><td>Reste à charge</td><td class="n">${euros(totaux.resteACharge)}</td></tr>
+    ${
+      vue.acomptesDeduits
+        ? `<tr><td>Acomptes déduits</td><td class="n">${euros(vue.acomptesDeduits)}</td></tr>`
+        : ''
+    }
   </tbody>
 </table>
 <div class="mentions">${garantie(vue)}</div>

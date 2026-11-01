@@ -2,7 +2,13 @@ import { z } from 'zod';
 
 import { NATURES_LIGNE_FACTURE, NATURES_PIECE, type NatureLigneFacture } from '../facture/types';
 import type { TypeEvenementCaisse } from '../facture/chaine';
-import { MODES_PAIEMENT, NATURES_MOUVEMENT, type ModePaiement } from './encaissement';
+import {
+  LIBELLES_MODES_PAIEMENT,
+  LIBELLES_NATURES_MOUVEMENT,
+  MODES_PAIEMENT,
+  NATURES_MOUVEMENT,
+  type ModePaiement,
+} from './encaissement';
 
 const compteSchema = z
   .string({ error: 'Compte obligatoire.' })
@@ -174,7 +180,7 @@ function ecritureMouvement(maillon: MaillonComptable, p: ParametresComptables): 
     journalLibelle: p.journalTresorerieLibelle,
     date: maillon.date,
     pieceRef: `E-${String(maillon.rang)}`,
-    libelle: `${devisId === null ? 'Règlement' : 'Acompte'} ${nature.toLowerCase()} ${mode}`,
+    libelle: `${LIBELLES_NATURES_MOUVEMENT[nature]}${devisId === null ? '' : ' d’acompte'}, ${LIBELLES_MODES_PAIEMENT[mode]}`,
     lignes: [
       ligne(p.tresorerie[mode], signe * montantCentimes),
       ligne(devisId === null ? p.compteClients : p.compteAcomptes, -signe * montantCentimes),

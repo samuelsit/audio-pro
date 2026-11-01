@@ -207,13 +207,22 @@ export interface MouvementAChainer {
 }
 
 /** Charge d'un maillon d'encaissement, recalculée à la vérification depuis la ligne elle-même. */
-export function chargeMouvement(mouvement: MouvementAChainer, hacheur: Hacheur): unknown {
-  const { reference, motif, partenaire, ...probant } = mouvement;
+export function chargeMouvement(m: MouvementAChainer, hacheur: Hacheur): unknown {
   return {
-    ...probant,
-    partenaireEmpreinte: empreinteTexte(partenaire, hacheur),
-    referenceEmpreinte: empreinteTexte(reference, hacheur),
-    motifEmpreinte: empreinteTexte(motif, hacheur),
+    id: m.id,
+    nature: m.nature,
+    origineId: m.origineId,
+    factureId: m.factureId,
+    devisId: m.devisId,
+    patientId: m.patientId,
+    mode: m.mode,
+    montantCentimes: m.montantCentimes,
+    remisCentimes: m.remisCentimes,
+    renduCentimes: m.renduCentimes,
+    echeances: m.echeances,
+    partenaireEmpreinte: empreinteTexte(m.partenaire, hacheur),
+    referenceEmpreinte: empreinteTexte(m.reference, hacheur),
+    motifEmpreinte: empreinteTexte(m.motif, hacheur),
   };
 }
 

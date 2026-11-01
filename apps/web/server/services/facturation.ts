@@ -1,7 +1,10 @@
 import { randomUUID } from 'node:crypto';
 
+import { verrouillerTete } from '@ha/caisse';
 import type { Prisma } from '@ha/db';
 import {
+  acomptesADeduire,
+  encaisseNet,
   adresseDuCanal,
   calculerPagination,
   canauxDisponibles,
@@ -52,7 +55,7 @@ import { documents } from '../documents';
 import { ErreurSaisie, valider } from '../erreurs';
 import { rendeurPdf } from '../pdf';
 import { centresDuPerimetre } from '../perimetre';
-import { ajouterMaillon, chargeDepuisBase } from './chaine-caisse';
+import { ajouterMaillon, chargeDepuisBase, txCaisse } from './chaine-caisse';
 import {
   appliquerTransition,
   depuisDate,
@@ -472,6 +475,15 @@ export function evenementPiece(
 
 // --- Validation -----------------------------------------------------------------------------------
 
+/** Acomptes nets pris sur les devis d'un dossier. */
+async function acomptesNetsDuDossier(tx: ClientTransaction, dossierId: string): Promise<number> {
+  const mouvements = await tx.encaissement.findMany({
+    where: { devis: { dossierId } },
+    select: { nature: true, montantCentimes: true },
+  });
+  return encaisseNet(mouvements);
+}
+
 /** Effets de la vente d'un dossier : délivrance par oreille, appareils `VENDU`, fin du lien d'essai. */
 async function vendreAppareils(
   tx: ClientTransaction,
@@ -619,10 +631,17 @@ export async function validerFacture(
       const lignes = contenu.lignes.map((l, index) => versDonneesLigne(factureId, l, index + 1));
       await tx.ligneFacture.createMany({ data: lignes });
       const totaux = totauxEnBase(contenu);
+      const acomptesDeduitsCentimes = lue.dossierId
+        ? acomptesADeduire(
+            await acomptesNetsDuDossier(tx, lue.dossierId),
+            totaux.totalResteCentimes,
+          )
+        : 0;
       const charge = chargeDepuisBase(
         {
           ...lue,
           ...totaux,
+          acomptesDeduitsCentimes,
           numero,
           numeroSequence,
           dateFacture: jour,
@@ -630,7 +649,7 @@ export async function validerFacture(
         },
         lignes,
       );
-      const empreinte = await ajouterMaillon(tx, acteur, {
+      const { empreinte, horodatage } = await ajouterMaillon(tx, acteur, {
         centreId: lue.centreId,
         type: 'FACTURE_VALIDEE',
         factureId,
@@ -640,13 +659,14 @@ export async function validerFacture(
         where: { id: factureId },
         data: {
           ...totaux,
+          acomptesDeduitsCentimes,
           statut: 'VALIDEE',
           numero,
           numeroSequence,
           dateFacture: versDate(jour),
           vendeur: versVendeur(centre),
           client: versClient(patient),
-          valideeLe: new Date(),
+          valideeLe: horodatage,
           valideeParId: acteur.id,
           empreinte,
         },
@@ -695,6 +715,7 @@ async function lireVue(client: Client, factureId: string): Promise<VueFacture> {
       amc: centimes(piece.totalAmcCentimes),
       resteACharge: centimes(piece.totalResteCentimes),
     },
+    acomptesDeduits: centimes(piece.acomptesDeduitsCentimes),
     lignes: lignes.map((l) => ({
       nature: l.nature,
       libelle: l.libelle,
@@ -761,6 +782,8 @@ export async function enregistrerSortie(
   numero: string,
   extra: readonly TypeEvenementCaisse[] = [],
 ): Promise<{ duplicata: boolean }> {
+  // Sous le verrou : deux premières sorties simultanées ne font pas deux originaux.
+  await verrouillerTete(txCaisse(tx), acteur.organisationId, facture.centreId);
   const dejaSortie = await tx.evenementCaisse.count({
     where: { factureId: facture.id, type: 'ORIGINAL_EMIS' },
   });
@@ -1119,12 +1142,26 @@ export async function modifierPrefixeSerie(
   const { prefixe } = valider(prefixeSerieSchema, saisie);
   await withAudit(
     acteur,
-    (tx) =>
-      tx.serieFacture.upsert({
+    async (tx) => {
+      const avant = await tx.serieFacture.findUnique({
+        where: { centreId },
+        select: { prefixe: true },
+      });
+      await tx.serieFacture.upsert({
         where: { centreId },
         create: { centreId, organisationId: acteur.organisationId, prefixe },
         update: { prefixe },
-      }),
+      });
+      await ajouterMaillon(tx, acteur, {
+        centreId,
+        type: 'PARAMETRE_MODIFIE',
+        charge: {
+          parametre: 'PREFIXE_SERIE',
+          avant: avant?.prefixe ?? PREFIXE_SERIE_DEFAUT,
+          apres: prefixe,
+        },
+      });
+    },
     () => ({
       action: 'UPDATE',
       entiteType: 'SERIE_FACTURE',

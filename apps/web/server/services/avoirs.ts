@@ -248,7 +248,7 @@ export async function emettreAvoir(
         },
         lignes,
       );
-      const empreinte = await ajouterMaillon(tx, acteur, {
+      const { empreinte, horodatage } = await ajouterMaillon(tx, acteur, {
         centreId: facture.centreId,
         type: 'AVOIR_VALIDE',
         factureId: id,
@@ -264,7 +264,7 @@ export async function emettreAvoir(
           dateFacture: versDate(jour),
           vendeur: piece.vendeur ?? {},
           client: piece.client ?? {},
-          valideeLe: new Date(),
+          valideeLe: horodatage,
           valideeParId: acteur.id,
           empreinte,
         },
