@@ -17,6 +17,7 @@ export * from './devis';
 export * from './dossier';
 export * from './essai';
 export * from './facture';
+export * from './factures-fournisseurs';
 export * from './lpp';
 export * from './money';
 export * from './lien-document';

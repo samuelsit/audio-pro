@@ -17,6 +17,8 @@ export const CHAMPS_CHIFFRES: ConfigurationChampsChiffres = {
   },
   EcartAchat: { commentaire: 'ecart_achat.commentaire' },
   Facture: { motif: 'facture.motif' },
+  FactureFournisseur: { motifRejet: 'facture_fournisseur.motif_rejet' },
+  FactureFournisseurLigne: { designation: 'facture_fournisseur_ligne.designation' },
   Fse: { contenu: 'fse.contenu' },
   Encaissement: {
     partenaire: 'encaissement.partenaire',

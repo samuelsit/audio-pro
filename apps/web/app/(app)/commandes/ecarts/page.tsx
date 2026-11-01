@@ -54,6 +54,20 @@ const COLONNES: readonly Colonne<EcartListe>[] = [
         '—'
       ),
   },
+  {
+    libelle: 'Facture',
+    rendu: (e) =>
+      e.factureFournisseurId ? (
+        <Link
+          href={`/commandes/factures/${e.factureFournisseurId}`}
+          className="underline-offset-4 hover:underline"
+        >
+          {e.facture}
+        </Link>
+      ) : (
+        '—'
+      ),
+  },
   { libelle: 'Centre', rendu: (e) => e.centre },
   { libelle: 'Constat', rendu: constat },
   { libelle: 'Commentaire', rendu: (e) => e.commentaire ?? '—' },

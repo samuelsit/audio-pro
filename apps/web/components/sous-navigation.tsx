@@ -56,6 +56,7 @@ export const LIENS_TIERS_PAYANT: readonly LienSousNavigation[] = [
 
 export const LIENS_COMMANDES: readonly LienSousNavigation[] = [
   { href: '/commandes', libelle: 'Commandes' },
+  { href: '/commandes/factures', libelle: 'Factures' },
   { href: '/commandes/ecarts', libelle: 'Écarts' },
 ];
 

@@ -88,6 +88,35 @@ async function ecrireEcarts(
   return ecarts;
 }
 
+/** Une facture peut précéder la livraison : ce que la livraison explique n'est plus un écart. */
+async function leverEcartsDeFacture(
+  tx: ClientTransaction,
+  acteur: UtilisateurConnecte,
+  ligne: { id: string; quantiteRecue: number; quantiteFacturee: number },
+  appareils: readonly { numeroSerie: string }[],
+): Promise<void> {
+  const traitement = {
+    statut: 'RESOLU' as const,
+    traiteParId: acteur.id,
+    traiteLe: new Date(horloge.now()),
+  };
+  if (ligne.quantiteFacturee <= ligne.quantiteRecue) {
+    await tx.ecartAchat.updateMany({
+      where: { commandeLigneId: ligne.id, type: 'QUANTITE_FACTUREE', statut: 'OUVERT' },
+      data: traitement,
+    });
+  }
+  await tx.ecartAchat.updateMany({
+    where: {
+      commandeLigneId: ligne.id,
+      type: 'SERIE_INCONNUE',
+      statut: 'OUVERT',
+      numeroSerie: { in: appareils.map((a) => a.numeroSerie) },
+    },
+    data: traitement,
+  });
+}
+
 /**
  * Pointe une livraison, ligne à ligne, dans une seule transaction : un numéro de série refusé annule tout. Un
  * produit non conforme n'entre pas en stock ; un surplus y entre, l'écart se traite ensuite.
@@ -174,6 +203,7 @@ export async function pointerReception(
         const suivie = lignes.find((l) => l.id === ligne.id);
         if (suivie) {
           suivie.quantiteRecue += quantite;
+          await leverEcartsDeFacture(tx, acteur, suivie, crees);
         }
       }
       const statut = await appliquerStatut(tx, commandeId, commande.statut, lignes);

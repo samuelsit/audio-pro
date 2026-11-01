@@ -7,8 +7,10 @@ import {
   chargerTrousseau,
   ChiffreurAesGcm,
   DocumentStoreChiffre,
+  FakeBoiteFactures,
   FakeNotifier,
   HacheurSha256,
+  PdfTexteExtracteurFacture,
   S3DocumentStore,
   SignatureLienCommande,
   SignatureLienDocument,
@@ -25,6 +27,7 @@ import { repartirDiffusion, travailDiffusion } from './travaux/diffuser-evenemen
 import { repartirEnvois, travailEnvoi } from './travaux/envoyer-notifications';
 import { repartirPurgeLiens, travailPurgeLiensDocument } from './travaux/purger-liens-document';
 import { repartirRelances, travailRelanceCommandes } from './travaux/relancer-commandes';
+import { repartirReleve, travailReleveFactures } from './travaux/relever-factures';
 import {
   purgerLimitations,
   repartirPurge,
@@ -124,6 +127,25 @@ await file.ecouter(relanceCommandes);
 await file.planifierTransverse('repartir-relances-commandes', '23 * * * *', () =>
   repartirRelances(file, relanceCommandes),
 );
+
+// À VÉRIFIER : aucun fournisseur d'e-mail entrant n'est retenu, docs/vendor n'en documente aucun. D'ici là, seul le
+// dépôt à l'écran fait entrer des factures ; la simulation sert au développement.
+if (
+  process.env.BOITE_FACTURES === 'simulation' &&
+  process.env.NODE_ENV !== 'production' &&
+  documentsChiffres
+) {
+  const releve = travailReleveFactures({
+    boite: new FakeBoiteFactures(),
+    extracteur: new PdfTexteExtracteurFacture(),
+    documents: documentsChiffres,
+  });
+  await file.declarer(releve);
+  await file.ecouter(releve);
+  await file.planifierTransverse('repartir-releve-factures', '*/15 * * * *', () =>
+    repartirReleve(file, releve),
+  );
+}
 
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, () => {

@@ -21,6 +21,10 @@ import {
   soumettreCommande,
 } from '@/server/services/commandes';
 import { transmettreCommande } from '@/server/services/envoi-commandes';
+import {
+  deposerFacture,
+  modifierFactureFournisseur,
+} from '@/server/services/factures-fournisseurs';
 import { pointerReception } from '@/server/services/reception-commande';
 import { depsCaisse } from '@/server/services/chaine-caisse';
 import { encaisserFacture } from '@/server/services/encaissements';
@@ -413,6 +417,13 @@ export async function creerClientComplet(suffixe: string) {
     where: { organisationId },
     select: { id: true },
   });
+  const factureFournisseurId = await deposerFacture(
+    d.acteurs.admin,
+    Buffer.from(`%PDF-1.7 fictif${suffixe}`),
+  );
+  await modifierFactureFournisseur(d.acteurs.admin, factureFournisseurId, {
+    lignes: [{ designation: 'Ligne fictive', quantite: '1', prixUnitaireCentimes: '10,00' }],
+  });
 
   return {
     d,
@@ -429,6 +440,7 @@ export async function creerClientComplet(suffixe: string) {
     commandeId,
     commandeRecueId,
     ecartId,
+    factureFournisseurId,
     cabineId,
     venteId,
     complementaireId,

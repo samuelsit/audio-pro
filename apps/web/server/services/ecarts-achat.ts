@@ -34,6 +34,8 @@ export interface EcartListe {
   centre: string;
   commandeId: string | null;
   commande: string | null;
+  factureFournisseurId: string | null;
+  facture: string | null;
   quantiteAttendue: number | null;
   quantiteConstatee: number | null;
   montantAttenduCentimes: number | null;
@@ -83,6 +85,7 @@ export async function listerEcarts(
       type: true,
       statut: true,
       commandeId: true,
+      factureFournisseurId: true,
       quantiteAttendue: true,
       quantiteConstatee: true,
       montantAttenduCentimes: true,
@@ -92,6 +95,7 @@ export async function listerEcarts(
       createdAt: true,
       centre: { select: { nom: true } },
       commande: { select: { numero: true } },
+      factureFournisseur: { select: { numero: true } },
     },
   });
   return {
@@ -99,6 +103,7 @@ export async function listerEcarts(
       ...l,
       centre: l.centre.nom,
       commande: l.commande?.numero ?? null,
+      facture: l.factureFournisseur?.numero ?? null,
     })),
     pagination,
     filtre,
@@ -118,7 +123,13 @@ export async function traiterEcart(
     async (tx) => {
       const ecart = await tx.ecartAchat.findFirst({
         where: { id: ecartId, organisationId: acteur.organisationId },
-        select: { statut: true, centreId: true, type: true },
+        select: {
+          statut: true,
+          centreId: true,
+          type: true,
+          commandeLigneId: true,
+          montantConstateCentimes: true,
+        },
       });
       if (!ecart) {
         throw new AccesRefuseError();
@@ -131,14 +142,26 @@ export async function traiterEcart(
         where: { id: ecartId },
         data: { statut, commentaire, traiteParId: acteur.id, traiteLe: new Date(horloge.now()) },
       });
-      return ecart;
+      // Un écart de prix accepté dit le vrai coût : la valeur du stock doit le refléter.
+      const { commandeLigneId, montantConstateCentimes } = ecart;
+      const { count } =
+        statut === 'ACCEPTE' &&
+        ecart.type === 'PRIX' &&
+        commandeLigneId !== null &&
+        montantConstateCentimes !== null
+          ? await tx.appareil.updateMany({
+              where: { receptionLigne: { receptionLigne: { commandeLigneId } } },
+              data: { prixAchatCentimes: montantConstateCentimes },
+            })
+          : { count: 0 };
+      return { ...ecart, appareilsCorriges: count };
     },
-    (ecart) => ({
+    ({ centreId, type, appareilsCorriges }) => ({
       action: 'UPDATE',
       entiteType: 'ECART_ACHAT',
       entiteId: ecartId,
-      centreId: ecart.centreId,
-      details: { type: ecart.type, statut },
+      centreId,
+      details: { type, statut, appareilsCorriges },
     }),
   );
 }

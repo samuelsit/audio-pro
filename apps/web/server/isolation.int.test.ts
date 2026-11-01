@@ -50,6 +50,10 @@ import { changerActivationPrescripteur, obtenirPrescripteur } from './services/p
 import { obtenirCommande, produitsDuFournisseur, soumettreCommande } from './services/commandes';
 import { modifierFournisseur, obtenirCentrale, obtenirFournisseur } from './services/fournisseurs';
 import { telechargerBon } from './services/envoi-commandes';
+import {
+  obtenirFactureFournisseur,
+  telechargerFactureFournisseur,
+} from './services/factures-fournisseurs';
 import { traiterEcart } from './services/ecarts-achat';
 import { obtenirRegleCommande } from './services/regles-commande';
 import { changerStatut, historiqueAccessoire, obtenirFicheAppareil } from './services/stock';
@@ -86,6 +90,8 @@ const TABLES_ISOLEES = [
   'fabricant',
   'facture',
   'ecart_achat',
+  'facture_fournisseur',
+  'facture_fournisseur_ligne',
   'fournisseur',
   'fournisseur_compte_centre',
   'fournisseur_contact',
@@ -548,6 +554,14 @@ describe('identifiant d’un autre client forcé dans l’URL', () => {
     { entite: 'commande', appel: (x, c) => obtenirCommande(x, c.commandeId) },
     { entite: 'soumission de commande', appel: (x, c) => soumettreCommande(x, c.commandeId) },
     { entite: 'bon de commande', appel: (x, c) => telechargerBon(x, c.commandeId) },
+    {
+      entite: 'facture fournisseur',
+      appel: (x, c) => obtenirFactureFournisseur(x, c.factureFournisseurId),
+    },
+    {
+      entite: 'PDF d’une facture fournisseur',
+      appel: (x, c) => telechargerFactureFournisseur(x, c.factureFournisseurId),
+    },
     {
       entite: 'traitement d’un écart',
       appel: (x, c) => traiterEcart(x, c.ecartId, { statut: 'RESOLU', commentaire: 'Forcé' }),

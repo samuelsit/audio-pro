@@ -48,6 +48,7 @@ const nextConfig: NextConfig = {
     '@prisma/adapter-pg',
     'pg',
     '@aws-sdk/client-s3',
+    'pdfjs-dist',
     'playwright-core',
   ],
   // Un scan d'ordonnance va jusqu'à 10 Mo (TAILLE_MAX_DOCUMENT_OCTETS), le reste du formulaire en plus.

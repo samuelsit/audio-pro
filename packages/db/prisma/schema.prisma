@@ -36,101 +36,103 @@ enum StatutOrganisation {
 
 /// Un client : réseau de centres ou centre indépendant. Chaque donnée métier lui est rattachée (ADR-016).
 model Organisation {
-  id                      String                    @id @default(uuid(7))
-  raisonSociale           String                    @map("raison_sociale")
+  id                       String                    @id @default(uuid(7))
+  raisonSociale            String                    @map("raison_sociale")
   /// Vide pour une organisation antérieure au SaaS ; exigé à la création depuis la console.
-  siren                   String?                   @unique @db.Char(9)
+  siren                    String?                   @unique @db.Char(9)
   /// Segment client de l'URL publique de réservation (`/rdv/<slug>/<centre>`).
-  slug                    String                    @unique @default(dbgenerated("slug_provisoire()"))
-  adresseLigne1           String?                   @map("adresse_ligne1")
-  adresseLigne2           String?                   @map("adresse_ligne2")
-  codePostal              String?                   @map("code_postal")
-  ville                   String?
-  statut                  StatutOrganisation        @default(ESSAI)
-  parametres              Json                      @default("{}")
-  createdAt               DateTime                  @default(now()) @map("created_at")
-  updatedAt               DateTime                  @updatedAt @map("updated_at")
-  centres                 Centre[]
-  utilisateurs            Utilisateur[]
-  patients                Patient[]
-  lecturesVitale          LectureVitale[]
-  fabricants              Fabricant[]
-  centralesAchat          CentraleAchat[]
-  fournisseurs            Fournisseur[]
-  fournisseurContacts     FournisseurContact[]
-  fournisseurComptes      FournisseurCompteCentre[]
-  parametresCommande      ParametresCommande?
-  reglesCommande          RegleCommande[]
-  compteursCommande       CompteurCommande[]
-  commandes               Commande[]
-  lignesCommande          CommandeLigne[]
-  modeles                 ModeleAideAuditive[]
-  accessoires             Accessoire[]
-  prescripteurs           Prescripteur[]
-  appareils               Appareil[]
-  mouvementsAppareil      MouvementAppareil[]
-  mouvementsAccessoire    MouvementAccessoire[]
-  dossiers                Dossier[]
-  delivrances             Delivrance[]
-  devis                   Devis[]
-  compteursDevis          CompteurDevis[]
-  essais                  Essai[]
-  factures                Facture[]
-  lignesFacture           LigneFacture[]
-  seriesFacture           SerieFacture[]
-  chainesCaisse           ChaineCaisse[]
-  evenementsCaisse        EvenementCaisse[]
-  encaissements           Encaissement[]
-  complementaires         Complementaire[]
-  creances                Creance[]
-  reglementsOrganismes    ReglementOrganisme[]
-  lettrages               Lettrage[]
-  regularisations         RegularisationCreance[]
-  rejetsCreances          RejetCreance[]
-  sessionsCaisse          SessionCaisse[]
-  comptagesCaisse         ComptageCaisse[]
-  cloturesCaisse          ClotureCaisse[]
-  archivesCaisse          ArchiveCaisse[]
-  fses                    Fse[]
-  journalAudit            JournalAudit[]
-  utilisateursCentres     UtilisateurCentre[]
-  praticiens              Praticien[]
-  praticiensCentres       PraticienCentre[]
-  couverturesAmo          CouvertureAmo[]
-  couverturesAmc          CouvertureAmc[]
-  modelesCodesLpp         ModeleCodeLpp[]
-  stocksAccessoires       StockAccessoire[]
-  transitionsDossier      TransitionDossier[]
-  prescriptions           Prescription[]
-  prisesEnCharge          PriseEnCharge[]
-  devisOffres             DevisOffre[]
-  devisLignes             DevisLigne[]
-  signaturesDevis         SignatureDevis[]
-  essaisAppareils         EssaiAppareil[]
-  essaisRdv               EssaiRdv[]
-  prolongationsEssai      ProlongationEssai[]
-  cabines                 Cabine[]
-  typesRdv                TypeRdv[]
-  exceptionsAgenda        ExceptionAgenda[]
-  rendezVous              RendezVous[]
-  evenementsDomaine       EvenementDomaine[]
-  parametresComptables    ParametresComptables[]
-  parametresReservation   ParametresReservation[]
-  typesRdvEnLigne         TypeRdvEnLigne[]
-  reservationsEnLigne     ReservationEnLigne[]
-  notifications           Notification[]
-  bilansAudiologiques     BilanAudiologique[]
-  inventaires             Inventaire[]
-  lignesInventaire        InventaireLigne[]
-  liensDocument           LienDocument[]
-  mesuresAudiologiques    MesureAudiologique[]
-  otoscopies              Otoscopie[]
-  modelesFormulaire       ModeleFormulaire[]
-  reponsesFormulaire      ReponseFormulaire[]
-  receptions              Reception[]
-  receptionLignes         ReceptionLigne[]
-  receptionLigneAppareils ReceptionLigneAppareil[]
-  ecartAchats             EcartAchat[]
+  slug                     String                    @unique @default(dbgenerated("slug_provisoire()"))
+  adresseLigne1            String?                   @map("adresse_ligne1")
+  adresseLigne2            String?                   @map("adresse_ligne2")
+  codePostal               String?                   @map("code_postal")
+  ville                    String?
+  statut                   StatutOrganisation        @default(ESSAI)
+  parametres               Json                      @default("{}")
+  createdAt                DateTime                  @default(now()) @map("created_at")
+  updatedAt                DateTime                  @updatedAt @map("updated_at")
+  centres                  Centre[]
+  utilisateurs             Utilisateur[]
+  patients                 Patient[]
+  lecturesVitale           LectureVitale[]
+  fabricants               Fabricant[]
+  centralesAchat           CentraleAchat[]
+  fournisseurs             Fournisseur[]
+  fournisseurContacts      FournisseurContact[]
+  fournisseurComptes       FournisseurCompteCentre[]
+  parametresCommande       ParametresCommande?
+  reglesCommande           RegleCommande[]
+  compteursCommande        CompteurCommande[]
+  commandes                Commande[]
+  lignesCommande           CommandeLigne[]
+  modeles                  ModeleAideAuditive[]
+  accessoires              Accessoire[]
+  prescripteurs            Prescripteur[]
+  appareils                Appareil[]
+  mouvementsAppareil       MouvementAppareil[]
+  mouvementsAccessoire     MouvementAccessoire[]
+  dossiers                 Dossier[]
+  delivrances              Delivrance[]
+  devis                    Devis[]
+  compteursDevis           CompteurDevis[]
+  essais                   Essai[]
+  factures                 Facture[]
+  lignesFacture            LigneFacture[]
+  seriesFacture            SerieFacture[]
+  chainesCaisse            ChaineCaisse[]
+  evenementsCaisse         EvenementCaisse[]
+  encaissements            Encaissement[]
+  complementaires          Complementaire[]
+  creances                 Creance[]
+  reglementsOrganismes     ReglementOrganisme[]
+  lettrages                Lettrage[]
+  regularisations          RegularisationCreance[]
+  rejetsCreances           RejetCreance[]
+  sessionsCaisse           SessionCaisse[]
+  comptagesCaisse          ComptageCaisse[]
+  cloturesCaisse           ClotureCaisse[]
+  archivesCaisse           ArchiveCaisse[]
+  fses                     Fse[]
+  journalAudit             JournalAudit[]
+  utilisateursCentres      UtilisateurCentre[]
+  praticiens               Praticien[]
+  praticiensCentres        PraticienCentre[]
+  couverturesAmo           CouvertureAmo[]
+  couverturesAmc           CouvertureAmc[]
+  modelesCodesLpp          ModeleCodeLpp[]
+  stocksAccessoires        StockAccessoire[]
+  transitionsDossier       TransitionDossier[]
+  prescriptions            Prescription[]
+  prisesEnCharge           PriseEnCharge[]
+  devisOffres              DevisOffre[]
+  devisLignes              DevisLigne[]
+  signaturesDevis          SignatureDevis[]
+  essaisAppareils          EssaiAppareil[]
+  essaisRdv                EssaiRdv[]
+  prolongationsEssai       ProlongationEssai[]
+  cabines                  Cabine[]
+  typesRdv                 TypeRdv[]
+  exceptionsAgenda         ExceptionAgenda[]
+  rendezVous               RendezVous[]
+  evenementsDomaine        EvenementDomaine[]
+  parametresComptables     ParametresComptables[]
+  parametresReservation    ParametresReservation[]
+  typesRdvEnLigne          TypeRdvEnLigne[]
+  reservationsEnLigne      ReservationEnLigne[]
+  notifications            Notification[]
+  bilansAudiologiques      BilanAudiologique[]
+  inventaires              Inventaire[]
+  lignesInventaire         InventaireLigne[]
+  liensDocument            LienDocument[]
+  mesuresAudiologiques     MesureAudiologique[]
+  otoscopies               Otoscopie[]
+  modelesFormulaire        ModeleFormulaire[]
+  reponsesFormulaire       ReponseFormulaire[]
+  receptions               Reception[]
+  receptionLignes          ReceptionLigne[]
+  receptionLigneAppareils  ReceptionLigneAppareil[]
+  ecartAchats              EcartAchat[]
+  facturesFournisseurs     FactureFournisseur[]
+  lignesFactureFournisseur FactureFournisseurLigne[]
 
   @@map("organisation")
 }
@@ -200,6 +202,7 @@ model Centre {
   commandes             Commande[]
   receptions            Reception[]
   ecartsAchat           EcartAchat[]
+  facturesFournisseurs  FactureFournisseur[]
 
   @@unique([organisationId, slug])
   @@unique([organisationId, nom])
@@ -211,74 +214,75 @@ model Centre {
 /// Compte utilisateur. Table « user » de Better Auth (noms de champs imposés : name, email,
 /// emailVerified, image, twoFactorEnabled), complétée par nos champs métier.
 model Utilisateur {
-  id                    String                  @id @default(uuid(7))
+  id                           String                  @id @default(uuid(7))
   /// Null pour le seul SUPERADMIN, hors de toute organisation (CHECK en base).
-  organisationId        String?                 @map("organisation_id")
-  prenom                String
-  nom                   String
+  organisationId               String?                 @map("organisation_id")
+  prenom                       String
+  nom                          String
   /// Nom affiché exigé par Better Auth (« Prénom Nom »), maintenu par le service.
-  name                  String                  @map("nom_affiche")
+  name                         String                  @map("nom_affiche")
   /// Toujours en minuscules.
-  email                 String                  @unique
-  emailVerified         Boolean                 @default(false) @map("email_verifie")
-  image                 String?
-  role                  Role
-  actif                 Boolean                 @default(true)
-  doitChangerMotDePasse Boolean                 @default(true) @map("doit_changer_mot_de_passe")
+  email                        String                  @unique
+  emailVerified                Boolean                 @default(false) @map("email_verifie")
+  image                        String?
+  role                         Role
+  actif                        Boolean                 @default(true)
+  doitChangerMotDePasse        Boolean                 @default(true) @map("doit_changer_mot_de_passe")
   /// 2FA TOTP : obligatoire pour ADMIN_CLIENT et SUPERADMIN, facultative pour les autres rôles.
-  twoFactorEnabled      Boolean                 @default(false) @map("deux_facteurs_actif")
-  createdAt             DateTime                @default(now()) @map("created_at")
-  updatedAt             DateTime                @updatedAt @map("updated_at")
-  organisation          Organisation?           @relation(fields: [organisationId], references: [id], onDelete: Restrict)
-  centres               UtilisateurCentre[]
-  praticien             Praticien?
-  sessions              Session[]
-  comptes               Compte[]
-  deuxFacteurs          DeuxFacteurs[]
-  lecturesVitale        LectureVitale[]
-  mouvementsAppareil    MouvementAppareil[]
-  mouvementsAccessoire  MouvementAccessoire[]
-  transitionsDossier    TransitionDossier[]
-  prescriptionsSaisies  Prescription[]          @relation("PrescriptionSaisie")
-  prescriptionsForcees  Prescription[]          @relation("PrescriptionForcee")
-  devisCrees            Devis[]                 @relation("DevisCree")
-  devisEmis             Devis[]                 @relation("DevisEmis")
-  signaturesDevis       SignatureDevis[]
-  essaisDemarres        Essai[]
-  appareilsPoses        EssaiAppareil[]         @relation("EssaiAppareilPose")
-  appareilsRetires      EssaiAppareil[]         @relation("EssaiAppareilRetire")
-  rdvEssai              EssaiRdv[]
-  prolongationsEssai    ProlongationEssai[]
-  facturesCreees        Facture[]               @relation("FactureCreee")
-  couverturesConfirmees Facture[]               @relation("CouvertureConfirmee")
-  facturesValidees      Facture[]               @relation("FactureValidee")
-  evenementsCaisse      EvenementCaisse[]
-  encaissements         Encaissement[]
-  reglementsOrganismes  ReglementOrganisme[]
-  lettrages             Lettrage[]
-  regularisations       RegularisationCreance[]
-  rejetsSaisis          RejetCreance[]          @relation("RejetSaisi")
-  rejetsResolus         RejetCreance[]          @relation("RejetResolu")
-  sessionsCaisse        SessionCaisse[]
-  comptagesCaisse       ComptageCaisse[]
-  cloturesCaisse        ClotureCaisse[]
-  archivesCaisse        ArchiveCaisse[]
-  fsesSoumises          Fse[]
-  priseEnChargeSaisies  PriseEnCharge[]
-  rendezVousCrees       RendezVous[]            @relation("RendezVousCreateur")
-  exceptionsCreees      ExceptionAgenda[]       @relation("ExceptionAgendaCreateur")
-  bilansCrees           BilanAudiologique[]
-  inventairesOuverts    Inventaire[]            @relation("InventaireOuvertPar")
-  liensDocument         LienDocument[]
-  inventairesClotures   Inventaire[]            @relation("InventaireCloturePar")
-  mesuresAudiologiques  MesureAudiologique[]
-  otoscopies            Otoscopie[]
-  modelesFormulaire     ModeleFormulaire[]
-  reponsesFormulaire    ReponseFormulaire[]
-  commandesDemandees    Commande[]              @relation("CommandeDemandeur")
-  commandesApprouvees   Commande[]              @relation("CommandeApprobateur")
-  receptions            Reception[]
-  ecartsTraites         EcartAchat[]
+  twoFactorEnabled             Boolean                 @default(false) @map("deux_facteurs_actif")
+  createdAt                    DateTime                @default(now()) @map("created_at")
+  updatedAt                    DateTime                @updatedAt @map("updated_at")
+  organisation                 Organisation?           @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  centres                      UtilisateurCentre[]
+  praticien                    Praticien?
+  sessions                     Session[]
+  comptes                      Compte[]
+  deuxFacteurs                 DeuxFacteurs[]
+  lecturesVitale               LectureVitale[]
+  mouvementsAppareil           MouvementAppareil[]
+  mouvementsAccessoire         MouvementAccessoire[]
+  transitionsDossier           TransitionDossier[]
+  prescriptionsSaisies         Prescription[]          @relation("PrescriptionSaisie")
+  prescriptionsForcees         Prescription[]          @relation("PrescriptionForcee")
+  devisCrees                   Devis[]                 @relation("DevisCree")
+  devisEmis                    Devis[]                 @relation("DevisEmis")
+  signaturesDevis              SignatureDevis[]
+  essaisDemarres               Essai[]
+  appareilsPoses               EssaiAppareil[]         @relation("EssaiAppareilPose")
+  appareilsRetires             EssaiAppareil[]         @relation("EssaiAppareilRetire")
+  rdvEssai                     EssaiRdv[]
+  prolongationsEssai           ProlongationEssai[]
+  facturesCreees               Facture[]               @relation("FactureCreee")
+  couverturesConfirmees        Facture[]               @relation("CouvertureConfirmee")
+  facturesValidees             Facture[]               @relation("FactureValidee")
+  evenementsCaisse             EvenementCaisse[]
+  encaissements                Encaissement[]
+  reglementsOrganismes         ReglementOrganisme[]
+  lettrages                    Lettrage[]
+  regularisations              RegularisationCreance[]
+  rejetsSaisis                 RejetCreance[]          @relation("RejetSaisi")
+  rejetsResolus                RejetCreance[]          @relation("RejetResolu")
+  sessionsCaisse               SessionCaisse[]
+  comptagesCaisse              ComptageCaisse[]
+  cloturesCaisse               ClotureCaisse[]
+  archivesCaisse               ArchiveCaisse[]
+  fsesSoumises                 Fse[]
+  priseEnChargeSaisies         PriseEnCharge[]
+  rendezVousCrees              RendezVous[]            @relation("RendezVousCreateur")
+  exceptionsCreees             ExceptionAgenda[]       @relation("ExceptionAgendaCreateur")
+  bilansCrees                  BilanAudiologique[]
+  inventairesOuverts           Inventaire[]            @relation("InventaireOuvertPar")
+  liensDocument                LienDocument[]
+  inventairesClotures          Inventaire[]            @relation("InventaireCloturePar")
+  mesuresAudiologiques         MesureAudiologique[]
+  otoscopies                   Otoscopie[]
+  modelesFormulaire            ModeleFormulaire[]
+  reponsesFormulaire           ReponseFormulaire[]
+  commandesDemandees           Commande[]              @relation("CommandeDemandeur")
+  commandesApprouvees          Commande[]              @relation("CommandeApprobateur")
+  receptions                   Reception[]
+  ecartsTraites                EcartAchat[]
+  facturesFournisseursValidees FactureFournisseur[]
 
   @@index([organisationId])
   @@map("utilisateur")
@@ -828,6 +832,7 @@ model Fournisseur {
   accessoires       Accessoire[]
   reglesCommande    RegleCommande[]
   commandes         Commande[]
+  factures          FactureFournisseur[]
 
   @@unique([organisationId, nom])
   @@index([centraleAchatId])
@@ -999,33 +1004,34 @@ model Commande {
 
 /// Figée par trigger dès l'approbation, hormis les quantités reçues, facturées et abandonnées.
 model CommandeLigne {
-  id                 String              @id @default(uuid(7))
-  organisationId     String              @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
-  commandeId         String              @map("commande_id")
+  id                 String                    @id @default(uuid(7))
+  organisationId     String                    @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  commandeId         String                    @map("commande_id")
   /// Exactement un produit (contrainte CHECK).
-  modeleId           String?             @map("modele_id")
-  accessoireId       String?             @map("accessoire_id")
+  modeleId           String?                   @map("modele_id")
+  accessoireId       String?                   @map("accessoire_id")
   quantite           Int
   /// Réservé aux rôles de gestion. Nul tant qu'il est inconnu : la commande va alors à l'approbation.
-  prixAchatCentimes  Int?                @map("prix_achat_centimes")
-  enConsignation     Boolean             @default(false) @map("en_consignation")
+  prixAchatCentimes  Int?                      @map("prix_achat_centimes")
+  enConsignation     Boolean                   @default(false) @map("en_consignation")
   /// Cache des réceptions, écrit sous le verrou de la commande (ADR-031).
-  quantiteRecue      Int                 @default(0) @map("quantite_recue")
+  quantiteRecue      Int                       @default(0) @map("quantite_recue")
   /// Cache des factures validées, écrit sous le verrou de la commande.
-  quantiteFacturee   Int                 @default(0) @map("quantite_facturee")
-  quantiteAbandonnee Int                 @default(0) @map("quantite_abandonnee")
+  quantiteFacturee   Int                       @default(0) @map("quantite_facturee")
+  quantiteAbandonnee Int                       @default(0) @map("quantite_abandonnee")
   /// Commande nominative : seul `referencePatient`, aléatoire, sort vers le fabricant.
-  patientId          String?             @map("patient_id")
-  referencePatient   String?             @map("reference_patient")
+  patientId          String?                   @map("patient_id")
+  referencePatient   String?                   @map("reference_patient")
   oreille            Oreille?
-  createdAt          DateTime            @default(now()) @map("created_at")
-  organisation       Organisation        @relation(fields: [organisationId], references: [id], onDelete: Restrict)
-  commande           Commande            @relation(fields: [commandeId], references: [id], onDelete: Restrict)
-  modele             ModeleAideAuditive? @relation(fields: [modeleId], references: [id], onDelete: Restrict)
-  accessoire         Accessoire?         @relation(fields: [accessoireId], references: [id], onDelete: Restrict)
-  patient            Patient?            @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  createdAt          DateTime                  @default(now()) @map("created_at")
+  organisation       Organisation              @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  commande           Commande                  @relation(fields: [commandeId], references: [id], onDelete: Restrict)
+  modele             ModeleAideAuditive?       @relation(fields: [modeleId], references: [id], onDelete: Restrict)
+  accessoire         Accessoire?               @relation(fields: [accessoireId], references: [id], onDelete: Restrict)
+  patient            Patient?                  @relation(fields: [patientId], references: [id], onDelete: Restrict)
   lignesReception    ReceptionLigne[]
   ecarts             EcartAchat[]
+  lignesFacture      FactureFournisseurLigne[]
 
   @@unique([organisationId, referencePatient])
   @@index([commandeId])
@@ -1108,36 +1114,116 @@ enum StatutEcartAchat {
   RESOLU
 }
 
+enum StatutFactureFournisseur {
+  A_VALIDER
+  VALIDEE
+  REJETEE
+}
+
+enum OrigineFactureFournisseur {
+  EMAIL
+  DEPOT
+  PLATEFORME
+}
+
+/// Facture reçue d'un fournisseur. Hors chaîne de caisse : un achat, pas un encaissement (ADR-031). Figée à la
+/// validation par trigger. Tant qu'elle attend, fournisseur, centre et montants viennent de l'extraction.
+model FactureFournisseur {
+  id                 String                    @id @default(uuid(7))
+  organisationId     String                    @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  statut             StatutFactureFournisseur  @default(A_VALIDER)
+  origine            OrigineFactureFournisseur
+  /// Clé du PDF, dans le stockage chiffré.
+  documentCle        String                    @map("document_cle")
+  /// SHA-256 du PDF : le même fichier ne rentre pas deux fois (index partiel).
+  documentEmpreinte  String                    @map("document_empreinte")
+  /// Identifiant dans la boîte ou sur la plateforme : un message se relit sans doublon (index partiel).
+  identifiantExterne String?                   @map("identifiant_externe")
+  expediteur         String?
+  /// L'expéditeur ne correspond à aucune fiche : à regarder de plus près avant de valider.
+  expediteurInconnu  Boolean                   @default(false) @map("expediteur_inconnu")
+  fournisseurId      String?                   @map("fournisseur_id")
+  centreId           String?                   @map("centre_id")
+  numero             String?
+  dateFacture        DateTime?                 @map("date_facture") @db.Date
+  montantHtCentimes  Int?                      @map("montant_ht_centimes")
+  montantTvaCentimes Int?                      @map("montant_tva_centimes")
+  montantTtcCentimes Int?                      @map("montant_ttc_centimes")
+  validateurId       String?                   @map("validateur_id")
+  valideeLe          DateTime?                 @map("validee_le") @db.Timestamptz(3)
+  /// Chiffré (contexte « facture_fournisseur.motif_rejet »).
+  motifRejet         String?                   @map("motif_rejet")
+  createdAt          DateTime                  @default(now()) @map("created_at")
+  updatedAt          DateTime                  @updatedAt @map("updated_at")
+  organisation       Organisation              @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  fournisseur        Fournisseur?              @relation(fields: [fournisseurId], references: [id], onDelete: Restrict)
+  centre             Centre?                   @relation(fields: [centreId], references: [id], onDelete: Restrict)
+  validateur         Utilisateur?              @relation(fields: [validateurId], references: [id], onDelete: Restrict)
+  lignes             FactureFournisseurLigne[]
+  ecarts             EcartAchat[]
+
+  @@index([organisationId, statut])
+  @@index([centreId, statut])
+  @@index([fournisseurId])
+  @@map("facture_fournisseur")
+}
+
+model FactureFournisseurLigne {
+  id                   String             @id @default(uuid(7))
+  organisationId       String             @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  factureId            String             @map("facture_id")
+  rang                 Int
+  commandeLigneId      String?            @map("commande_ligne_id")
+  reference            String?
+  /// Chiffré (contexte « facture_fournisseur_ligne.designation ») : un fabricant peut y citer un patient.
+  designation          String
+  quantite             Int
+  prixUnitaireCentimes Int                @map("prix_unitaire_centimes")
+  /// En points de base, lu sur la facture : 2000 pour 20 %. Nul s'il n'y figure pas.
+  tauxTvaPointsBase    Int?               @map("taux_tva_points_base")
+  numerosSerie         String[]           @default([]) @map("numeros_serie")
+  organisation         Organisation       @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  facture              FactureFournisseur @relation(fields: [factureId], references: [id], onDelete: Restrict)
+  commandeLigne        CommandeLigne?     @relation(fields: [commandeLigneId], references: [id], onDelete: Restrict)
+
+  @@unique([factureId, rang])
+  @@index([commandeLigneId])
+  @@map("facture_fournisseur_ligne")
+}
+
 /// Écart à traiter, relevé à la réception ou au rapprochement d'une facture.
 model EcartAchat {
-  id                      String           @id @default(uuid(7))
-  organisationId          String           @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
-  centreId                String           @map("centre_id")
-  commandeId              String?          @map("commande_id")
-  commandeLigneId         String?          @map("commande_ligne_id")
-  receptionId             String?          @map("reception_id")
+  id                      String              @id @default(uuid(7))
+  organisationId          String              @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  centreId                String              @map("centre_id")
+  commandeId              String?             @map("commande_id")
+  commandeLigneId         String?             @map("commande_ligne_id")
+  receptionId             String?             @map("reception_id")
+  factureFournisseurId    String?             @map("facture_fournisseur_id")
   type                    TypeEcartAchat
-  statut                  StatutEcartAchat @default(OUVERT)
-  quantiteAttendue        Int?             @map("quantite_attendue")
-  quantiteConstatee       Int?             @map("quantite_constatee")
+  statut                  StatutEcartAchat    @default(OUVERT)
+  quantiteAttendue        Int?                @map("quantite_attendue")
+  quantiteConstatee       Int?                @map("quantite_constatee")
   /// Réservés aux rôles de gestion, comme tout prix d'achat.
-  montantAttenduCentimes  Int?             @map("montant_attendu_centimes")
-  montantConstateCentimes Int?             @map("montant_constate_centimes")
-  numeroSerie             String?          @map("numero_serie")
+  montantAttenduCentimes  Int?                @map("montant_attendu_centimes")
+  montantConstateCentimes Int?                @map("montant_constate_centimes")
+  numeroSerie             String?             @map("numero_serie")
   /// Chiffré (contexte « ecart_achat.commentaire ») : texte libre.
   commentaire             String?
-  traiteParId             String?          @map("traite_par_id")
-  traiteLe                DateTime?        @map("traite_le") @db.Timestamptz(3)
-  createdAt               DateTime         @default(now()) @map("created_at")
-  organisation            Organisation     @relation(fields: [organisationId], references: [id], onDelete: Restrict)
-  centre                  Centre           @relation(fields: [centreId], references: [id], onDelete: Restrict)
-  commande                Commande?        @relation(fields: [commandeId], references: [id], onDelete: Restrict)
-  commandeLigne           CommandeLigne?   @relation(fields: [commandeLigneId], references: [id], onDelete: Restrict)
-  reception               Reception?       @relation(fields: [receptionId], references: [id], onDelete: Restrict)
-  traitePar               Utilisateur?     @relation(fields: [traiteParId], references: [id], onDelete: Restrict)
+  traiteParId             String?             @map("traite_par_id")
+  traiteLe                DateTime?           @map("traite_le") @db.Timestamptz(3)
+  createdAt               DateTime            @default(now()) @map("created_at")
+  organisation            Organisation        @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  centre                  Centre              @relation(fields: [centreId], references: [id], onDelete: Restrict)
+  commande                Commande?           @relation(fields: [commandeId], references: [id], onDelete: Restrict)
+  commandeLigne           CommandeLigne?      @relation(fields: [commandeLigneId], references: [id], onDelete: Restrict)
+  reception               Reception?          @relation(fields: [receptionId], references: [id], onDelete: Restrict)
+  factureFournisseur      FactureFournisseur? @relation(fields: [factureFournisseurId], references: [id], onDelete: Restrict)
+  traitePar               Utilisateur?        @relation(fields: [traiteParId], references: [id], onDelete: Restrict)
 
   @@index([centreId, statut])
   @@index([commandeId, statut])
+  @@index([factureFournisseurId])
   @@index([organisationId, statut])
   @@map("ecart_achat")
 }
