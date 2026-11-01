@@ -9,3 +9,4 @@ export * from './reception';
 export * from './relance';
 export * from './releve';
 export * from './saisie';
+export * from './statistiques';
