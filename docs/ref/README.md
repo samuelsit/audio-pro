@@ -31,7 +31,9 @@ Pages officielles enregistrées telles quelles le 01/11/2026 depuis bofip.impots
 | Dossier | Contenu attendu | État |
 |---|---|---|
 | `docs/vendor/areafse/` | Documentation d'intégration AreaFSE (Area Santé), mode masqué : API, formats, champs | à déposer |
-| `docs/vendor/email/` | Fournisseur d'e-mail : envoi avec pièce jointe et réception, pour `Notifier` et `BoiteFactures` | à déposer |
+| `docs/vendor/ovh-sms/` | OVHcloud SMS, pour `Notifier` | relevé le 2026-11-01 |
+| `docs/vendor/scaleway-tem/` | Scaleway Transactional Email, pour `Notifier` | relevé le 2026-11-01 |
+| `docs/vendor/email/` | Réception d'e-mails, pour `BoiteFactures` | à déposer |
 | `docs/vendor/plateforme-factures/` | Plateforme agréée de facturation électronique, pour `PlateformeFactures` | à déposer |
 
 Quand un document est mis à jour (nouvel avenant, nouvelle version de la LPP), on remplace le fichier, on met à jour ce tableau et on vérifie les règles qui le citent.
