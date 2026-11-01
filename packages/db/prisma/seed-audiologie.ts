@@ -93,4 +93,9 @@ export async function seedAudiologie(
       update: {},
     });
   }
+  // Le brouillon de démonstration s'appuie sur le dernier bilan du patient.
+  await db.dossier.updateMany({
+    where: { organisationId, patientId: PATIENT_DEMO, statut: 'BROUILLON', bilanReferenceId: null },
+    data: { bilanReferenceId: BILANS.at(-1)?.id ?? null },
+  });
 }

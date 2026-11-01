@@ -136,15 +136,60 @@ export async function vieillirEssai(page: Page, jours: number): Promise<void> {
   await baseE2e().essai.update({ where: { dossierId }, data: { dateDebut: debut } });
 }
 
-/** Trace un rendez-vous du jour depuis le bloc Essai du dossier. */
-export async function ajouterRdv(page: Page, type: string, compteRendu: string): Promise<void> {
-  const volet = page.locator('details').filter({ hasText: 'Ajouter un rendez-vous' });
-  if ((await volet.getAttribute('open')) === null) {
-    await volet.locator('summary').click();
+const NATURES_RDV: Readonly<Record<string, 'POSE' | 'CONTROLE' | 'FIN_ESSAI'>> = {
+  Pose: 'POSE',
+  Contrôle: 'CONTROLE',
+  'Fin d’essai': 'FIN_ESSAI',
+};
+
+/**
+ * Rendez-vous d'essai du jour, déjà vu dans l'agenda : la grille n'est pas l'objet de ce parcours. Il est créé
+ * avant l'ouverture, hors des créneaux de la démonstration, avec un nouvel essai si l'heure est prise.
+ */
+async function creerRdvEssaiVu(dossierId: string, nature: 'POSE' | 'CONTROLE' | 'FIN_ESSAI') {
+  const db = baseE2e();
+  const dossier = await db.dossier.findUniqueOrThrow({ where: { id: dossierId } });
+  const { organisationId, centreId, patientId, praticienId } = dossier;
+  const type = await db.typeRdv.findFirstOrThrow({
+    where: { organisationId, natureEssai: nature },
+  });
+  const { utilisateurId } = await db.praticien.findUniqueOrThrow({ where: { id: praticienId } });
+  const jour = new Date().toISOString().slice(0, 10);
+  for (let essai = 0; ; essai += 1) {
+    const debut = new Date(`${jour}T01:00:00.000Z`).getTime() + randomInt(0, 24) * 900_000;
+    try {
+      await db.rendezVous.create({
+        data: {
+          organisationId,
+          centreId,
+          typeRdvId: type.id,
+          patientId,
+          dossierId,
+          praticienId,
+          debut: new Date(debut),
+          fin: new Date(debut + 900_000),
+          statut: 'VU',
+          origine: 'INTERNE',
+          createdById: utilisateurId,
+        },
+      });
+      return;
+    } catch (erreur) {
+      if (essai === 5) {
+        throw erreur;
+      }
+    }
   }
-  await page.getByLabel('Type', { exact: true }).selectOption({ label: type });
-  await page.getByLabel('Compte rendu').fill(compteRendu);
-  await page.getByRole('button', { name: 'Ajouter le rendez-vous' }).click();
+}
+
+/** Saisit, depuis le bloc Essai du dossier, le compte rendu d'un rendez-vous tenu. */
+export async function ajouterRdv(page: Page, type: string, compteRendu: string): Promise<void> {
+  const dossierId = new URL(page.url()).pathname.split('/')[2] ?? '';
+  await creerRdvEssaiVu(dossierId, NATURES_RDV[type] ?? 'CONTROLE');
+  await page.reload();
+  await page.waitForLoadState('networkidle');
+  await page.getByLabel('Compte rendu').first().fill(compteRendu);
+  await page.getByRole('button', { name: 'Enregistrer le compte rendu' }).first().click();
   await expect(page.getByText(compteRendu).first()).toBeVisible();
   await page.waitForLoadState('networkidle');
 }

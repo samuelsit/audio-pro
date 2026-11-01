@@ -1,6 +1,16 @@
-import type { SignatureLienRdv } from '@ha/adapters';
+import type { SignatureLienDocument, SignatureLienRdv } from '@ha/adapters';
 import { clientPlateforme } from '@ha/db';
-import { parametresGabaritSchema, rendreMessage, type Notifier } from '@ha/domain';
+import {
+  DUREE_LIEN_DOCUMENT_JOURS,
+  parametresDocumentSchema,
+  parametresGabaritSchema,
+  rendreMessage,
+  rendreMessageDocument,
+  type GabaritNotification,
+  type GabaritRdv,
+  type MessageRendu,
+  type Notifier,
+} from '@ha/domain';
 import { z } from 'zod';
 
 import type { FileTravaux } from '../file';
@@ -15,6 +25,7 @@ const REPRISE_MINUTES = 5;
 export interface DependancesEnvoi {
   readonly notifier: Notifier;
   readonly signature: SignatureLienRdv;
+  readonly signatureDocument: SignatureLienDocument;
   readonly urlPublique: string;
   readonly maintenant?: () => Date;
 }
@@ -22,13 +33,52 @@ export interface DependancesEnvoi {
 const chargeEnvoi = z.object({});
 type ChargeEnvoi = typeof chargeEnvoi;
 
+function estGabaritRdv(gabarit: GabaritNotification): gabarit is GabaritRdv {
+  return gabarit !== 'DOCUMENT_A_CONSULTER';
+}
+
 /**
  * Envoie les messages dus d'une organisation. Chaque ligne se réserve avant l'envoi, en repoussant son prochain
  * essai : deux exécutions ne prennent pas la même, et un ouvrier tombé la laisse reprendre plus tard. Au moins
  * une fois, donc : un message peut, très rarement, partir deux fois. Une panne n'arrête que sa ligne.
  */
 export function travailEnvoi(dependances: DependancesEnvoi): Travail<ChargeEnvoi> {
-  const { notifier, signature, urlPublique, maintenant = () => new Date() } = dependances;
+  const {
+    notifier,
+    signature,
+    signatureDocument,
+    urlPublique,
+    maintenant = () => new Date(),
+  } = dependances;
+
+  function message(
+    organisationId: string,
+    ligne: {
+      gabarit: GabaritNotification;
+      parametres: unknown;
+      reservationId: string | null;
+      lienDocumentId: string | null;
+    },
+  ): MessageRendu {
+    if (ligne.reservationId !== null && estGabaritRdv(ligne.gabarit)) {
+      const jeton = signature.signer({ organisationId, reservationId: ligne.reservationId });
+      return rendreMessage(
+        ligne.gabarit,
+        parametresGabaritSchema.parse(ligne.parametres),
+        `${urlPublique}/rdv/lien/${jeton}`,
+      );
+    }
+    const jeton = signatureDocument.signer({
+      organisationId,
+      lienId: z.string().parse(ligne.lienDocumentId),
+    });
+    return rendreMessageDocument(
+      parametresDocumentSchema.parse(ligne.parametres),
+      `${urlPublique}/document/${jeton}`,
+      DUREE_LIEN_DOCUMENT_JOURS,
+    );
+  }
+
   return definirTravail({
     nom: 'envoyer-notifications',
     charge: chargeEnvoi,
@@ -52,12 +102,7 @@ export function travailEnvoi(dependances: DependancesEnvoi): Travail<ChargeEnvoi
           continue;
         }
         try {
-          const jeton = signature.signer({ organisationId, reservationId: ligne.reservationId });
-          const { sujet, corps } = rendreMessage(
-            ligne.gabarit,
-            parametresGabaritSchema.parse(ligne.parametres),
-            `${urlPublique}/rdv/lien/${jeton}`,
-          );
+          const { sujet, corps } = message(organisationId, ligne);
           if (ligne.canal === 'SMS') {
             await notifier.envoyerSms({ destinataire: ligne.destinataire, texte: corps });
           } else {

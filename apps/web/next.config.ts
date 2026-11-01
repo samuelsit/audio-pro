@@ -26,6 +26,13 @@ const nextConfig: NextConfig = {
         headers: [{ key: 'Content-Security-Policy', value: 'frame-ancestors *' }],
       },
       {
+        source: '/document/:jeton*',
+        headers: [
+          { key: 'Referrer-Policy', value: 'no-referrer' },
+          { key: 'X-Robots-Tag', value: 'noindex, nofollow' },
+        ],
+      },
+      {
         source: '/rdv/lien/:jeton',
         headers: [
           ...INTERDIT_EN_CADRE,

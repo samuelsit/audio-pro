@@ -11,9 +11,11 @@ import {
   creerCatalogueDevis,
   creerDossierPret,
   creerPatientDevis,
+  creerRdvVu,
   offre100,
   saisieDevis,
   SCAN,
+  tenirRdvEssai,
   terminerPeriodeEssai,
   vieillirEssai,
   type CatalogueDevis,
@@ -33,17 +35,19 @@ import {
   emettreDevis,
   enregistrerSignature,
 } from './devis';
+import { annulerRdv, changerStatutRdv } from './agenda';
 import { abandonnerDossier } from './dossiers';
 import {
-  ajouterRdv,
   appareilsProposables,
   changerAppareilEssai,
   compteRenduEssai,
   confirmerAchat,
+  enregistrerCompteRendu,
   enregistrerProlongation,
   lireJustificatif,
   listerEssaisEnCours,
   obtenirEssai,
+  planifierRdvEssai,
 } from './essais';
 import { aujourdhui } from './patients';
 import { changerStatut, obtenirFicheAppareil } from './stock';
@@ -102,13 +106,6 @@ const prolongation = (surcharge: Record<string, unknown> = {}) => ({
   dateDemande: aujourdhui(),
   jours: '15',
   motif: 'Suivi ORL en cours',
-  ...surcharge,
-});
-
-const rdv = (surcharge: Record<string, unknown> = {}) => ({
-  date: aujourdhui(),
-  type: 'CONTROLE',
-  compteRendu: 'Bonne adaptation',
   ...surcharge,
 });
 
@@ -174,8 +171,8 @@ describe('cycle complet', () => {
     });
     expect(pose).toMatchObject({ dossierId, patientId, statutAvant: 'EN_STOCK' });
 
-    await ajouterRdv(audio, dossierId, rdv({ type: 'POSE' }));
-    await ajouterRdv(assistantA, dossierId, rdv());
+    await tenirRdvEssai(audio, dossierId, 'POSE');
+    await tenirRdvEssai(assistantA, dossierId, 'CONTROLE');
     await terminerPeriodeEssai(audio, dossierId);
     await signer();
     expect(await statutDossier()).toBe('DEVIS_SIGNE');
@@ -194,7 +191,7 @@ describe('cycle complet', () => {
     const essai = await obtenirEssai(audio, dossierId);
     expect(essai).toMatchObject({ issue: 'ACHAT', dateFin: aujourdhui() });
     expect(essai?.actions).toEqual({
-      ajouterRdv: false,
+      planifierRdv: false,
       prolonger: false,
       changerAppareil: false,
       confirmerAchat: false,
@@ -266,8 +263,8 @@ describe('signature à l’issue de l’essai', () => {
       /issue de la période d’essai.*au moins 2 rendez-vous/,
     );
     await vieillirEssai(dossierId, 29);
-    await ajouterRdv(audio, dossierId, rdv());
-    await ajouterRdv(audio, dossierId, rdv());
+    await tenirRdvEssai(audio, dossierId, 'CONTROLE');
+    await tenirRdvEssai(audio, dossierId, 'CONTROLE');
     await expect(enregistrerSignature(audio, devisId, saisie())).rejects.toThrow(
       'La signature se recueille à l’issue de la période d’essai.',
     );
@@ -279,8 +276,8 @@ describe('signature à l’issue de l’essai', () => {
   it('juge la durée à la date de signature, pas au jour de la saisie', async () => {
     await essaiDemarre();
     await deposerScanDevis(audio, devisId, { statutAttendu: 'EMIS' }, SCAN);
-    await ajouterRdv(audio, dossierId, rdv());
-    await ajouterRdv(audio, dossierId, rdv());
+    await tenirRdvEssai(audio, dossierId, 'CONTROLE');
+    await tenirRdvEssai(audio, dossierId, 'CONTROLE');
     const echeance = ajouterJours(aujourdhui(), 30);
 
     vi.useFakeTimers({ toFake: ['Date'] });
@@ -406,9 +403,9 @@ describe('prolongation', () => {
 });
 
 describe('rendez-vous', () => {
-  it('trace le rendez-vous, compte rendu chiffré et hors du journal', async () => {
+  it('saisit le compte rendu d’un rendez-vous vu, chiffré et hors du journal', async () => {
     await essaiDemarre();
-    await ajouterRdv(assistantA, dossierId, rdv({ compteRendu: 'Acouphènes en baisse' }));
+    await tenirRdvEssai(assistantA, dossierId, 'CONTROLE', 'Acouphènes en baisse');
 
     expect((await obtenirEssai(audio, dossierId))?.rdvs).toMatchObject([
       { date: aujourdhui(), type: 'CONTROLE', compteRendu: 'Acouphènes en baisse' },
@@ -419,19 +416,100 @@ describe('rendez-vous', () => {
     expect(JSON.stringify(journal)).not.toContain('Acouphènes');
   });
 
-  it.each([
-    { cas: 'dans le futur', date: '2999-01-01' },
-    { cas: 'avant le début de l’essai', date: '2000-01-01' },
-  ])('refuse une date $cas', async ({ date }) => {
+  it('planifie dans l’agenda, pour le patient et le praticien du dossier', async () => {
     await essaiDemarre();
-    await expect(ajouterRdv(audio, dossierId, rdv({ date }))).rejects.toThrow(
+    await creerRdvVu(dossierId, 'CONTROLE', 'PLANIFIE');
+    const type = await prisma().typeRdv.findFirstOrThrow({ where: { natureEssai: 'CONTROLE' } });
+    const id = await planifierRdvEssai(audio, dossierId, {
+      typeRdvId: type.id,
+      date: '2030-01-07',
+      heure: '10:00',
+      confirmerHorsDisponibilites: true,
+    });
+    const dossier = await prisma().dossier.findUniqueOrThrow({ where: { id: dossierId } });
+    expect(await prisma().rendezVous.findUniqueOrThrow({ where: { id } })).toMatchObject({
+      dossierId,
+      patientId: dossier.patientId,
+      praticienId: dossier.praticienId,
+      centreId: dossier.centreId,
+      statut: 'PLANIFIE',
+      origine: 'INTERNE',
+    });
+    const essai = await obtenirEssai(audio, dossierId);
+    expect(essai?.rdvsPlanifies).toHaveLength(2);
+    expect(essai?.typesRdv.map((t) => t.id)).toContain(type.id);
+  });
+
+  it('refuse un type qui n’est pas un type d’essai', async () => {
+    await essaiDemarre();
+    const type = await prisma().typeRdv.create({
+      data: {
+        organisationId: d.organisation.id,
+        nom: 'Suivi',
+        dureeMinutes: 30,
+        couleur: '#000000',
+        requierePraticien: true,
+        requiereCabine: false,
+      },
+    });
+    await expect(
+      planifierRdvEssai(audio, dossierId, {
+        typeRdvId: type.id,
+        date: '2030-01-07',
+        heure: '10:00',
+        confirmerHorsDisponibilites: true,
+      }),
+    ).rejects.toBeInstanceOf(ErreurSaisie);
+  });
+
+  it('un créneau planifié ne compte pas : seul le compte rendu d’un rendez-vous vu', async () => {
+    await essaiDemarre();
+    const planifie = await creerRdvVu(dossierId, 'POSE', 'PLANIFIE');
+    await expect(
+      enregistrerCompteRendu(audio, planifie, { compteRendu: 'Prématuré' }),
+    ).rejects.toThrow(/comme vu/);
+    expect((await obtenirEssai(audio, dossierId))?.etat.rdvRealises).toBe(0);
+  });
+
+  it.each([
+    { cas: 'dans le futur', jour: '2999-01-01' },
+    { cas: 'avant le début de l’essai', jour: '2000-01-03' },
+  ])('refuse un rendez-vous $cas', async ({ jour }) => {
+    await essaiDemarre();
+    const id = await creerRdvVu(dossierId, 'CONTROLE', 'VU', jour);
+    await expect(enregistrerCompteRendu(audio, id, { compteRendu: 'x' })).rejects.toThrow(
       /entre le début de l’essai et aujourd’hui/,
+    );
+  });
+
+  it('refuse un second compte rendu et un rendez-vous sans dossier', async () => {
+    await essaiDemarre();
+    const id = await tenirRdvEssai(audio, dossierId, 'CONTROLE');
+    await expect(enregistrerCompteRendu(audio, id, { compteRendu: 'Bis' })).rejects.toBeInstanceOf(
+      ErreurSaisie,
+    );
+    const sansDossier = await prisma().rendezVous.update({
+      where: { id: await creerRdvVu(dossierId, 'POSE') },
+      data: { dossierId: null },
+    });
+    await expect(
+      enregistrerCompteRendu(audio, sansDossier.id, { compteRendu: 'x' }),
+    ).rejects.toBeInstanceOf(AccesRefuseError);
+  });
+
+  it('un rendez-vous avec compte rendu ne se déplace ni ne s’annule', async () => {
+    await essaiDemarre();
+    const id = await tenirRdvEssai(audio, dossierId, 'CONTROLE');
+    const { version } = await prisma().rendezVous.findUniqueOrThrow({ where: { id } });
+    await expect(annulerRdv(audio, id, version)).rejects.toBeInstanceOf(ErreurSaisie);
+    await expect(changerStatutRdv(audio, id, { version, statut: 'ABSENT' })).rejects.toThrow(
+      /ne change plus/,
     );
   });
 
   it('est en ajout seul', async () => {
     await essaiDemarre();
-    await ajouterRdv(audio, dossierId, rdv());
+    await tenirRdvEssai(audio, dossierId, 'CONTROLE');
     await expect(prisma().essaiRdv.updateMany({ data: { type: 'POSE' } })).rejects.toThrow();
     await expect(prisma().essaiRdv.deleteMany()).rejects.toThrow();
   });
@@ -682,20 +760,20 @@ describe('alertes et écran « Essais en cours »', () => {
   it('échéance proche et moins de 2 rendez-vous', async () => {
     await essaiDemarre();
     await vieillirEssai(dossierId, 23);
-    await ajouterRdv(audio, dossierId, rdv());
+    await tenirRdvEssai(audio, dossierId, 'CONTROLE');
     expect(await ligne()).toMatchObject({
       joursRestants: 7,
       rdvRealises: 1,
       alertes: ['ECHEANCE_PROCHE', 'RDV_INSUFFISANTS'],
     });
-    await ajouterRdv(audio, dossierId, rdv());
+    await tenirRdvEssai(audio, dossierId, 'CONTROLE');
     expect((await ligne())?.alertes).toEqual(['ECHEANCE_PROCHE']);
   });
 
   it('échéance atteinte, puis dépassement', async () => {
     await essaiDemarre();
-    await ajouterRdv(audio, dossierId, rdv());
-    await ajouterRdv(audio, dossierId, rdv());
+    await tenirRdvEssai(audio, dossierId, 'CONTROLE');
+    await tenirRdvEssai(audio, dossierId, 'CONTROLE');
     await vieillirEssai(dossierId, 30);
     expect((await ligne())?.alertes).toEqual(['ECHEANCE_ATTEINTE']);
     await vieillirEssai(dossierId, 33);
@@ -704,8 +782,8 @@ describe('alertes et écran « Essais en cours »', () => {
 
   it('la prolongation repousse l’échéance et lève le dépassement', async () => {
     await essaiDemarre();
-    await ajouterRdv(audio, dossierId, rdv());
-    await ajouterRdv(audio, dossierId, rdv());
+    await tenirRdvEssai(audio, dossierId, 'CONTROLE');
+    await tenirRdvEssai(audio, dossierId, 'CONTROLE');
     await vieillirEssai(dossierId, 33);
     await enregistrerProlongation(audio, dossierId, prolongation(), SCAN);
     expect(await ligne()).toMatchObject({ joursRestants: 12, alertes: [] });
@@ -847,7 +925,10 @@ describe('droits et cloisonnement', () => {
   it('refuse un utilisateur d’un autre centre', async () => {
     await essaiDemarre();
     await creerAppareil(d, catalogue.classeI, 'SN-B');
-    await expect(ajouterRdv(assistantB, dossierId, rdv())).rejects.toThrow(AccesRefuseError);
+    const rdvId = await creerRdvVu(dossierId, 'CONTROLE');
+    await expect(enregistrerCompteRendu(assistantB, rdvId, { compteRendu: 'x' })).rejects.toThrow(
+      AccesRefuseError,
+    );
     await expect(obtenirEssai(assistantB, dossierId)).rejects.toThrow(AccesRefuseError);
     await expect(compteRenduEssai(assistantB, dossierId)).rejects.toThrow(AccesRefuseError);
     await expect(appareilsProposables(assistantB, dossierId)).rejects.toThrow(AccesRefuseError);
@@ -864,7 +945,7 @@ describe('droits et cloisonnement', () => {
 describe('compte rendu au prescripteur', () => {
   it('rend le courrier sans NIR, sans stockage, avec une ligne PRINT', async () => {
     await essaiDemarre();
-    await ajouterRdv(audio, dossierId, rdv({ compteRendu: 'Bonne adaptation <b>' }));
+    await tenirRdvEssai(audio, dossierId, 'CONTROLE', 'Bonne adaptation <b>');
     await enregistrerProlongation(audio, dossierId, prolongation(), SCAN);
     const objets = stockage().objets.size;
 
@@ -922,7 +1003,7 @@ describe('journal', () => {
 
 it('chiffre aussi via le client applicatif', async () => {
   await essaiDemarre();
-  await ajouterRdv(audio, dossierId, rdv());
+  await tenirRdvEssai(audio, dossierId, 'CONTROLE');
   const ligne = await base(audio).essaiRdv.findFirstOrThrow();
-  expect(ligne.compteRendu).toBe('Bonne adaptation');
+  expect(ligne.compteRendu).toBe('Réglages fictifs');
 });

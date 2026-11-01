@@ -4,6 +4,7 @@ import {
   LIBELLES_OREILLES,
   LIBELLES_RUBRIQUES_OFFRE,
   TYPES_DOCUMENT,
+  type CanalNotification,
   type Oreille,
   type RubriqueOffre,
   type StatutDevis,
@@ -28,6 +29,7 @@ import {
   deposerScanAction,
   emettreDevisAction,
   enregistrerSignatureAction,
+  envoyerDevisAction,
   nouvelleVersionAction,
   supprimerBrouillonAction,
 } from './actions';
@@ -159,6 +161,39 @@ export function FormulaireEssai({
       ))}
       <div>
         <BoutonEnvoi>Démarrer l’essai</BoutonEnvoi>
+      </div>
+    </form>
+  );
+}
+
+const LIBELLES_CANAUX: Readonly<Record<CanalNotification, string>> = {
+  SMS: 'SMS',
+  EMAIL: 'E-mail',
+};
+
+export function FormulaireEnvoi({
+  dossierId,
+  devisId,
+  canaux,
+}: Omit<Identifiants, 'statut'> & { canaux: readonly CanalNotification[] }) {
+  const [etat, envoyer] = useActionState(
+    envoyerDevisAction.bind(null, dossierId, devisId),
+    ETAT_INITIAL,
+  );
+  return (
+    <form action={envoyer} className="grid max-w-md gap-4">
+      <MessageFormulaire etat={etat} />
+      <ListeDeroulante
+        etat={etat}
+        nom="canal"
+        libelle="Canal"
+        vide="Choisir…"
+        options={canaux.map((c) => ({ valeur: c, libelle: LIBELLES_CANAUX[c] }))}
+      />
+      <div>
+        <BoutonEnvoi variant="outline" enCours="Envoi…">
+          Envoyer un lien sécurisé
+        </BoutonEnvoi>
       </div>
     </form>
   );

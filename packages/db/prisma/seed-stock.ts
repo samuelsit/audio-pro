@@ -104,6 +104,35 @@ async function seedAppareilPrete(
   }
 }
 
+/** Inventaire clôturé du dernier centre, sans écart : la base refuserait de le réécrire, d'où `skipDuplicates`. */
+async function seedInventaire(
+  db: PrismaClient,
+  organisationId: string,
+  centreIds: readonly string[],
+  utilisateurId: string,
+): Promise<void> {
+  const centreId = centreIds.at(-1);
+  if (centreId === undefined) {
+    return;
+  }
+  await db.inventaire.createMany({
+    data: [
+      {
+        id: idFixe('d', 1),
+        organisationId,
+        centreId,
+        statut: 'CLOTURE',
+        ouvertParId: utilisateurId,
+        clotureParId: utilisateurId,
+        clotureLe: new Date('2026-10-15T17:00:00.000Z'),
+        valeurCentimes: 0,
+        articlesSansPrix: 0,
+      },
+    ],
+    skipDuplicates: true,
+  });
+}
+
 export async function seedStock(
   db: PrismaClient,
   organisationId: string,
@@ -153,6 +182,7 @@ export async function seedStock(
     skipDuplicates: true,
   });
   await seedAppareilPrete(db, organisationId, centreIds, utilisateurId, appareils);
+  await seedInventaire(db, organisationId, centreIds, utilisateurId);
 
   for (const accessoire of ACCESSOIRES) {
     const donnees = { ...accessoire, organisationId };

@@ -16,6 +16,7 @@ export {
   type ConfigurationChampsChiffres,
 } from './crypto/prisma';
 export { chargerCleEmpreinte, EmpreinteHmac } from './crypto/empreinte';
+export { SignatureLienDocument, type CibleLienDocumentSigne } from './crypto/lien-document';
 export { chargerCleLienRdv, SignatureLienRdv, type CibleLienRdv } from './crypto/lien-rdv';
 export { chargerTrousseau, type Trousseau } from './crypto/trousseau';
 export { ErreurDbf, lireDbf, type ChampDbf, type TableDbf } from './lpp/lecteur-dbf';

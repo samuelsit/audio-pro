@@ -34,14 +34,9 @@ export function amcDepuisPec(montant: Centimes, offre: OffreCalculee): AmcPoste 
     montant,
     postes.map((poste) => poste?.resteApresAMO ?? centimes(0)),
   );
-  const [amcDroite, amcGauche, amcConsommables] = parts.map((part, rang) =>
-    postes[rang] ? part : null,
-  );
-  return {
-    amcDroite: amcDroite ?? null,
-    amcGauche: amcGauche ?? null,
-    amcConsommables: amcConsommables ?? null,
-  };
+  const partDu = (rang: number): Centimes | null =>
+    postes[rang] ? (parts[rang] as Centimes) : null;
+  return { amcDroite: partDu(0), amcGauche: partDu(1), amcConsommables: partDu(2) };
 }
 
 /** Le devis figé ne porte plus la PEC : plafonnée au reste, elle diffère de sa part AMC. */

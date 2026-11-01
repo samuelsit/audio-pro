@@ -4,12 +4,14 @@ import {
   achatEssaiSaisieSchema,
   calculerPagination,
   changementAppareilSaisieSchema,
+  compteRenduRdvSaisieSchema,
   etatEssai,
   extensionDocument,
   filtreEssaisSchema,
+  localDepuisInstant,
   peutConfirmerAchat,
+  planificationRdvEssaiSaisieSchema,
   prolongationEssaiSaisieSchema,
-  rdvEssaiSaisieSchema,
   rendreCompteRenduEssaiHtml,
   TYPES_DOCUMENT,
   verifierDocument,
@@ -20,6 +22,7 @@ import {
   type Pagination,
   type Perimetre,
   type StatutDossier,
+  type StatutRdv,
   type TypeDocument,
   type TypeRdvEssai,
   type VueCompteRenduEssai,
@@ -51,6 +54,7 @@ import {
   retirerAppareilDeLOreille,
   type EssaiLu,
 } from './essais-socle';
+import { creerRdv } from './agenda';
 import { creerFacturePreparee } from './factures';
 import { aujourdhui, type Client } from './patients';
 
@@ -75,38 +79,98 @@ function exigerStatut(dossier: DossierLu, statutAttendu: StatutDossier): void {
 
 // --- Rendez-vous ----------------------------------------------------------------------------------
 
-/** Trace un rendez-vous tenu : Doctolib reste l'agenda. Le compte rendu n'entre pas dans le journal. */
-export async function ajouterRdv(
+/** Planifie un rendez-vous d'essai dans l'agenda, pour le patient et le praticien du dossier. */
+export async function planifierRdvEssai(
   acteur: UtilisateurConnecte,
   dossierId: string,
   saisie: unknown,
+): Promise<string> {
+  const donnees = valider(planificationRdvEssaiSaisieSchema, saisie);
+  const client = base(acteur);
+  const dossier = await lireDossier(client, acteur, dossierId);
+  await exigerEssaiOuvert(client, dossierId);
+  const type = await client.typeRdv.findFirst({
+    where: { id: donnees.typeRdvId, actif: true, natureEssai: { not: null } },
+    select: { dureeMinutes: true },
+  });
+  if (!type) {
+    throw ErreurSaisie.surChamp('typeRdvId', 'Choisir un type de rendez-vous d’essai.');
+  }
+  return creerRdv(acteur, {
+    ...donnees,
+    centreId: dossier.centreId,
+    patientId: dossier.patientId,
+    dossierId,
+    praticienId: dossier.praticienId,
+    dureeMinutes: type.dureeMinutes,
+    origine: 'INTERNE',
+  });
+}
+
+const DOUBLON_COMPTE_RENDU = {
+  essai_rdv_rendez_vous_id_key: ['compteRendu', 'Ce rendez-vous a déjà son compte rendu.'],
+} as const;
+
+/**
+ * Saisit le compte rendu d'un rendez-vous d'essai tenu : c'est lui qui compte dans les 2 rendez-vous, un créneau
+ * planifié n'étant pas un rendez-vous tenu (ADR-020). Il n'entre pas dans le journal.
+ */
+export async function enregistrerCompteRendu(
+  acteur: UtilisateurConnecte,
+  rendezVousId: string,
+  saisie: unknown,
 ): Promise<void> {
-  const donnees = valider(rdvEssaiSaisieSchema, saisie);
+  const { compteRendu } = valider(compteRenduRdvSaisieSchema, saisie);
   const jour = aujourdhui();
-  await withAudit(
-    acteur,
-    async (tx) => {
-      const dossier = await lireDossier(tx, acteur, dossierId);
-      const essai = await exigerEssaiOuvert(tx, dossierId);
-      if (donnees.date > jour || donnees.date < depuisDate(essai.dateDebut)) {
-        throw ErreurSaisie.surChamp(
-          'date',
-          'La date du rendez-vous doit se situer entre le début de l’essai et aujourd’hui.',
-        );
-      }
-      await tx.essaiRdv.create({
-        data: {
-          essaiId: essai.id,
-          date: versDate(donnees.date),
-          type: donnees.type,
-          compteRendu: donnees.compteRendu,
-          createdById: acteur.id,
-        },
-      });
-      return { dossier, essaiId: essai.id };
-    },
-    ({ dossier, essaiId }) => evenementEssai('UPDATE', essaiId, dossier, { rdv: donnees.type }),
-  );
+  try {
+    await withAudit(
+      acteur,
+      async (tx) => {
+        const rdv = await tx.rendezVous.findFirst({
+          where: { id: rendezVousId },
+          select: {
+            debut: true,
+            statut: true,
+            dossierId: true,
+            typeRdv: { select: { natureEssai: true } },
+          },
+        });
+        if (!rdv || rdv.dossierId === null) {
+          throw new AccesRefuseError();
+        }
+        const dossier = await lireDossier(tx, acteur, rdv.dossierId);
+        const nature = rdv.typeRdv.natureEssai;
+        if (nature === null) {
+          throw new ErreurSaisie({}, 'Ce rendez-vous n’est pas un rendez-vous d’essai.');
+        }
+        if (rdv.statut !== 'VU') {
+          throw new ErreurSaisie({}, 'Marquer d’abord ce rendez-vous comme vu dans l’agenda.');
+        }
+        const essai = await exigerEssaiOuvert(tx, rdv.dossierId);
+        const date = localDepuisInstant(rdv.debut.getTime()).date;
+        if (date > jour || date < depuisDate(essai.dateDebut)) {
+          throw new ErreurSaisie(
+            {},
+            'Le rendez-vous doit se situer entre le début de l’essai et aujourd’hui.',
+          );
+        }
+        await tx.essaiRdv.create({
+          data: {
+            essaiId: essai.id,
+            rendezVousId,
+            date: versDate(date),
+            type: nature,
+            compteRendu,
+            createdById: acteur.id,
+          },
+        });
+        return { dossier, essaiId: essai.id, nature };
+      },
+      ({ dossier, essaiId, nature }) => evenementEssai('UPDATE', essaiId, dossier, { rdv: nature }),
+    );
+  } catch (erreur) {
+    traduireDoublon(erreur, DOUBLON_COMPTE_RENDU, 'Ce rendez-vous a déjà son compte rendu.');
+  }
 }
 
 // --- Prolongation ---------------------------------------------------------------------------------
@@ -339,6 +403,13 @@ export interface ProlongationAffichee {
   motif: string;
 }
 
+export interface RdvPlanifieAffiche {
+  id: string;
+  debut: Date;
+  type: TypeRdvEssai;
+  statut: StatutRdv;
+}
+
 export interface EssaiDetail {
   id: string;
   dateDebut: string;
@@ -348,11 +419,15 @@ export interface EssaiDetail {
   etat: EtatEssai;
   appareils: AppareilEssaiAffiche[];
   rdvs: RdvEssaiAffiche[];
+  /** Rendez-vous de l'agenda rattachés au dossier, encore sans compte rendu. */
+  rdvsPlanifies: RdvPlanifieAffiche[];
+  /** Types de rendez-vous d'essai proposés à la planification. */
+  typesRdv: { id: string; nom: string }[];
   prolongation: ProlongationAffichee | null;
   /** Un appareil n'est plus du modèle prévu par le devis en vigueur. */
   ecartDevis: boolean;
   actions: {
-    ajouterRdv: boolean;
+    planifierRdv: boolean;
     prolonger: boolean;
     changerAppareil: boolean;
     confirmerAchat: boolean;
@@ -407,7 +482,7 @@ export async function obtenirEssai(
   if (!essai) {
     return null;
   }
-  const [liens, rdvs, prolongation, modeles] = await Promise.all([
+  const [liens, rdvs, prolongation, modeles, planifies, typesRdv] = await Promise.all([
     client.essaiAppareil.findMany({
       where: { essaiId: essai.id },
       orderBy: [{ poseLe: 'asc' }, { id: 'asc' }],
@@ -418,6 +493,25 @@ export async function obtenirEssai(
     }),
     client.prolongationEssai.findUnique({ where: { essaiId: essai.id } }),
     modelesDuDevisEnVigueur(client, dossierId),
+    client.rendezVous.findMany({
+      where: { dossierId, typeRdv: { natureEssai: { not: null } }, essaiRdv: null },
+      select: {
+        id: true,
+        debut: true,
+        statut: true,
+        typeRdv: { select: { natureEssai: true } },
+      },
+      orderBy: { debut: 'asc' },
+    }),
+    client.typeRdv.findMany({
+      where: {
+        organisationId: acteur.organisationId,
+        actif: true,
+        natureEssai: { not: null },
+      },
+      select: { id: true, nom: true },
+      orderBy: { nom: 'asc' },
+    }),
   ]);
   const appareils = await client.appareil.findMany({
     where: { id: { in: liens.map((l) => l.appareilId) } },
@@ -456,6 +550,12 @@ export async function obtenirEssai(
       type: r.type,
       compteRendu: r.compteRendu,
     })),
+    rdvsPlanifies: planifies.flatMap((r) =>
+      r.typeRdv.natureEssai === null || r.statut === 'ANNULE' || r.statut === 'ABSENT'
+        ? []
+        : [{ id: r.id, debut: r.debut, type: r.typeRdv.natureEssai, statut: r.statut }],
+    ),
+    typesRdv,
     prolongation: prolongation && {
       dateDemande: depuisDate(prolongation.dateDemande),
       jours: prolongation.jours,
@@ -468,7 +568,7 @@ export async function obtenirEssai(
         (l) => modeles.get(l.oreille) !== appareils.find((a) => a.id === l.appareilId)?.modeleId,
       ),
     actions: {
-      ajouterRdv: ouvert,
+      planifierRdv: ouvert,
       prolonger: ouvert && prolongation === null,
       changerAppareil: ouvert && dossier.statut === 'EN_ESSAI',
       confirmerAchat: ouvert && dossier.statut === 'DEVIS_SIGNE' && peutConfirmerAchat(acteur.role),
@@ -683,6 +783,15 @@ async function vueCompteRendu(
   };
 }
 
+/** Rend le courrier, sans journal : l'appelant écrit PRINT ou SEND selon l'usage. */
+export async function rendreCompteRendu(
+  acteur: UtilisateurConnecte,
+  dossier: DossierLu,
+): Promise<{ essaiId: string; contenu: Uint8Array }> {
+  const { essaiId, vue } = await vueCompteRendu(acteur, dossier);
+  return { essaiId, contenu: await rendeurPdf().rendre(rendreCompteRenduEssaiHtml(vue)) };
+}
+
 /**
  * Courrier de synthèse au prescripteur (convention art. 18 6°, p. 20), rendu à la demande et sans
  * stockage : une ligne PRINT à chaque téléchargement, rien n'est remis si le journal échoue.
@@ -693,8 +802,7 @@ export async function compteRenduEssai(
 ): Promise<DocumentEssai> {
   const client = base(acteur);
   const dossier = await lireDossier(client, acteur, dossierId);
-  const { essaiId, vue } = await vueCompteRendu(acteur, dossier);
-  const contenu = await rendeurPdf().rendre(rendreCompteRenduEssaiHtml(vue));
+  const { essaiId, contenu } = await rendreCompteRendu(acteur, dossier);
   await withAudit(acteur, async () => undefined, evenementEssai('PRINT', essaiId, dossier));
   return { contenu, nomFichier: 'compte-rendu-essai.pdf' };
 }

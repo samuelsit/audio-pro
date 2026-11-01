@@ -8,6 +8,7 @@ import {
   amcDepuisPec,
   blocagesSignature,
   calculerDevis,
+  canauxDisponibles,
   centimes,
   controlerDevis,
   debutEssaiSaisieSchema,
@@ -36,6 +37,7 @@ import {
   TAUX_TVA_CONSOMMABLES,
   TYPES_DOCUMENT,
   verifierDocument,
+  type CanalNotification,
   type Centimes,
   type ClasseLpp,
   type Clock,
@@ -67,6 +69,7 @@ import { base, type ClientTransaction } from '../chiffrement';
 import { documents } from '../documents';
 import { eSignature, signatureEcranDisponible } from '../e-signature';
 import { ErreurSaisie, valider } from '../erreurs';
+import { notifierDisponible } from '../notifier';
 import { rendeurPdf } from '../pdf';
 import {
   appliquerTransition,
@@ -165,7 +168,7 @@ function versOffre({
 }
 
 /** Lit un devis et vérifie le droit par le centre de son dossier. */
-async function lireDevis(
+export async function lireDevis(
   client: Client,
   acteur: UtilisateurConnecte,
   devisId: string,
@@ -1461,6 +1464,8 @@ export interface DevisDetail extends DevisResume {
   offreRetenue: RubriqueOffre | null;
   scanDepose: boolean;
   signature: { dateSignature: string; saisiePar: string; electronique: boolean } | null;
+  /** Canaux où le patient peut recevoir un lien. */
+  canauxPatient: readonly CanalNotification[];
   /** Montant de la PEC accordée sur ce dossier. */
   pecAccordeeCentimes: number | null;
   /** Devis émis dont la part AMC ne reflète pas la PEC : une nouvelle version la reprendrait. */
@@ -1478,6 +1483,7 @@ export interface DevisDetail extends DevisResume {
     imprimer: boolean;
     demarrerEssai: boolean;
     deposerScan: boolean;
+    envoyer: boolean;
     signer: boolean;
     signerEcran: boolean;
     nouvelleVersion: boolean;
@@ -1504,6 +1510,13 @@ export async function obtenirDevis(
     ? await evaluer(devis, await lireFaits(acteur, dossier), aujourdhui())
     : null;
   const pecAccordee = await lirePecAccordee(client, dossier.id);
+  const coordonnees = await client.patient.findUniqueOrThrow({
+    where: { id: dossier.patientId },
+    select: { telephone: true, email: true, consentementSms: true, consentementEmail: true },
+  });
+  const canauxPatient = canauxDisponibles(coordonnees);
+  const envoiPossible =
+    notifierDisponible() && (devis.statut === 'EMIS' || devis.statut === 'SIGNE');
   const calcul = brouillon ? (evaluation?.calcul ?? null) : devisCalculeSchema.parse(devis.totaux);
   const enVigueur = devis.statut === 'EMIS' && dossierAccepteDevis(dossier.statut);
   const emissible = peutEmettreDevis(acteur.role);
@@ -1538,6 +1551,7 @@ export async function obtenirDevis(
       saisiePar: `${signature.saisiePar.prenom} ${signature.saisiePar.nom}`,
       electronique: signature.mode === 'ELECTRONIQUE',
     },
+    canauxPatient,
     pecAccordeeCentimes: pecAccordee,
     pecDifferente:
       devis.statut === 'EMIS' &&
@@ -1557,6 +1571,7 @@ export async function obtenirDevis(
       imprimer: devis.pdfCle !== null,
       demarrerEssai: enVigueur && dossier.statut === 'DEVIS_EMIS',
       deposerScan: scanPossible,
+      envoyer: envoiPossible && canauxPatient.length > 0,
       signer: scanPossible && peutEnregistrerSignature(acteur.role) && devis.scanSigneCle !== null,
       signerEcran:
         scanPossible && peutEnregistrerSignature(acteur.role) && signatureEcranDisponible(),

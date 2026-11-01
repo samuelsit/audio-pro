@@ -370,7 +370,7 @@ Le reste n'est pas dans les tests : il est calculé. Dans ces cas de tiers payan
 
 - Aucun texte ne fixe le contenu ni le délai du compte rendu. Le courrier reprend le déroulé de l'essai (appareils, rendez-vous, prolongation, issue) : modèle applicatif, À VÉRIFIER.
 - Le devis cite aussi le médecin traitant, que le dossier ne connaît pas : seul le prescripteur est destinataire.
-- Le courrier ne contient ni NIR ni montant. Il se télécharge pour le MVP, sans preuve de remise.
+- Le courrier ne contient ni NIR ni montant. Il se télécharge, ou part au prescripteur par un lien sécurisé (ADR-026) ; l'envoi et les ouvertures sont tracés.
 
 ## R21 – Facture préparée (`preparerFacture`, `choisirCodeLpp`, `partAMCC2S`)
 

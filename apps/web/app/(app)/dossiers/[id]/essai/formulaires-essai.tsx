@@ -3,9 +3,7 @@
 import {
   ESSAI_PROLONGATION_MAX_JOURS,
   LIBELLES_OREILLES,
-  LIBELLES_TYPES_RDV_ESSAI,
   TYPES_DOCUMENT,
-  TYPES_RDV_ESSAI,
   type Oreille,
   type StatutDossier,
 } from '@ha/domain';
@@ -13,6 +11,7 @@ import { startTransition, useActionState, type FormEvent } from 'react';
 
 import {
   BoutonEnvoi,
+  CaseACocher,
   ChampTexte,
   ListeDeroulante,
   MessageFormulaire,
@@ -24,33 +23,111 @@ import { Label } from '@/components/ui/label';
 import { ETAT_INITIAL } from '@/lib/formulaire';
 
 import {
-  ajouterRdvAction,
   changerAppareilAction,
   confirmerAchatAction,
+  enregistrerCompteRenduAction,
+  envoyerCompteRenduAction,
+  planifierRdvEssaiAction,
   prolongerEssaiAction,
+  revoquerLienAction,
 } from './actions';
 
-const OPTIONS_TYPES = TYPES_RDV_ESSAI.map((valeur) => ({
-  valeur,
-  libelle: LIBELLES_TYPES_RDV_ESSAI[valeur],
-}));
-
-export function FormulaireRdv({ dossierId, jour }: { dossierId: string; jour: string }) {
-  const [etat, envoyer] = useActionState(ajouterRdvAction.bind(null, dossierId), ETAT_INITIAL);
+export function FormulaireRdv({
+  dossierId,
+  jour,
+  types,
+}: {
+  dossierId: string;
+  jour: string;
+  types: readonly { id: string; nom: string }[];
+}) {
+  const [etat, envoyer] = useActionState(
+    planifierRdvEssaiAction.bind(null, dossierId),
+    ETAT_INITIAL,
+  );
   return (
     <form action={envoyer} className="grid max-w-md gap-4">
       <MessageFormulaire etat={etat} />
-      <ChampTexte etat={etat} nom="date" libelle="Date" type="date" defaut={jour} requis />
       <ListeDeroulante
         etat={etat}
-        nom="type"
+        nom="typeRdvId"
         libelle="Type"
         vide="Choisir…"
-        options={OPTIONS_TYPES}
+        options={types.map((t) => ({ valeur: t.id, libelle: t.nom }))}
       />
-      <ZoneDeTexte etat={etat} nom="compteRendu" libelle="Compte rendu" lignes={2} requis />
+      <ChampTexte etat={etat} nom="date" libelle="Date" type="date" defaut={jour} requis />
+      <ChampTexte etat={etat} nom="heure" libelle="Heure" type="time" requis />
+      <CaseACocher
+        etat={etat}
+        nom="confirmerHorsDisponibilites"
+        libelle="Confirmer hors des disponibilités du praticien"
+        defaut={false}
+      />
       <div>
-        <BoutonEnvoi variant="outline">Ajouter le rendez-vous</BoutonEnvoi>
+        <BoutonEnvoi variant="outline">Planifier le rendez-vous</BoutonEnvoi>
+      </div>
+    </form>
+  );
+}
+
+export function FormulaireCompteRendu({
+  dossierId,
+  rendezVousId,
+}: {
+  dossierId: string;
+  rendezVousId: string;
+}) {
+  const [etat, envoyer] = useActionState(
+    enregistrerCompteRenduAction.bind(null, dossierId, rendezVousId),
+    ETAT_INITIAL,
+  );
+  return (
+    <form action={envoyer} className="grid max-w-md gap-2">
+      <MessageFormulaire etat={etat} />
+      <ZoneDeTexte
+        etat={etat}
+        nom="compteRendu"
+        id={`compte-rendu-${rendezVousId}`}
+        libelle="Compte rendu"
+        lignes={2}
+        requis
+      />
+      <div>
+        <BoutonEnvoi variant="outline">Enregistrer le compte rendu</BoutonEnvoi>
+      </div>
+    </form>
+  );
+}
+
+export function BoutonEnvoiCompteRendu({ dossierId }: { dossierId: string }) {
+  const [etat, envoyer] = useActionState(
+    envoyerCompteRenduAction.bind(null, dossierId),
+    ETAT_INITIAL,
+  );
+  return (
+    <form action={envoyer} className="grid gap-2">
+      <MessageFormulaire etat={etat} />
+      <div>
+        <BoutonEnvoi variant="outline" enCours="Envoi…">
+          Envoyer au prescripteur
+        </BoutonEnvoi>
+      </div>
+    </form>
+  );
+}
+
+export function BoutonRevoquerLien({ dossierId, lienId }: { dossierId: string; lienId: string }) {
+  const [etat, envoyer] = useActionState(
+    revoquerLienAction.bind(null, dossierId, lienId),
+    ETAT_INITIAL,
+  );
+  return (
+    <form action={envoyer} className="grid gap-2">
+      <MessageFormulaire etat={etat} />
+      <div>
+        <BoutonEnvoi variant="outline" enCours="Révocation…">
+          Révoquer
+        </BoutonEnvoi>
       </div>
     </form>
   );

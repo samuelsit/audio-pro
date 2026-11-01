@@ -74,6 +74,7 @@ const TABLES_ISOLEES = [
   'inventaire_ligne',
   'journal_audit',
   'lecture_vitale',
+  'lien_document',
   'mesure_audiologique',
   'modele_aide_auditive',
   'modele_code_lpp',

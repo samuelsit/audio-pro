@@ -17,6 +17,7 @@ export * from './essai';
 export * from './facture';
 export * from './lpp';
 export * from './money';
+export * from './lien-document';
 export * from './notification';
 export * from './organisation/organisation';
 export * from './patient';

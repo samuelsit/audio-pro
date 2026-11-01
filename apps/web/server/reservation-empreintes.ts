@@ -1,9 +1,15 @@
 import { timingSafeEqual } from 'node:crypto';
 
-import { chargerCleLienRdv, EmpreinteHmac, SignatureLienRdv } from '@ha/adapters';
+import {
+  chargerCleLienRdv,
+  EmpreinteHmac,
+  SignatureLienDocument,
+  SignatureLienRdv,
+} from '@ha/adapters';
 
 let instanceEmpreinte: EmpreinteHmac | undefined;
 let instanceSignature: SignatureLienRdv | undefined;
+let instanceSignatureDocument: SignatureLienDocument | undefined;
 
 function empreinte(): EmpreinteHmac {
   instanceEmpreinte ??= new EmpreinteHmac(chargerCleLienRdv(process.env));
@@ -14,6 +20,12 @@ function empreinte(): EmpreinteHmac {
 export function signatureLien(): SignatureLienRdv {
   instanceSignature ??= new SignatureLienRdv(chargerCleLienRdv(process.env));
   return instanceSignature;
+}
+
+/** Signature d'un lien vers un document. Même clé, contexte distinct : un jeton ne vaut pas pour l'autre. */
+export function signatureLienDocument(): SignatureLienDocument {
+  instanceSignatureDocument ??= new SignatureLienDocument(chargerCleLienRdv(process.env));
+  return instanceSignatureDocument;
 }
 
 /** Empreinte du jeton de parcours : la base ne peut pas le rejouer si elle fuite. */

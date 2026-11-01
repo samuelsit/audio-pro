@@ -12,8 +12,10 @@ export const GABARITS_NOTIFICATION = [
   'RDV_REFUSE',
   'RDV_DEPLACE',
   'RDV_ANNULE',
+  'DOCUMENT_A_CONSULTER',
 ] as const;
 export type GabaritNotification = (typeof GABARITS_NOTIFICATION)[number];
+export type GabaritRdv = Exclude<GabaritNotification, 'DOCUMENT_A_CONSULTER'>;
 
 // Ni type de rendez-vous, ni motif, ni nom : le schéma ne laisse passer que ce qu'un message peut dire
 // (CLAUDE.md, aucune donnée de santé). « Fin d'essai » dans un SMS en serait déjà une.
@@ -24,6 +26,10 @@ export const parametresGabaritSchema = z.strictObject({
   heure: z.string().min(1),
 });
 export type ParametresGabarit = z.output<typeof parametresGabaritSchema>;
+
+// Aucune nature de document : « votre devis d'appareillage » dans un SMS serait une donnée de santé.
+export const parametresDocumentSchema = z.strictObject({ centre: z.string().min(1) });
+export type ParametresDocument = z.output<typeof parametresDocumentSchema>;
 
 const formatDate = new Intl.DateTimeFormat('fr-FR', {
   timeZone: 'UTC',
@@ -41,7 +47,7 @@ interface Texte {
   readonly corps: string;
 }
 
-function texte(gabarit: GabaritNotification, p: ParametresGabarit): Texte {
+function texte(gabarit: GabaritRdv, p: ParametresGabarit): Texte {
   const quand = `le ${dateLongue(p.date)} à ${p.heure.replace(':', 'h')}`;
   switch (gabarit) {
     case 'RDV_CONFIRME':
@@ -74,7 +80,7 @@ function texte(gabarit: GabaritNotification, p: ParametresGabarit): Texte {
 }
 
 /** Le lien de gestion ne vaut plus pour un rendez-vous clos. */
-function avecLien(gabarit: GabaritNotification): boolean {
+function avecLien(gabarit: GabaritRdv): boolean {
   return gabarit !== 'RDV_REFUSE' && gabarit !== 'RDV_ANNULE';
 }
 
@@ -85,7 +91,7 @@ export interface MessageRendu {
 
 /** Texte d'un message au patient. `lien` : adresse de gestion du rendez-vous. */
 export function rendreMessage(
-  gabarit: GabaritNotification,
+  gabarit: GabaritRdv,
   parametres: ParametresGabarit,
   lien: string,
 ): MessageRendu {
@@ -93,6 +99,18 @@ export function rendreMessage(
   return {
     sujet,
     corps: avecLien(gabarit) ? `${corps} Annuler ou déplacer : ${lien}` : corps,
+  };
+}
+
+/** Message vers un document : ni sa nature, ni le patient. Le lien exige ensuite sa date de naissance. */
+export function rendreMessageDocument(
+  { centre }: ParametresDocument,
+  lien: string,
+  dureeJours: number,
+): MessageRendu {
+  return {
+    sujet: 'Un document est à votre disposition',
+    corps: `${centre} met un document à votre disposition. Lien sécurisé, valable ${String(dureeJours)} jours : ${lien}`,
   };
 }
 

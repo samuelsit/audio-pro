@@ -96,6 +96,7 @@ model Organisation {
   bilansAudiologiques   BilanAudiologique[]
   inventaires           Inventaire[]
   lignesInventaire      InventaireLigne[]
+  liensDocument         LienDocument[]
   mesuresAudiologiques  MesureAudiologique[]
   otoscopies            Otoscopie[]
   modelesFormulaire     ModeleFormulaire[]
@@ -205,6 +206,7 @@ model Utilisateur {
   exceptionsCreees      ExceptionAgenda[]     @relation("ExceptionAgendaCreateur")
   bilansCrees           BilanAudiologique[]
   inventairesOuverts    Inventaire[]          @relation("InventaireOuvertPar")
+  liensDocument         LienDocument[]
   inventairesClotures   Inventaire[]          @relation("InventaireCloturePar")
   mesuresAudiologiques  MesureAudiologique[]
   otoscopies            Otoscopie[]
@@ -1009,6 +1011,7 @@ model Dossier {
   essai              Essai?
   facturePreparee    FacturePreparee?
   priseEnCharge      PriseEnCharge?
+  liensDocument      LienDocument[]
 
   @@index([patientId])
   @@index([centreId, statut])
@@ -1317,11 +1320,12 @@ model EssaiAppareil {
   @@map("essai_appareil")
 }
 
-/// Rendez-vous tenu pendant l'essai, tracé en ajout seul (trigger). Distinct du créneau `RendezVous` (ADR-020).
+/// Compte rendu d'un rendez-vous d'essai tenu, en ajout seul (trigger). Le créneau est un `RendezVous` (ADR-027).
 model EssaiRdv {
   id             String       @id @default(uuid(7))
   organisationId String       @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
   essaiId        String       @map("essai_id")
+  rendezVousId   String       @unique @map("rendez_vous_id")
   date           DateTime     @db.Date
   type           TypeRdvEssai
   /// Chiffré (contexte « essai_rdv.compte_rendu ») : données de santé possibles.
@@ -1329,6 +1333,7 @@ model EssaiRdv {
   createdById    String       @map("created_by_id")
   createdAt      DateTime     @default(now()) @map("created_at")
   essai          Essai        @relation(fields: [essaiId], references: [id], onDelete: Restrict)
+  rendezVous     RendezVous   @relation(fields: [rendezVousId], references: [id], onDelete: Restrict)
   createdBy      Utilisateur  @relation(fields: [createdById], references: [id], onDelete: Restrict)
   organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
 
@@ -1652,7 +1657,7 @@ model RendezVous {
   /// Prospect : effacé à la conversion en patient.
   prospectNom        String?             @map("prospect_nom")
   prospectTelephone  String?             @map("prospect_telephone")
-  /// Lien vers le dossier d'appareillage : les RDV d'essai alimenteront l'essai à l'étape 13.
+  /// Lien vers le dossier d'appareillage : un RDV d'essai tenu y reçoit son compte rendu (ADR-027).
   dossierId          String?             @map("dossier_id")
   praticienId        String?             @map("praticien_id")
   cabineId           String?             @map("cabine_id")
@@ -1680,6 +1685,7 @@ model RendezVous {
   createdBy          Utilisateur?        @relation("RendezVousCreateur", fields: [createdById], references: [id], onDelete: Restrict)
   organisation       Organisation        @relation(fields: [organisationId], references: [id], onDelete: Restrict)
   reservationEnLigne ReservationEnLigne?
+  essaiRdv           EssaiRdv?
 
   @@index([centreId, debut])
   @@index([patientId, debut])
@@ -1726,6 +1732,7 @@ enum GabaritNotification {
   RDV_REFUSE
   RDV_DEPLACE
   RDV_ANNULE
+  DOCUMENT_A_CONSULTER
 }
 
 enum StatutNotification {
@@ -1821,7 +1828,9 @@ model ReservationEnLigne {
 model Notification {
   id              String              @id @default(uuid(7))
   organisationId  String              @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
-  reservationId   String              @map("reservation_id")
+  /// Exactement une source : la réservation ou le lien vers un document (contrainte CHECK).
+  reservationId   String?             @map("reservation_id")
+  lienDocumentId  String?             @map("lien_document_id")
   canal           CanalNotification
   /// Chiffré (contexte « notification.destinataire »).
   destinataire    String
@@ -1834,12 +1843,55 @@ model Notification {
   prochainEssaiLe DateTime            @default(now()) @map("prochain_essai_le") @db.Timestamptz(3)
   envoyeeLe       DateTime?           @map("envoyee_le") @db.Timestamptz(3)
   createdAt       DateTime            @default(now()) @map("created_at")
-  reservation     ReservationEnLigne  @relation(fields: [reservationId], references: [id], onDelete: Restrict)
+  reservation     ReservationEnLigne? @relation(fields: [reservationId], references: [id], onDelete: Restrict)
+  lienDocument    LienDocument?       @relation(fields: [lienDocumentId], references: [id], onDelete: Restrict)
   organisation    Organisation        @relation(fields: [organisationId], references: [id], onDelete: Restrict)
 
   @@unique([organisationId, cleIdempotence])
   @@index([reservationId])
+  @@index([lienDocumentId])
   @@map("notification")
+}
+
+enum CibleLienDocument {
+  DEVIS
+  COMPTE_RENDU_ESSAI
+}
+
+enum DestinataireLien {
+  PATIENT
+  PRESCRIPTEUR
+}
+
+/// Lien à durée limitée vers un document (ADR-026). Le jeton n'est pas stocké : il se recalcule depuis `id`.
+model LienDocument {
+  id                  String            @id @default(uuid(7))
+  organisationId      String            @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  dossierId           String            @map("dossier_id")
+  cible               CibleLienDocument
+  destinataire        DestinataireLien
+  /// Clé opaque dans le DocumentStore : le PDF du devis, ou le compte rendu figé à l'envoi.
+  pdfCle              String            @map("pdf_cle")
+  expireLe            DateTime          @map("expire_le") @db.Timestamptz(3)
+  revoqueLe           DateTime?         @map("revoque_le") @db.Timestamptz(3)
+  /// Dates de naissance erronées ; à 5, `bloqueLe` ferme le lien.
+  tentatives          Int               @default(0)
+  bloqueLe            DateTime?         @map("bloque_le") @db.Timestamptz(3)
+  ouvertures          Int               @default(0)
+  derniereOuvertureLe DateTime?         @map("derniere_ouverture_le") @db.Timestamptz(3)
+  /// Compte rendu figé retiré du stockage une fois le lien expiré.
+  pdfPurgeLe          DateTime?         @map("pdf_purge_le") @db.Timestamptz(3)
+  createdById         String            @map("created_by_id")
+  createdAt           DateTime          @default(now()) @map("created_at")
+  organisation        Organisation      @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  dossier             Dossier           @relation(fields: [dossierId], references: [id], onDelete: Restrict)
+  createdBy           Utilisateur       @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  notifications       Notification[]
+
+  @@index([dossierId, createdAt])
+  @@index([cible, expireLe])
+  @@index([organisationId])
+  @@map("lien_document")
 }
 
 // ---------------------------------------------------------------------------

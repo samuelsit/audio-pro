@@ -219,6 +219,17 @@ export async function creerClientComplet(suffixe: string) {
       userId: utilisateurId,
     },
   });
+  await prisma().lienDocument.create({
+    data: {
+      organisationId,
+      dossierId: parcours.dossierId,
+      cible: 'DEVIS',
+      destinataire: 'PATIENT',
+      pdfCle: `document${suffixe}`,
+      expireLe: new Date('2099-01-01T00:00:00.000Z'),
+      createdById: utilisateurId,
+    },
+  });
   const inventaire = await prisma().inventaire.create({
     data: { organisationId, centreId: d.centres.a.id, ouvertParId: utilisateurId },
   });

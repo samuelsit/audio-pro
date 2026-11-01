@@ -140,18 +140,18 @@ export function FormulairePec({ dossierId, pec }: { dossierId: string; pec: PecA
             requis
           />
           <div className="grid gap-1.5">
-            <Label htmlFor="justificatif">
+            <Label htmlFor="pec-justificatif">
               Justificatif <span className="font-normal text-muted-foreground">(facultatif)</span>
             </Label>
             <Input
-              id="justificatif"
+              id="pec-justificatif"
               name="justificatif"
               type="file"
               accept={TYPES_DOCUMENT.join(',')}
               aria-invalid={erreursFichier ? true : undefined}
-              aria-describedby="justificatif-aide"
+              aria-describedby="pec-justificatif-aide"
             />
-            <p id="justificatif-aide" className="text-sm text-muted-foreground">
+            <p id="pec-justificatif-aide" className="text-sm text-muted-foreground">
               PDF, JPEG ou PNG, 10 Mo au maximum.
               {pec?.justificatif ? ' Un nouveau fichier remplace le précédent.' : ''}
             </p>

@@ -10,7 +10,7 @@ import {
   enregistrerSignature,
 } from '@/server/services/devis';
 import { creerDossier, enregistrerPrescription } from '@/server/services/dossiers';
-import { ajouterRdv, confirmerAchat } from '@/server/services/essais';
+import { confirmerAchat, enregistrerCompteRendu } from '@/server/services/essais';
 import { aujourdhui } from '@/server/services/patients';
 
 import type { JeuDeDonnees } from './donnees';
@@ -276,9 +276,68 @@ export async function terminerPeriodeEssai(
   dossierId: string,
 ): Promise<void> {
   await vieillirEssai(dossierId, 30);
-  const rdv = { date: aujourdhui(), compteRendu: 'Réglages fictifs' };
-  await ajouterRdv(audio, dossierId, { ...rdv, type: 'POSE' });
-  await ajouterRdv(audio, dossierId, { ...rdv, type: 'FIN_ESSAI' });
+  await tenirRdvEssai(audio, dossierId, 'POSE');
+  await tenirRdvEssai(audio, dossierId, 'FIN_ESSAI');
+}
+
+let rangRdv = 0;
+
+/** Rendez-vous d'essai du jour, déjà vu : créé directement, le statut se joue à l'agenda. */
+export async function creerRdvVu(
+  dossierId: string,
+  nature: 'POSE' | 'CONTROLE' | 'FIN_ESSAI',
+  statut: 'VU' | 'PLANIFIE' = 'VU',
+  jour = aujourdhui(),
+): Promise<string> {
+  const dossier = await prisma().dossier.findUniqueOrThrow({ where: { id: dossierId } });
+  const { organisationId } = dossier;
+  const type =
+    (await prisma().typeRdv.findFirst({ where: { organisationId, natureEssai: nature } })) ??
+    (await prisma().typeRdv.create({
+      data: {
+        organisationId,
+        nom: `Essai ${nature}`,
+        dureeMinutes: 15,
+        couleur: '#64748b',
+        requierePraticien: true,
+        requiereCabine: false,
+        natureEssai: nature,
+      },
+    }));
+  rangRdv += 1;
+  const debut = new Date(`${jour}T08:00:00.000Z`).getTime() + (rangRdv % 40) * 15 * 60_000;
+  const utilisateur = await prisma().praticien.findUniqueOrThrow({
+    where: { id: dossier.praticienId },
+    select: { utilisateurId: true },
+  });
+  const { id } = await prisma().rendezVous.create({
+    data: {
+      organisationId,
+      centreId: dossier.centreId,
+      typeRdvId: type.id,
+      patientId: dossier.patientId,
+      dossierId,
+      praticienId: dossier.praticienId,
+      debut: new Date(debut),
+      fin: new Date(debut + 15 * 60_000),
+      statut,
+      origine: 'INTERNE',
+      createdById: utilisateur.utilisateurId,
+    },
+  });
+  return id;
+}
+
+/** Un rendez-vous d'essai tenu et son compte rendu. */
+export async function tenirRdvEssai(
+  acteur: UtilisateurConnecte,
+  dossierId: string,
+  nature: 'POSE' | 'CONTROLE' | 'FIN_ESSAI',
+  compteRendu = 'Réglages fictifs',
+): Promise<string> {
+  const id = await creerRdvVu(dossierId, nature);
+  await enregistrerCompteRendu(acteur, id, { compteRendu });
+  return id;
 }
 
 /** Identification du centre A, exigée à l'émission du devis. */

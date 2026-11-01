@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { OREILLES } from '../audio-rules/code-prestation';
 import { ESSAI_PROLONGATION_MAX_JOURS } from '../audio-rules/constantes';
+import { heureSchema } from '../centre/horaires';
 import { dateCalendaireSchema } from '../commun/date';
 import { pageSchema } from '../commun/pagination';
 import { texteObligatoire } from '../commun/texte';
@@ -30,12 +31,19 @@ const motifSchema = texteObligatoire('Le motif est obligatoire.', 500);
 /** Verrou optimiste : statut du dossier affiché à l'utilisateur. */
 const statutAttenduSchema = z.enum(STATUTS_DOSSIER, { error: 'Statut actuel inconnu.' });
 
-export const rdvEssaiSaisieSchema = z.object({
+/** Le rendez-vous se planifie dans l'agenda, au nom du praticien du dossier (ADR-027). */
+export const planificationRdvEssaiSaisieSchema = z.object({
+  typeRdvId: z
+    .string({ error: 'Choisir le type de rendez-vous.' })
+    .min(1, 'Choisir le type de rendez-vous.'),
   date: dateCalendaireSchema,
-  type: z.enum(TYPES_RDV_ESSAI, { error: 'Choisir le type de rendez-vous.' }),
+  heure: heureSchema,
+  confirmerHorsDisponibilites: z.boolean(),
+});
+
+export const compteRenduRdvSaisieSchema = z.object({
   compteRendu: texteObligatoire('Le compte rendu est obligatoire.', 500),
 });
-export type RdvEssaiSaisie = z.output<typeof rdvEssaiSaisieSchema>;
 
 /**
  * Durée saisie d'après la demande du prescripteur, 15 jours au plus.

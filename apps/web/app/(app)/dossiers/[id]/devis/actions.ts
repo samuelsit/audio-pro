@@ -18,6 +18,7 @@ import {
   signerDevisSurEcran,
   supprimerBrouillon,
 } from '@/server/services/devis';
+import { envoyerDevisAuPatient } from '@/server/services/liens-document';
 
 function accesDossier(id: string): string {
   return `/dossiers/${id}`;
@@ -160,6 +161,23 @@ export async function deposerScanAction(
     deposerScanDevis(acteur, devisId, statutAttendu(formData), scan),
   );
   return erreur ?? terminer(dossierId, devisId, 'Devis signé déposé.');
+}
+
+export async function envoyerDevisAction(
+  dossierId: string,
+  devisId: string,
+  _: EtatFormulaire,
+  formData: FormData,
+): Promise<EtatFormulaire> {
+  const acteur = await requireSession();
+  const donnees = { canal: texte(formData, 'canal') };
+  const erreur = await executer(() => envoyerDevisAuPatient(acteur, devisId, donnees), donnees);
+  if (erreur) {
+    return erreur;
+  }
+  revalidatePath(accesDossier(dossierId));
+  // Pas de redirection : l'écran reste sur le devis, la confirmation s'affiche dans le formulaire.
+  return { succes: 'Lien envoyé au patient.' };
 }
 
 export async function signerSurEcranAction(

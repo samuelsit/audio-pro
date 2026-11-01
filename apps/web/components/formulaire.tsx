@@ -41,6 +41,7 @@ export function ChampTexte({
   aide,
   inputMode,
   suggestions,
+  id = nom,
 }: {
   etat: EtatFormulaire;
   nom: string;
@@ -55,19 +56,21 @@ export function ChampTexte({
   inputMode?: 'numeric' | 'text' | undefined;
   /** Identifiant d'un `<datalist>` : aide à la saisie, sans restreindre ce qu'on peut taper. */
   suggestions?: string | undefined;
+  /** À fournir quand un même formulaire se répète sur la page : `nom` y serait dupliqué. */
+  id?: string | undefined;
 }) {
   const erreurs = etat.erreurs?.[nom];
-  const idErreur = `${nom}-erreur`;
+  const idErreur = `${id}-erreur`;
   return (
     <div className="grid gap-1.5">
-      <Label htmlFor={nom}>
+      <Label htmlFor={id}>
         {libelle}
         {requis || !mentionFacultatif ? null : (
           <span className="font-normal text-muted-foreground"> (facultatif)</span>
         )}
       </Label>
       <Input
-        id={nom}
+        id={id}
         name={nom}
         type={type}
         required={requis}
@@ -141,6 +144,7 @@ export function ZoneDeTexte({
   requis = false,
   lignes = 4,
   aide,
+  id = nom,
 }: {
   etat: EtatFormulaire;
   nom: string;
@@ -149,17 +153,19 @@ export function ZoneDeTexte({
   requis?: boolean | undefined;
   lignes?: number | undefined;
   aide?: string | undefined;
+  /** À fournir quand un même formulaire se répète sur la page : `nom` y serait dupliqué. */
+  id?: string | undefined;
 }) {
   const erreurs = etat.erreurs?.[nom];
-  const idErreur = `${nom}-erreur`;
+  const idErreur = `${id}-erreur`;
   return (
     <div className="grid gap-1.5">
-      <Label htmlFor={nom}>
+      <Label htmlFor={id}>
         {libelle}
         {requis ? null : <span className="font-normal text-muted-foreground"> (facultatif)</span>}
       </Label>
       <textarea
-        id={nom}
+        id={id}
         name={nom}
         rows={lignes}
         required={requis}

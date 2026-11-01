@@ -794,3 +794,58 @@ La mise à niveau de l'étape 12 demande un port `ESignature` avec `FakeESignatu
 - La valeur probante d'une signature sur tablette n'est pas établie (À VÉRIFIER).
 - La règle de répartition reste celle de R23, À VÉRIFIER : aucun document ne décrit une PEC.
 - Une PEC accordée pour une seule des deux offres s'applique aussi à l'autre.
+
+## ADR-026 – Lien sécurisé vers un document
+
+- **Date** : 2026-11-01
+- **Statut** : acceptée. Complète l'ADR-021.
+
+### Contexte
+
+Le devis doit partir au patient et le compte rendu au prescripteur par un lien sécurisé. `CLAUDE.md` impose une durée limitée et interdit la pièce jointe. Le lien de l'étape 8 n'expire pas, et il repose sur le principe qu'un lien transféré ne dévoile rien : il ne convient pas à un document qui porte le NIR ou des données de santé. `Notification` exigeait une réservation.
+
+### Décision
+
+- **Second facteur** (arbitré le 2026-11-01) : la date de naissance du patient, pour le patient comme pour le prescripteur. Elle ne dépend d'aucun fournisseur de SMS. Cinq erreurs ferment le lien.
+- **`LienDocument`** : cible, destinataire, clé du PDF, expiration à 7 jours, révocation, tentatives, ouvertures. Le jeton n'est pas stocké.
+- **Jeton** : `SignatureLienDocument`, HMAC calculé sur l'organisation et l'identifiant du lien. Même clé que `LIEN_RDV_CLE`, contexte distinct : aucune variable à ajouter, et un jeton de RDV ne vaut pas pour un document. Une rotation touche les deux types de liens.
+- **Refus** : expiré, révoqué, bloqué, falsifié et client suspendu donnent le même message.
+- **Tentatives** : le refus se lève après la transaction, sinon elle annulerait le décompte.
+- **Message** : `DOCUMENT_A_CONSULTER`, schéma strict réduit au nom du centre. Ni nature du document ni patient. Un message a une source et une seule (CHECK). L'organisation d'une notification s'hérite désormais de sa source.
+- **Envoi** : le devis en vigueur, signé s'il l'est, au canal choisi, sous réserve de la coordonnée et du consentement. Le compte rendu, figé en PDF à l'envoi (ADR-013 le rendait à la demande), va à l'adresse du prescripteur de la dernière ordonnance. E-mail seulement : MSSanté attend la documentation d'un fournisseur.
+- **Sans fournisseur** : l'envoi est refusé, pour ne pas annoncer un message qui ne partirait jamais.
+- **Journal** : ligne `SEND`, première utilisation de cette action, et `READ` à l'ouverture, avec l'auteur « Lien sécurisé ».
+- **Purge** : `purger-liens-document` retire chaque nuit le compte rendu figé d'un lien expiré. Le PDF d'un devis reste, c'est le document du dossier. Le travail ne tourne que si le stockage S3 est configuré.
+
+### Conséquences
+
+- Une date de naissance se connaît ou se devine : protection modeste, à réexaminer à l'étape 22 (À VÉRIFIER).
+- Le prescripteur doit connaître la date de naissance de son patient, ce qui suppose qu'il ait le dossier sous la main.
+- La base légale de ces envois est absente de `docs/ref` (À VÉRIFIER) : le consentement est appliqué par prudence.
+- Un compte rendu envoyé puis modifié par un nouveau rendez-vous reste celui de l'envoi : il faut renvoyer un lien.
+- Tant qu'aucun fournisseur de SMS et d'e-mail n'est retenu, rien ne part en production.
+
+## ADR-027 – Les rendez-vous d'essai sont des rendez-vous de l'agenda
+
+- **Date** : 2026-11-01
+- **Statut** : acceptée. Remplace le point « Rendez-vous » de l'ADR-013. Complète l'ADR-020.
+
+### Contexte
+
+L'ADR-013 traçait les rendez-vous d'essai sans agenda, Doctolib le restant. L'agenda existe depuis l'étape 7, et `RendezVous` porte déjà `dossierId`, `TypeRdv.natureEssai` déjà la nature. L'alimentation d'`EssaiRdv` promise à l'étape 13 n'avait pas été faite.
+
+### Décision
+
+- **Modèle** : le créneau est un `RendezVous`. `EssaiRdv` reste, comme compte rendu en ajout seul d'un rendez-vous tenu, avec `rendezVousId` obligatoire et unique. L'ADR-020 reste vraie : un RDV planifié n'est pas un RDV tenu. Le compte rendu reste obligatoire et chiffré dans son contexte, sans rechiffrement.
+- **Règles** : `etatEssai` et `blocagesSignature` ne changent pas. Les 2 rendez-vous de la signature se comptent sur les comptes rendus saisis.
+- **Parcours** : `planifierRdvEssai` crée le RDV pour le patient et le praticien du dossier. Marqué `VU` dans l'agenda, il attend son compte rendu (`enregistrerCompteRendu`), signalé sur le panneau du RDV et sur l'essai.
+- **Agenda** : `creerRdv` exige un dossier pour un type d'essai quand il y a un patient. Un RDV qui a son compte rendu ne se déplace, ne s'annule ni ne change de statut, y compris par le lien du patient : le contrôle est dans `appliquerDeplacement` et `appliquerAnnulation`.
+- **Migration** : chaque `EssaiRdv` reprend un RDV `VU` du dossier, de même nature et du même jour, s'il existe. Sinon un RDV est créé : statut `VU`, origine `INTERNE`, praticien du dossier, type de même nature ou type inactif « (reprise) ».
+- **Heure reprise** : l'ancienne trace n'avait qu'une date. L'heure est le premier créneau libre du praticien à partir de 9 h, par pas de 30 minutes, pour respecter l'exclusion. **Cette heure est conventionnelle, donc fausse.** Elle n'apparaît que dans l'agenda passé et reste sans effet sur le décompte.
+
+### Conséquences
+
+- Le praticien d'un RDV repris est le titulaire du dossier, pas forcément celui qui a reçu le patient.
+- Sans type d'essai actif, le bloc Essai renvoie au paramétrage : les types par défaut en fournissent trois.
+- Une cabine étant requise par ces types, un centre sans cabine doit les paramétrer.
+- Un RDV saisi par erreur, puis complété d'un compte rendu, reste définitif (déjà noté dans l'ADR-013).

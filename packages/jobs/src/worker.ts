@@ -1,6 +1,14 @@
 import path from 'node:path';
 
-import { chargerCleLienRdv, chargerTrousseau, FakeNotifier, SignatureLienRdv } from '@ha/adapters';
+import {
+  chargerCleLienRdv,
+  chargerConfigurationS3,
+  chargerTrousseau,
+  FakeNotifier,
+  S3DocumentStore,
+  SignatureLienDocument,
+  SignatureLienRdv,
+} from '@ha/adapters';
 import { config } from 'dotenv';
 
 import { ABONNES } from './abonnes';
@@ -8,6 +16,7 @@ import { FileTravaux } from './file';
 import { travailDiagnostic } from './travaux/diagnostic';
 import { repartirDiffusion, travailDiffusion } from './travaux/diffuser-evenements';
 import { repartirEnvois, travailEnvoi } from './travaux/envoyer-notifications';
+import { repartirPurgeLiens, travailPurgeLiensDocument } from './travaux/purger-liens-document';
 import {
   purgerLimitations,
   repartirPurge,
@@ -52,6 +61,7 @@ if (process.env.NOTIFIER === 'simulation' && process.env.NODE_ENV !== 'productio
   const envoi = travailEnvoi({
     notifier: new FakeNotifier(process.env.NOTIFIER_SIMULATION_FICHIER),
     signature: new SignatureLienRdv(chargerCleLienRdv(process.env)),
+    signatureDocument: new SignatureLienDocument(chargerCleLienRdv(process.env)),
     urlPublique,
   });
   await file.declarer(envoi, { expireInSeconds: 120 });
@@ -61,6 +71,18 @@ if (process.env.NOTIFIER === 'simulation' && process.env.NODE_ENV !== 'productio
   );
 } else {
   console.warn('Notifications en ligne désactivées : aucun fournisseur configuré.');
+}
+
+// Le compte rendu figé d'un lien n'existe que sur le stockage S3 : sans lui, rien à purger.
+if (process.env.DOCUMENTS_STOCKAGE !== 'memoire' && process.env.S3_BUCKET) {
+  const purgeLiens = travailPurgeLiensDocument(
+    new S3DocumentStore(chargerConfigurationS3(process.env)),
+  );
+  await file.declarer(purgeLiens);
+  await file.ecouter(purgeLiens);
+  await file.planifierTransverse('repartir-purge-liens', '37 3 * * *', () =>
+    repartirPurgeLiens(file, purgeLiens),
+  );
 }
 
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {

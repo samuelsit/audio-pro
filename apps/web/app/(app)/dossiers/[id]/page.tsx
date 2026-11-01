@@ -1,4 +1,6 @@
 import {
+  LIBELLES_CIBLES_LIEN,
+  LIBELLES_DESTINATAIRES_LIEN,
   LIBELLES_OREILLES_DOSSIER,
   LIBELLES_SPECIALITES_PRESCRIPTEUR,
   LIBELLES_TYPES_APPAREILLAGE,
@@ -12,18 +14,20 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { formaterDate, formaterJour } from '@/lib/format';
+import { formaterDate, formaterDateHeure, formaterJour } from '@/lib/format';
 import { ouIntrouvable, requireSession } from '@/server/auth/gardes';
 import { listerDevisDuDossier } from '@/server/services/devis';
 import { appareilsProposables, obtenirEssai } from '@/server/services/essais';
 import { obtenirDossier, type PrescriptionAffichee } from '@/server/services/dossiers';
 import { lirePecDossier, obtenirFacture } from '@/server/services/factures';
+import { listerLiensDocument } from '@/server/services/liens-document';
 
 import { AlerteDroits, EntetePatient } from '../../patients/entete-patient';
 import { choisirBilanReferenceAction } from '../actions';
 import { AbandonDossier } from './abandon-dossier';
 import { BlocDevis } from './devis/bloc-devis';
 import { BlocEssai } from './essai/bloc-essai';
+import { BoutonRevoquerLien } from './essai/formulaires-essai';
 import { BlocFacture } from './facture/bloc-facture';
 import { FormulairePec } from './facture/formulaires-facture';
 import { FormulaireBilanReference } from './formulaire-bilan-reference';
@@ -150,6 +154,7 @@ export default async function PageDossier({ params }: PageProps<'/dossiers/[id]'
 
   const bilanReference = dossier.bilans.find((b) => b.id === dossier.bilanReferenceId);
   const pecDossier = await lirePecDossier(acteur, dossier.id);
+  const liens = await listerLiensDocument(acteur, dossier.id);
 
   return (
     <div className="grid gap-6">
@@ -247,6 +252,30 @@ export default async function PageDossier({ params }: PageProps<'/dossiers/[id]'
       {facture ? (
         <Bloc titre="Facture préparée">
           <BlocFacture dossierId={dossier.id} detail={facture} />
+        </Bloc>
+      ) : null}
+
+      {liens.length > 0 ? (
+        <Bloc titre="Liens envoyés">
+          <ul className="grid gap-2 text-sm">
+            {liens.map((l) => (
+              <li key={l.id} className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <span>
+                  {LIBELLES_CIBLES_LIEN[l.cible]}, {LIBELLES_DESTINATAIRES_LIEN[l.destinataire]}
+                </span>
+                <span>envoyé le {formaterDateHeure(l.creeLe)}</span>
+                <span>
+                  {l.ouvert
+                    ? `valable jusqu’au ${formaterDateHeure(l.expireLe)}`
+                    : l.revoque
+                      ? 'révoqué'
+                      : 'fermé'}
+                </span>
+                <span>{l.ouvertures} ouverture(s)</span>
+                {l.ouvert ? <BoutonRevoquerLien dossierId={dossier.id} lienId={l.id} /> : null}
+              </li>
+            ))}
+          </ul>
         </Bloc>
       ) : null}
 

@@ -361,6 +361,13 @@ export function PanneauRdv({
                 </Link>
               ) : null}
             </div>
+            {rdv.compteRenduAttendu ? (
+              <div>
+                <Button asChild variant="outline" size="sm">
+                  <Link href={`/dossiers/${rdv.dossierId ?? ''}`}>Saisir le compte rendu</Link>
+                </Button>
+              </div>
+            ) : null}
             {rdv.patientId && rdv.ficheAccessible && !rdv.dossierId ? (
               <DossierDuRdv rdv={rdv} patientId={rdv.patientId} executer={executer} />
             ) : null}

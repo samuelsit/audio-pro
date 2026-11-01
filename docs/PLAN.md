@@ -43,7 +43,6 @@ Numérotation du plan SaaS (ADR-015). Les références aux étapes dans `docs/DE
 - [x] **7** – Agenda (ADR-020)
   - À VÉRIFIER : `btree_gist` chez l'hébergeur HDS (étape 23)
   - à arbitrer : réservation pour un patient d'un centre hors périmètre, dépistage réalisé par un assistant (seuls les AUDIO ont une fiche praticien)
-  - reporté à l'étape 13 : alimentation d'`EssaiRdv` depuis un RDV `VU` (`dossierId` et `natureEssai` sont prêts)
   - reporté à l'étape 19 : abonnés aux événements `RDV_CREE`, `RDV_DEPLACE`, `RDV_ANNULE` (liste vide dans `packages/jobs/src/abonnes.ts`)
   - reporté à l'étape 22 : durée de conservation des prospects jamais convertis, purge de `evenement_domaine`
 - [x] **8** – Prise de RDV en ligne (ADR-021)
@@ -74,12 +73,15 @@ Numérotation du plan SaaS (ADR-015). Les références aux étapes dans `docs/DE
   - reporté à l'étape 29 : reprise des délivrances Cosium ; d'ici là, un patient sans ligne ressort éligible
   - reporté à l'étape 20 : liste `/dossiers` du menu
   - à planifier : avertissement si deux dossiers ouverts portent sur la même oreille, service S3 en CI
-- [ ] **12** – Devis normalisé et signature — à mettre à niveau
+- [x] **12** – Devis normalisé et signature (ADR-025, ADR-026)
   - À VÉRIFIER : TVA, code de regroupement, identifiants d'entreprise, départ de la garantie, mentions anciennes du modèle (voir `docs/REGLES_AUDIO.md`)
   - reporté à l'étape 22 : fichier du logo commercial (cadre vide au PDF)
   - reporté à l'étape 23 : image Docker avec Chromium et `PDF_CHROMIUM_CHEMIN`
-  - à planifier : fiche technique stockée au catalogue (case déclarative pour le MVP), signature électronique
-- [ ] **13** – Essai — à mettre à niveau
+  - à planifier : fiche technique stockée au catalogue (case déclarative pour le MVP)
+  - À VÉRIFIER : valeur probante de la signature sur tablette, signature de l'audioprothésiste au § 5, fournisseur (`docs/vendor` vide) ; en production, seul le scan fonctionne
+  - À VÉRIFIER : date de naissance comme second facteur (revue à l'étape 22), base légale des envois de documents
+- [x] **13** – Essai (ADR-026, ADR-027)
+  - À VÉRIFIER : heure conventionnelle des rendez-vous d'essai repris par la migration ; canal MSSanté vers le prescripteur
   - À VÉRIFIER : autre modèle en cours d'essai, nombre de prolongations et demande après l'échéance, contenu du compte rendu (voir `docs/REGLES_AUDIO.md`)
   - reporté à l'étape 14 : `RESERVE` → `VENDU`, fermeture du lien à la vente, retrait du `VENDU` manuel, écriture de `Delivrance`
   - à arbitrer : embouts sur mesure facturés à l'abandon, nouvelle période d'essai après un échec (un dossier n'a qu'un essai), correction d'un rendez-vous saisi par erreur
@@ -89,7 +91,7 @@ Numérotation du plan SaaS (ADR-015). Les références aux étapes dans `docs/DE
 - [ ] **14** – Facturation — à faire évoluer depuis FacturePreparee
   - À VÉRIFIER : sens de `RJT`, délai de lecture Vitale, confirmation manuelle, procédure de PEC et répartition, part AMC C2S sur les consommables, logiciels de caisse (voir `docs/REGLES_AUDIO.md`)
   - à reprendre : vente, `Delivrance`, sortie de stock des piles et accessoires (reportés depuis l'ancienne étape 12)
-  - à planifier : saisie de la PEC avant l'achat (la table le permet), codes `7xxxxxx` reliés au catalogue, port `BillingEngine`
+  - à planifier : codes `7xxxxxx` reliés au catalogue, port `BillingEngine`
 - [ ] **15** – Encaissement et caisse
 - [ ] **16** – Tiers payant et PEC
 

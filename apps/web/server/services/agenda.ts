@@ -326,6 +326,8 @@ export interface RdvDetail extends RdvGrille {
   typeRdvId: string;
   notes: string | null;
   dossierId: string | null;
+  /** Rendez-vous d'essai tenu, sans compte rendu : à saisir depuis le dossier. */
+  compteRenduAttendu: boolean;
   prospectNom: string | null;
   prospectTelephone: string | null;
   arriveLe: number | null;
@@ -348,6 +350,8 @@ function selectionDetail() {
     notes: true,
     dossierId: true,
     arriveLe: true,
+    typeRdv: { select: { nom: true, couleur: true, natureEssai: true } },
+    essaiRdv: { select: { id: true } },
     reservationEnLigne: {
       select: {
         nom: true,
@@ -387,6 +391,11 @@ export async function lireRdv(acteur: UtilisateurConnecte, id: string): Promise<
     typeRdvId: ligne.typeRdvId,
     notes: ligne.notes,
     dossierId: ligne.dossierId,
+    compteRenduAttendu:
+      ligne.dossierId !== null &&
+      ligne.statut === 'VU' &&
+      ligne.typeRdv.natureEssai !== null &&
+      ligne.essaiRdv === null,
     prospectNom: ligne.prospectNom,
     prospectTelephone: ligne.prospectTelephone,
     arriveLe: ligne.arriveLe?.getTime() ?? null,
@@ -723,6 +732,7 @@ export const selectionEcriture = {
   prospectTelephone: true,
   priseEnChargeLe: true,
   typeRdv: { select: { requiereCabine: true, requierePraticien: true } },
+  essaiRdv: { select: { id: true } },
 } as const;
 
 export type RdvLu = Prisma.RendezVousGetPayload<{ select: typeof selectionEcriture }>;
@@ -793,6 +803,13 @@ export async function rattacherRdvDossier(
     },
     (rdv) => evenementRdv(rdv, rdv, { dossierId }),
   );
+}
+
+/** Un compte rendu d'essai tient son rendez-vous : le créneau et le statut ne bougent plus (ADR-027). */
+function exigerSansCompteRendu(rdv: Pick<RdvLu, 'essaiRdv'>): void {
+  if (rdv.essaiRdv !== null) {
+    throw new ErreurSaisie({}, 'Ce rendez-vous a son compte rendu d’essai : il ne change plus.');
+  }
 }
 
 /** Toute écriture passe ici : la version lue doit être la dernière (verrou optimiste). */
@@ -866,10 +883,16 @@ export async function creerRdv(acteur: UtilisateurConnecte, saisie: unknown): Pr
       async (tx) => {
         const type = await tx.typeRdv.findFirst({
           where: { id: d.typeRdvId, actif: true },
-          select: { requierePraticien: true, requiereCabine: true },
+          select: { requierePraticien: true, requiereCabine: true, natureEssai: true },
         });
         if (!type) {
           throw ErreurSaisie.surChamp('typeRdvId', 'Type de rendez-vous inconnu.');
+        }
+        if (type.natureEssai !== null && d.patientId !== null && d.dossierId === null) {
+          throw ErreurSaisie.surChamp(
+            'dossierId',
+            'Rattacher ce rendez-vous d’essai à un dossier.',
+          );
         }
         if (type.requierePraticien && d.praticienId === null) {
           throw ErreurSaisie.surChamp('praticienId', 'Choisir le praticien.');
@@ -939,6 +962,7 @@ export async function appliquerDeplacement(
   rdv: RdvLu,
   cible: CibleDeplacement,
 ) {
+  exigerSansCompteRendu(rdv);
   const { version, praticienId, debut, fin, confirmer, statut, instant } = cible;
   const candidat = { centreId: rdv.centreId, praticienId, debut, fin };
   const contexte = await contexteDuCreneau(tx, { ...candidat, exclure: rdv.id, instant });
@@ -1065,6 +1089,7 @@ export async function changerStatutRdv(
     acteur,
     async (tx) => {
       const rdv = await lireRdvPourEcrire(tx, acteur, id);
+      exigerSansCompteRendu(rdv);
       if (!peutPasserA(rdv.statut, statut)) {
         throw new ErreurSaisie({}, 'Ce changement de statut n’est pas possible.');
       }
@@ -1118,6 +1143,7 @@ export async function appliquerAnnulation(
   version: number,
   instant: Date,
 ) {
+  exigerSansCompteRendu(rdv);
   await ecrireRdv(tx, rdv.id, version, { statut: 'ANNULE' });
   await publierEvenement(tx, { type: 'RDV_ANNULE', charge: charge(rdv) }, instant);
   return { ...rdv, statut: 'ANNULE' as const };

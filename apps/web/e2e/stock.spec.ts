@@ -2,6 +2,30 @@ import { expect, test, type Page } from '@playwright/test';
 
 import { COMPTES, seConnecter } from './outils';
 
+test('inventaire : pointage, comptage et écart à justifier', async ({ page }) => {
+  await seConnecter(page, COMPTES.responsable);
+  await expect(page.getByRole('heading', { name: /^Bonjour/ })).toBeVisible();
+  await page.goto('/stock');
+  await expect(page.getByText(/^Valeur du stock : /)).toBeVisible();
+  await page.goto('/stock/inventaires');
+  await page.waitForLoadState('networkidle');
+  await page.locator('#centreId').selectOption({ index: 1 });
+  await page.getByRole('button', { name: 'Ouvrir un inventaire' }).click();
+  await expect(page.getByRole('heading', { name: /^Inventaire – / })).toBeVisible();
+  await page.waitForLoadState('networkidle');
+
+  await page.getByLabel('Numéro de série').fill('INCONNU-E2E');
+  await page.getByRole('button', { name: 'Pointer' }).click();
+  await expect(page.getByText('INCONNU-E2E : pointé, non attendu dans ce centre.')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Appareils en excédent (1)' })).toBeVisible();
+  await page.getByLabel('Justification de INCONNU-E2E').fill('Retour non saisi');
+  await page.getByRole('button', { name: 'Justifier' }).first().click();
+  await page.waitForLoadState('networkidle');
+
+  await page.getByRole('button', { name: 'Clôturer l’inventaire' }).click();
+  await expect(page.getByText(/Il reste \d+ accessoire\(s\) à compter\./)).toBeVisible();
+});
+
 /** À l'hydratation, React réapplique le `defaultValue` d'un <select> : on attend qu'elle soit finie. */
 async function formulairePret(page: Page): Promise<void> {
   await page.waitForLoadState('networkidle');

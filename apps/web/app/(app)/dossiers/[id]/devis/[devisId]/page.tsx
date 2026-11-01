@@ -1,5 +1,6 @@
 import {
   centimes,
+  DUREE_LIEN_DOCUMENT_JOURS,
   formatEuros,
   LIBELLES_RUBRIQUES_OFFRE,
   LIBELLES_STATUTS_DEVIS,
@@ -34,6 +35,7 @@ import {
   BoutonEmettre,
   BoutonNouvelleVersion,
   BoutonSupprimer,
+  FormulaireEnvoi,
   FormulaireEssai,
   FormulaireScan,
   FormulaireSignature,
@@ -284,6 +286,15 @@ export default async function PageDevis({ params }: PageProps<'/dossiers/[id]/de
             la reprendrait ; sans elle, la facture utilisera quand même la prise en charge.
           </AlertDescription>
         </Alert>
+      ) : null}
+      {actions.envoyer ? (
+        <Bloc titre="Envoyer au patient">
+          <p className="text-sm text-muted-foreground">
+            Le message ne contient qu’un lien, valable {DUREE_LIEN_DOCUMENT_JOURS} jours. Le patient
+            l’ouvre avec sa date de naissance.
+          </p>
+          <FormulaireEnvoi dossierId={id} devisId={devisId} canaux={devis.canauxPatient} />
+        </Bloc>
       ) : null}
       {actions.demarrerEssai ? (
         <Bloc titre="Démarrer l’essai">

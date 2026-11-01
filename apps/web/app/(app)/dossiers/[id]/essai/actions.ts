@@ -2,15 +2,17 @@
 
 import { revalidatePath } from 'next/cache';
 
-import { texte, type EtatFormulaire } from '@/lib/formulaire';
+import { coche, texte, type EtatFormulaire } from '@/lib/formulaire';
 import { executer } from '@/server/actions';
 import { requireSession } from '@/server/auth/gardes';
 import {
-  ajouterRdv,
   changerAppareilEssai,
   confirmerAchat,
+  enregistrerCompteRendu,
   enregistrerProlongation,
+  planifierRdvEssai,
 } from '@/server/services/essais';
+import { envoyerCompteRenduAuPrescripteur, revoquerLien } from '@/server/services/liens-document';
 
 /** L'écran reste sur le dossier : la confirmation s'affiche dans le formulaire (voir ADR-011). */
 function terminer(dossierId: string, succes: string): EtatFormulaire {
@@ -19,19 +21,50 @@ function terminer(dossierId: string, succes: string): EtatFormulaire {
   return { succes };
 }
 
-export async function ajouterRdvAction(
+export async function planifierRdvEssaiAction(
   dossierId: string,
   _: EtatFormulaire,
   formData: FormData,
 ): Promise<EtatFormulaire> {
   const acteur = await requireSession();
   const donnees = {
+    typeRdvId: texte(formData, 'typeRdvId'),
     date: texte(formData, 'date'),
-    type: texte(formData, 'type'),
-    compteRendu: texte(formData, 'compteRendu'),
+    heure: texte(formData, 'heure'),
+    confirmerHorsDisponibilites: coche(formData, 'confirmerHorsDisponibilites'),
   };
-  const erreur = await executer(() => ajouterRdv(acteur, dossierId, donnees), donnees);
-  return erreur ?? terminer(dossierId, 'Rendez-vous enregistré.');
+  const erreur = await executer(() => planifierRdvEssai(acteur, dossierId, donnees), donnees);
+  return erreur ?? terminer(dossierId, 'Rendez-vous planifié dans l’agenda.');
+}
+
+export async function enregistrerCompteRenduAction(
+  dossierId: string,
+  rendezVousId: string,
+  _: EtatFormulaire,
+  formData: FormData,
+): Promise<EtatFormulaire> {
+  const acteur = await requireSession();
+  const donnees = { compteRendu: texte(formData, 'compteRendu') };
+  const erreur = await executer(
+    () => enregistrerCompteRendu(acteur, rendezVousId, donnees),
+    donnees,
+  );
+  return erreur ?? terminer(dossierId, 'Compte rendu enregistré.');
+}
+
+export async function envoyerCompteRenduAction(dossierId: string): Promise<EtatFormulaire> {
+  const acteur = await requireSession();
+  const erreur = await executer(() => envoyerCompteRenduAuPrescripteur(acteur, dossierId));
+  return erreur ?? terminer(dossierId, 'Lien envoyé au prescripteur.');
+}
+
+export async function revoquerLienAction(
+  dossierId: string,
+  lienId: string,
+): Promise<EtatFormulaire> {
+  const acteur = await requireSession();
+  const erreur = await executer(() => revoquerLien(acteur, lienId));
+  return erreur ?? terminer(dossierId, 'Lien révoqué.');
 }
 
 export async function prolongerEssaiAction(

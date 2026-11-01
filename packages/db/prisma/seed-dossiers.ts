@@ -1,6 +1,7 @@
 import { chargerTrousseau, ChiffreurAesGcm } from '@ha/adapters';
 
 import type { PrismaClient } from '../src/generated/prisma/client';
+import { seedTypesRdv } from './seed-agenda';
 
 // Dossiers fictifs : un brouillon en renouvellement et une délivrance droite vieille de 2 ans, pour
 // montrer le refus à moins de 4 ans ; un essai à une semaine de son échéance, pour l'écran « Essais en
@@ -52,6 +53,7 @@ const PRESCRIPTEURS = [
     rpps: '10000000017',
     specialite: 'ORL',
     formationOtologie: null,
+    contact: 'agathe.demo@exemple.test',
     nomRecherche: 'DEMO',
     prenomRecherche: 'AGATHE',
   },
@@ -85,6 +87,15 @@ function ilYaJours(jours: number): Date {
 }
 
 /** Sans mise à jour : un essai avancé ou un appareil déplacé en démonstration garde son état. */
+interface RdvEssaiDemo {
+  readonly centreId: string;
+  readonly patientId: string;
+  readonly dossierId: string;
+  readonly nature: 'POSE' | 'FIN_ESSAI';
+  readonly date: Date;
+  readonly utilisateurId: string;
+}
+
 async function seedEssai(
   db: PrismaClient,
   organisationId: string,
@@ -173,12 +184,50 @@ async function seedEssai(
   await db.essaiRdv.create({
     data: {
       essaiId: ESSAI_DEMO,
+      rendezVousId: await seedRdvEssai(db, organisationId, {
+        centreId,
+        patientId: PATIENT_ESSAI,
+        dossierId: DOSSIER_ESSAI,
+        nature: 'POSE',
+        date: debut,
+        utilisateurId,
+      }),
       date: debut,
       type: 'POSE',
       compteRendu: chiffreur.chiffrer('Pose et premiers réglages', CONTEXTE_COMPTE_RENDU),
       createdById: utilisateurId,
     },
   });
+}
+
+/** Rendez-vous tenu de l'agenda, à 7 h 30 : hors des créneaux de la démonstration, toujours à venir. */
+async function seedRdvEssai(
+  db: PrismaClient,
+  organisationId: string,
+  { centreId, patientId, dossierId, nature, date, utilisateurId }: RdvEssaiDemo,
+): Promise<string> {
+  const type = await db.typeRdv.findFirstOrThrow({
+    where: { organisationId, natureEssai: nature },
+    select: { id: true },
+  });
+  const debut = new Date(date.getTime() + 6.5 * 60 * 60_000);
+  const { id } = await db.rendezVous.create({
+    data: {
+      organisationId,
+      centreId,
+      typeRdvId: type.id,
+      patientId,
+      dossierId,
+      praticienId: PRATICIEN_DEMO,
+      debut,
+      fin: new Date(debut.getTime() + 30 * 60_000),
+      statut: 'VU',
+      origine: 'INTERNE',
+      createdById: utilisateurId,
+    },
+    select: { id: true },
+  });
+  return id;
 }
 
 /** Sans mise à jour, comme l'essai. Le devis s'écrit en brouillon, seul état où ses lignes s'ajoutent. */
@@ -373,6 +422,14 @@ async function seedAFacturer(
     await db.essaiRdv.create({
       data: {
         essaiId: ESSAI_A_FACTURER,
+        rendezVousId: await seedRdvEssai(db, organisationId, {
+          centreId,
+          patientId: PATIENT_A_FACTURER,
+          dossierId: DOSSIER_A_FACTURER,
+          nature: type,
+          date,
+          utilisateurId,
+        }),
         date,
         type,
         compteRendu: chiffreur.chiffrer('Rendez-vous fictif', CONTEXTE_COMPTE_RENDU),
@@ -462,6 +519,7 @@ export async function seedDossiers(
     ],
     skipDuplicates: true,
   });
+  await seedTypesRdv(db, organisationId);
   await seedEssai(db, organisationId, centreId, utilisateurId, chiffreur);
   await seedAFacturer(db, organisationId, centreId, utilisateurId, chiffreur);
 }

@@ -11,14 +11,16 @@ import type { ReactNode } from 'react';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { formaterDate } from '@/lib/format';
+import { formaterDate, formaterDateHeure } from '@/lib/format';
 import type { AppareilProposable, EssaiDetail } from '@/server/services/essais';
 import { aujourdhui } from '@/server/services/patients';
 
 import { AlertesEssai } from '../../../essais/alertes-essai';
 import {
   BoutonAchat,
+  BoutonEnvoiCompteRendu,
   FormulaireChangement,
+  FormulaireCompteRendu,
   FormulaireProlongation,
   FormulaireRdv,
 } from './formulaires-essai';
@@ -70,9 +72,32 @@ function Appareils({ essai }: { essai: EssaiDetail }) {
   );
 }
 
+function RdvsPlanifies({ dossierId, essai }: { dossierId: string; essai: EssaiDetail }) {
+  if (essai.rdvsPlanifies.length === 0) {
+    return null;
+  }
+  return (
+    <Sous titre="Rendez-vous à venir ou à compléter">
+      <ul className="grid gap-3 text-sm">
+        {essai.rdvsPlanifies.map((r) => (
+          <li key={r.id} className="grid gap-1">
+            <span>
+              {formaterDateHeure(r.debut)}, {LIBELLES_TYPES_RDV_ESSAI[r.type]}
+              {r.statut === 'VU' ? '' : ', à marquer comme vu dans l’agenda'}
+            </span>
+            {r.statut === 'VU' && essai.actions.planifierRdv ? (
+              <FormulaireCompteRendu dossierId={dossierId} rendezVousId={r.id} />
+            ) : null}
+          </li>
+        ))}
+      </ul>
+    </Sous>
+  );
+}
+
 function Rdvs({ essai }: { essai: EssaiDetail }) {
   return (
-    <Sous titre="Rendez-vous">
+    <Sous titre="Rendez-vous tenus">
       {essai.rdvs.length === 0 ? (
         <p className="text-sm text-muted-foreground">Aucun rendez-vous enregistré.</p>
       ) : (
@@ -182,6 +207,7 @@ export function BlocEssai({
 
       <Appareils essai={essai} />
       <Rdvs essai={essai} />
+      <RdvsPlanifies dossierId={dossierId} essai={essai} />
       <Prolongation dossierId={dossierId} essai={essai} />
 
       <div className="flex flex-wrap gap-2">
@@ -191,12 +217,24 @@ export function BlocEssai({
             Compte rendu au prescripteur
           </a>
         </Button>
+        <BoutonEnvoiCompteRendu dossierId={dossierId} />
         {actions.confirmerAchat ? <BoutonAchat dossierId={dossierId} statut={statut} /> : null}
       </div>
 
-      {actions.ajouterRdv ? (
-        <Depliant titre="Ajouter un rendez-vous">
-          <FormulaireRdv key={essai.rdvs.length} dossierId={dossierId} jour={aujourdhui()} />
+      {actions.planifierRdv ? (
+        <Depliant titre="Planifier un rendez-vous">
+          {essai.typesRdv.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Aucun type de rendez-vous d’essai : l’administrateur le paramètre dans l’agenda.
+            </p>
+          ) : (
+            <FormulaireRdv
+              key={essai.rdvsPlanifies.length}
+              dossierId={dossierId}
+              jour={aujourdhui()}
+              types={essai.typesRdv}
+            />
+          )}
         </Depliant>
       ) : null}
       {actions.prolonger ? (

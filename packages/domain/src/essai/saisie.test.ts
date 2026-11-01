@@ -5,30 +5,48 @@ import {
   changementAppareilSaisieSchema,
   ISSUES_ESSAI,
   LIBELLES_ISSUES_ESSAI,
+  compteRenduRdvSaisieSchema,
   LIBELLES_TYPES_RDV_ESSAI,
+  planificationRdvEssaiSaisieSchema,
   prolongationEssaiSaisieSchema,
-  rdvEssaiSaisieSchema,
   TYPES_RDV_ESSAI,
 } from './saisie';
 
-describe('rdvEssaiSaisieSchema', () => {
+describe('compteRenduRdvSaisieSchema', () => {
   it('nettoie le compte rendu', () => {
-    expect(
-      rdvEssaiSaisieSchema.parse({
-        date: '2026-10-05',
-        type: 'CONTROLE',
-        compteRendu: '  Réglages ajustés  ',
-      }),
-    ).toEqual({ date: '2026-10-05', type: 'CONTROLE', compteRendu: 'Réglages ajustés' });
+    expect(compteRenduRdvSaisieSchema.parse({ compteRendu: '  Réglages ajustés  ' })).toEqual({
+      compteRendu: 'Réglages ajustés',
+    });
   });
 
   it.each([
-    { cas: 'type inconnu', saisie: { type: 'AUTRE', compteRendu: 'x' } },
-    { cas: 'compte rendu vide', saisie: { type: 'POSE', compteRendu: '  ' } },
-    { cas: 'compte rendu trop long', saisie: { type: 'POSE', compteRendu: 'x'.repeat(501) } },
-    { cas: 'date invalide', saisie: { type: 'POSE', compteRendu: 'x', date: '05/10/2026' } },
-  ])('refuse : $cas', ({ saisie }) => {
-    expect(rdvEssaiSaisieSchema.safeParse({ date: '2026-10-05', ...saisie }).success).toBe(false);
+    { cas: 'vide', compteRendu: '  ' },
+    { cas: 'trop long', compteRendu: 'x'.repeat(501) },
+  ])('refuse : $cas', ({ compteRendu }) => {
+    expect(compteRenduRdvSaisieSchema.safeParse({ compteRendu }).success).toBe(false);
+  });
+});
+
+describe('planificationRdvEssaiSaisieSchema', () => {
+  const SAISIE = {
+    typeRdvId: 'type',
+    date: '2026-10-05',
+    heure: '10:30',
+    confirmerHorsDisponibilites: false,
+  };
+
+  it('accepte une saisie complète', () => {
+    expect(planificationRdvEssaiSaisieSchema.parse(SAISIE)).toEqual(SAISIE);
+  });
+
+  it.each([
+    { cas: 'type vide', surcharge: { typeRdvId: '' } },
+    { cas: 'date invalide', surcharge: { date: '05/10/2026' } },
+    { cas: 'heure invalide', surcharge: { heure: '25:00' } },
+  ])('refuse : $cas', ({ surcharge }) => {
+    expect(planificationRdvEssaiSaisieSchema.safeParse({ ...SAISIE, ...surcharge }).success).toBe(
+      false,
+    );
   });
 });
 
