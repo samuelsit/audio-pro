@@ -3,7 +3,6 @@ import { randomUUID } from 'node:crypto';
 import { SystemClock } from '@ha/adapters';
 import {
   accuseSaisieSchema,
-  ErreurDocumentIntrouvable,
   peutVoirPrixAchat,
   rendreBonCommandeHtml,
   type BonCommandeVue,
@@ -215,7 +214,7 @@ export async function telechargerBon(
     select: { centreId: true, bonPdfCle: true },
   });
   if (!commande) {
-    throw new ErreurDocumentIntrouvable();
+    throw new AccesRefuseError();
   }
   verifierAccesCentre(acteur, commande.centreId);
   const contenu =

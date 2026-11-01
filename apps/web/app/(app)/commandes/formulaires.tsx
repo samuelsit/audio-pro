@@ -12,8 +12,9 @@ import {
   ZoneDeTexte,
 } from '@/components/formulaire';
 import { ETAT_INITIAL, type EtatFormulaire } from '@/lib/formulaire';
-import type { ProduitCommandable } from '@/server/services/commandes';
+import type { LigneCommandeVue, ProduitCommandable } from '@/server/services/commandes';
 
+import { SaisieNumerosSerie } from '../stock/reception/saisie-numeros-serie';
 import { SelecteurPatient } from '../stock/selecteur-patient';
 import { creerCommandeAction } from './actions';
 
@@ -171,6 +172,93 @@ export function FormulaireAccuse({ action }: { action: Action }) {
       />
       <div>
         <BoutonEnvoi>Noter l’accusé</BoutonEnvoi>
+      </div>
+    </form>
+  );
+}
+
+export function FormulaireReception({
+  action,
+  lignes,
+  aujourdhui,
+}: {
+  action: Action;
+  lignes: readonly LigneCommandeVue[];
+  aujourdhui: string;
+}) {
+  const [etat, envoyer] = useActionState(action, ETAT_INITIAL);
+  return (
+    <form action={envoyer} className="grid gap-4">
+      <MessageFormulaire etat={etat} />
+      <div className="grid max-w-2xl gap-4 sm:grid-cols-2">
+        <ChampTexte etat={etat} nom="referenceBonLivraison" libelle="Bon de livraison" requis />
+        <ChampTexte
+          etat={etat}
+          nom="dateReception"
+          libelle="Date de réception"
+          type="date"
+          defaut={aujourdhui}
+          requis
+        />
+      </div>
+      {lignes.map((l) => (
+        <fieldset key={l.id} className="grid max-w-2xl gap-3 rounded-md border p-4">
+          <legend className="px-1 text-sm font-medium">{l.designation}</legend>
+          <p className="text-sm text-muted-foreground">
+            Commandé {l.quantite} · déjà reçu {l.quantiteRecue}
+            {l.referencePatient ? ` · nominative ${l.referencePatient}` : ''}
+          </p>
+          {l.modeleId === null ? (
+            <ChampTexte
+              etat={etat}
+              nom={`quantite-${l.id}`}
+              libelle="Quantité reçue"
+              inputMode="numeric"
+            />
+          ) : (
+            <SaisieNumerosSerie erreurs={etat.erreurs?.numerosSerie} nom={`numeros-${l.id}`} />
+          )}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <ChampTexte
+              etat={etat}
+              nom={`nonConforme-${l.id}`}
+              libelle="Reçu non conforme"
+              inputMode="numeric"
+              aide="N’entre pas en stock."
+            />
+            <ChampTexte etat={etat} nom={`commentaire-${l.id}`} libelle="Commentaire" />
+          </div>
+        </fieldset>
+      ))}
+      {etat.erreurs?.lignes ? (
+        <p className="text-sm text-destructive">{etat.erreurs.lignes.join(' ')}</p>
+      ) : null}
+      <div>
+        <BoutonEnvoi>Enregistrer la réception</BoutonEnvoi>
+      </div>
+    </form>
+  );
+}
+
+export function FormulaireEcart({ action }: { action: Action }) {
+  const [etat, envoyer] = useActionState(action, ETAT_INITIAL);
+  return (
+    <form action={envoyer} className="grid gap-2">
+      <MessageFormulaire etat={etat} />
+      <ListeDeroulante
+        etat={etat}
+        nom="statut"
+        libelle="Traitement"
+        options={[
+          { valeur: 'ACCEPTE', libelle: 'Accepter' },
+          { valeur: 'CONTESTE', libelle: 'Contester' },
+          { valeur: 'RESOLU', libelle: 'Résolu' },
+        ]}
+        vide="Choisir…"
+      />
+      <ChampTexte etat={etat} nom="commentaire" libelle="Commentaire" requis />
+      <div>
+        <BoutonEnvoi>Enregistrer</BoutonEnvoi>
       </div>
     </form>
   );

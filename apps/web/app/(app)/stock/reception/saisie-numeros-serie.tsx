@@ -13,11 +13,19 @@ import { Label } from '@/components/ui/label';
  * à la liste sans soumettre le formulaire, et le champ reste prêt pour le scan suivant. Chaque numéro part
  * dans un champ caché : la liste survit à un refus du serveur, seules les lignes en cause sont à retirer.
  */
-export function SaisieNumerosSerie({ erreurs }: { erreurs: readonly string[] | undefined }) {
+export function SaisieNumerosSerie({
+  erreurs,
+  nom = 'numerosSerie',
+}: {
+  erreurs: readonly string[] | undefined;
+  /** À fournir quand plusieurs saisies partagent un formulaire. */
+  nom?: string;
+}) {
   const [numeros, setNumeros] = useState<readonly string[]>([]);
   const [saisie, setSaisie] = useState('');
   const [alerte, setAlerte] = useState<string | null>(null);
   const champ = useRef<HTMLInputElement>(null);
+  const champId = nom === 'numerosSerie' ? 'scan' : `scan-${nom}`;
 
   function ajouter(): void {
     const numero = normaliserNumeroSerie(saisie);
@@ -43,18 +51,18 @@ export function SaisieNumerosSerie({ erreurs }: { erreurs: readonly string[] | u
 
   return (
     <div className="grid gap-2">
-      <Label htmlFor="scan">Numéros de série ({numeros.length})</Label>
+      <Label htmlFor={champId}>Numéros de série ({numeros.length})</Label>
       <Input
         ref={champ}
-        id="scan"
+        id={champId}
         autoComplete="off"
         value={saisie}
         onChange={(e) => setSaisie(e.target.value)}
         onKeyDown={auClavier}
         onBlur={ajouter}
-        aria-describedby="scan-aide"
+        aria-describedby={`${champId}-aide`}
       />
-      <p id="scan-aide" className="text-sm text-muted-foreground">
+      <p id={`${champId}-aide`} className="text-sm text-muted-foreground">
         Scannez, ou tapez le numéro puis Entrée.
       </p>
       {alerte ? (
@@ -73,7 +81,7 @@ export function SaisieNumerosSerie({ erreurs }: { erreurs: readonly string[] | u
         <ul aria-label="Numéros saisis" className="grid gap-1 rounded-md border p-2">
           {numeros.map((numero) => (
             <li key={numero} className="flex items-center justify-between gap-2">
-              <input type="hidden" name="numerosSerie" value={numero} />
+              <input type="hidden" name={nom} value={numero} />
               <span className="font-mono text-sm">{numero}</span>
               <Button
                 type="button"

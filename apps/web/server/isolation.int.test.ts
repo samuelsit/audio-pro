@@ -50,6 +50,7 @@ import { changerActivationPrescripteur, obtenirPrescripteur } from './services/p
 import { obtenirCommande, produitsDuFournisseur, soumettreCommande } from './services/commandes';
 import { modifierFournisseur, obtenirCentrale, obtenirFournisseur } from './services/fournisseurs';
 import { telechargerBon } from './services/envoi-commandes';
+import { traiterEcart } from './services/ecarts-achat';
 import { obtenirRegleCommande } from './services/regles-commande';
 import { changerStatut, historiqueAccessoire, obtenirFicheAppareil } from './services/stock';
 import { obtenirUtilisateur } from './services/utilisateurs';
@@ -84,10 +85,14 @@ const TABLES_ISOLEES = [
   'exception_agenda',
   'fabricant',
   'facture',
+  'ecart_achat',
   'fournisseur',
   'fournisseur_compte_centre',
   'fournisseur_contact',
   'parametres_commande',
+  'reception',
+  'reception_ligne',
+  'reception_ligne_appareil',
   'regle_commande',
   'archive_caisse',
   'chaine_caisse',
@@ -543,6 +548,10 @@ describe('identifiant d’un autre client forcé dans l’URL', () => {
     { entite: 'commande', appel: (x, c) => obtenirCommande(x, c.commandeId) },
     { entite: 'soumission de commande', appel: (x, c) => soumettreCommande(x, c.commandeId) },
     { entite: 'bon de commande', appel: (x, c) => telechargerBon(x, c.commandeId) },
+    {
+      entite: 'traitement d’un écart',
+      appel: (x, c) => traiterEcart(x, c.ecartId, { statut: 'RESOLU', commentaire: 'Forcé' }),
+    },
     { entite: 'règle de commande', appel: (x, c) => obtenirRegleCommande(x, c.regleCommandeId) },
     {
       entite: 'produits d’un fournisseur',

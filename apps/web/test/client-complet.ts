@@ -13,7 +13,15 @@ import {
   enregistrerTonale,
 } from '@/server/services/audiologie';
 import { compterCaisse, ouvrirCaisse } from '@/server/services/caisse';
-import { ajouterLigne, creerCommande } from '@/server/services/commandes';
+import {
+  ajouterLigne,
+  approuverCommande,
+  creerCommande,
+  obtenirCommande,
+  soumettreCommande,
+} from '@/server/services/commandes';
+import { transmettreCommande } from '@/server/services/envoi-commandes';
+import { pointerReception } from '@/server/services/reception-commande';
 import { depsCaisse } from '@/server/services/chaine-caisse';
 import { encaisserFacture } from '@/server/services/encaissements';
 import { enregistrerPec } from '@/server/services/factures';
@@ -375,6 +383,36 @@ export async function creerClientComplet(suffixe: string) {
     enConsignation: false,
     patientId,
   });
+  const commandeRecueId = await creerCommande(d.acteurs.admin, {
+    centreId: d.centres.a.id,
+    fournisseurId: fournisseur.id,
+  });
+  await ajouterLigne(d.acteurs.admin, commandeRecueId, {
+    produit: `modele:${catalogue.classeI}`,
+    quantite: '1',
+    enConsignation: false,
+  });
+  await soumettreCommande(d.acteurs.admin, commandeRecueId);
+  await approuverCommande(d.acteurs.admin, commandeRecueId);
+  await transmettreCommande(d.acteurs.admin, commandeRecueId);
+  const { lignes } = await obtenirCommande(d.acteurs.admin, commandeRecueId);
+  await pointerReception(d.acteurs.admin, commandeRecueId, {
+    dateReception: aujourdhui(),
+    referenceBonLivraison: 'BL-FICTIF',
+    lignes: [
+      {
+        ligneId: lignes[0]?.id,
+        quantite: '0',
+        numerosSerie: [`SERIE-COMMANDE${suffixe}`],
+        quantiteNonConforme: '1',
+        commentaire: 'Écart fictif',
+      },
+    ],
+  });
+  const { id: ecartId } = await prisma().ecartAchat.findFirstOrThrow({
+    where: { organisationId },
+    select: { id: true },
+  });
 
   return {
     d,
@@ -389,6 +427,8 @@ export async function creerClientComplet(suffixe: string) {
     fournisseurId: fournisseur.id,
     regleCommandeId,
     commandeId,
+    commandeRecueId,
+    ecartId,
     cabineId,
     venteId,
     complementaireId,

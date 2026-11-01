@@ -19,6 +19,7 @@ import {
   prixCommandeModifiable,
   prixLigneSaisieSchema,
   referencePatientDepuis,
+  STATUTS_ECART_A_TRAITER,
   statutSelonQuantites,
   transitionCommandeAutorisee,
   type Clock,
@@ -106,6 +107,16 @@ export interface CommandeDetail {
   relances: number;
   montantCentimes: number | null;
   lignes: LigneCommandeVue[];
+  receptions: ReceptionVue[];
+  /** Ouverts ou contestés. */
+  ecartsATraiter: number;
+}
+
+export interface ReceptionVue {
+  id: string;
+  dateReception: Date;
+  referenceBonLivraison: string;
+  acteur: string;
 }
 
 export type StatutEnvoi = 'A_ENVOYER' | 'ENVOYEE' | 'ABANDONNEE';
@@ -359,10 +370,26 @@ export async function obtenirCommande(
     );
   }
   const patients = await nomsPatients(acteur, patientIds);
-  const envoi = await base(acteur).notification.findFirst({
-    where: { commandeId, gabarit: 'BON_COMMANDE' },
-    select: { statut: true },
-  });
+  const client = base(acteur);
+  const [envoi, receptions, ecartsATraiter] = await Promise.all([
+    client.notification.findFirst({
+      where: { commandeId, gabarit: 'BON_COMMANDE' },
+      select: { statut: true },
+    }),
+    client.reception.findMany({
+      where: { commandeId },
+      select: {
+        id: true,
+        dateReception: true,
+        referenceBonLivraison: true,
+        acteur: { select: { name: true } },
+      },
+      orderBy: { id: 'asc' },
+    }),
+    client.ecartAchat.count({
+      where: { commandeId, statut: { in: [...STATUTS_ECART_A_TRAITER] } },
+    }),
+  ]);
   return {
     id: commande.id,
     numero: commande.numero,
@@ -385,6 +412,8 @@ export async function obtenirCommande(
     relances: commande.relances,
     montantCentimes: peutVoirPrixAchat(acteur.role) ? montantCommande(commande.lignes) : null,
     lignes: commande.lignes.map((l) => versLigneVue(l, acteur, patients)),
+    receptions: receptions.map((r) => ({ ...r, acteur: r.acteur.name })),
+    ecartsATraiter,
   };
 }
 
@@ -747,7 +776,10 @@ export async function cloturerCommande(
     async (tx) => {
       const commande = await verrouillerCommande(tx, acteur, commandeId);
       exigerApprobateur(acteur, commande.centreId);
-      if (!commandeCloturable(commande.statut, commande.lignes, 0)) {
+      const ecartsOuverts = await tx.ecartAchat.count({
+        where: { commandeId, statut: { in: [...STATUTS_ECART_A_TRAITER] } },
+      });
+      if (!commandeCloturable(commande.statut, commande.lignes, ecartsOuverts)) {
         throw ErreurSaisie.surChamp('statut', 'Cette commande ne peut pas encore être close.');
       }
       exigerTransition(commande.statut, 'CLOSE');

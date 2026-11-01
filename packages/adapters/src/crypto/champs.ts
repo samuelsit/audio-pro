@@ -15,6 +15,7 @@ export const CHAMPS_CHIFFRES: ConfigurationChampsChiffres = {
     motifRefus: 'commande.motif_refus',
     motifAnnulation: 'commande.motif_annulation',
   },
+  EcartAchat: { commentaire: 'ecart_achat.commentaire' },
   Facture: { motif: 'facture.motif' },
   Fse: { contenu: 'fse.contenu' },
   Encaissement: {

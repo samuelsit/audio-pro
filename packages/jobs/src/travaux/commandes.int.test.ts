@@ -61,11 +61,7 @@ async function commandeEnvoyee(changements: Record<string, unknown> = {}) {
       ...changements,
     },
   });
-  await documents.put(
-    `bons-commande/${String(compteur)}`,
-    Uint8Array.from([1, 2, 3]),
-    'application/pdf',
-  );
+  await documents.put(`bons-commande/${String(compteur)}`, Uint8Array.from([1, 2, 3]));
   await prisma().notification.create({
     data: {
       organisationId,

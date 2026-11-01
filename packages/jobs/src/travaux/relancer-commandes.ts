@@ -48,12 +48,12 @@ export function travailRelanceCommandes({
         if (!existante) {
           const dernierEnvoi = messages.find((m) => m.envoyeeLe !== null)?.envoyeeLe ?? null;
           const due = relanceDue(
-            { dernierEnvoi, relances: commande.relances },
+            { dernierEnvoi: dernierEnvoi?.toISOString() ?? null, relances: commande.relances },
             {
               delaiJours: delaiRelanceJours ?? parametres.delaiRelanceJours,
               relancesMax: parametres.relancesMax,
             },
-            maintenant(),
+            maintenant().toISOString(),
           );
           // Un message encore en attente passera avant : relancer maintenant ferait double emploi.
           if (!due || emailCommande === null || messages.some((m) => m.statut === 'A_ENVOYER')) {

@@ -8,6 +8,8 @@ import {
   peutApprouverCommande,
   peutVoirPrixAchat,
   prixCommandeModifiable,
+  receptionPossible,
+  resteARecevoir,
   type StatutCommande,
 } from '@ha/domain';
 import type { Metadata } from 'next';
@@ -33,6 +35,7 @@ import {
 } from '@/server/services/commandes';
 
 import {
+  abandonnerReliquatAction,
   ajouterLigneAction,
   annulerCommandeAction,
   approuverCommandeAction,
@@ -97,14 +100,29 @@ export default async function PageCommande({ params }: PageProps<'/commandes/[id
           L’envoi du bon a échoué après plusieurs tentatives. Contactez le fabricant.
         </p>
       ) : null}
-      {voitPrix ? (
-        <div>
+      <div className="flex flex-wrap gap-2">
+        {voitPrix ? (
           <Button asChild variant="outline" size="sm">
             <a href={`/commandes/${id}/bon`}>
               {commande.envoyeeLe ? 'Bon de commande' : 'Aperçu du bon'}
             </a>
           </Button>
-        </div>
+        ) : null}
+        {receptionPossible(statut) ? (
+          <Button asChild size="sm">
+            <Link href={`/commandes/${id}/reception`}>Pointer une livraison</Link>
+          </Button>
+        ) : null}
+      </div>
+      {commande.ecartsATraiter > 0 ? (
+        <p className="rounded-md border p-3 text-sm">
+          {commande.ecartsATraiter} écart(s) à traiter.{' '}
+          {gere ? (
+            <Link href="/commandes/ecarts" className="underline underline-offset-4">
+              Voir les écarts
+            </Link>
+          ) : null}
+        </p>
       ) : null}
       {commande.motifRefus ? (
         <p className="rounded-md border p-3 text-sm">Refus : {commande.motifRefus}</p>
@@ -131,6 +149,7 @@ export default async function PageCommande({ params }: PageProps<'/commandes/[id
                 <div className="text-sm text-muted-foreground">
                   {LIBELLES_TYPE_PRODUIT[l.type]}
                   {l.enConsignation ? ' · consignation' : ''}
+                  {l.patient && l.modeleId && l.quantiteRecue > 0 ? ' · à affecter au patient' : ''}
                 </div>
               </TableCell>
               <TableCell>
@@ -218,6 +237,35 @@ export default async function PageCommande({ params }: PageProps<'/commandes/[id
             libelle="Motif du refus"
             bouton="Refuser"
           />
+        </section>
+      ) : null}
+      {gere && statut === 'PARTIELLEMENT_RECUE'
+        ? commande.lignes
+            .filter((l) => resteARecevoir(l) > 0)
+            .map((l) => (
+              <section key={l.id} className="grid gap-3">
+                <h2 className="font-medium">
+                  Reliquat de {resteARecevoir(l)} : {l.designation}
+                </h2>
+                <FormulaireMotif
+                  action={abandonnerReliquatAction.bind(null, id, l.id)}
+                  libelle="Motif de l’abandon"
+                  bouton="Abandonner le reliquat"
+                />
+              </section>
+            ))
+        : null}
+      {commande.receptions.length > 0 ? (
+        <section className="grid gap-2">
+          <h2 className="font-medium">Réceptions</h2>
+          <ul className="grid gap-1 text-sm">
+            {commande.receptions.map((r) => (
+              <li key={r.id}>
+                {formaterDate(r.dateReception.toISOString().slice(0, 10))} · BL{' '}
+                {r.referenceBonLivraison} · {r.acteur}
+              </li>
+            ))}
+          </ul>
         </section>
       ) : null}
       {gere && statut === 'APPROUVEE' ? (

@@ -14,7 +14,7 @@ let modeleA: string;
 let modeleB: string;
 let accessoireId: string;
 
-const COMMANDE = '0192f0a0-0000-7000-8000-00000000c0de';
+let commandeId: string;
 
 async function creerModele(fabricantId: string, nom: string): Promise<string> {
   const modele = await prisma().modeleAideAuditive.create({
@@ -49,6 +49,20 @@ beforeEach(async () => {
     },
   });
   accessoireId = accessoire.id;
+  const fournisseur = await prisma().fournisseur.create({
+    data: { organisationId: d.organisation.id, type: 'FOURNISSEUR', nom: 'Fournisseur' },
+  });
+  const commande = await prisma().commande.create({
+    data: {
+      organisationId: d.organisation.id,
+      centreId: d.centres.a.id,
+      fournisseurId: fournisseur.id,
+      demandeurId: admin.id,
+      numero: 'CMD-2026-000001',
+      statut: 'ENVOYEE',
+    },
+  });
+  commandeId = commande.id;
 });
 
 function livraison(autres: Record<string, unknown> = {}) {
@@ -57,7 +71,7 @@ function livraison(autres: Record<string, unknown> = {}) {
     dateReception: '2026-01-15',
     referenceBonLivraison: 'BL-1',
     referenceFactureFabricant: null,
-    commandeId: COMMANDE,
+    commandeId,
     appareils: [
       {
         modeleId: modeleA,
@@ -86,12 +100,12 @@ describe('receptionner', () => {
     ]);
     const mouvements = await prisma().mouvementAppareil.findMany();
     expect(mouvements.map((m) => [m.type, m.commandeId])).toEqual([
-      ['RECEPTION', COMMANDE],
-      ['RECEPTION', COMMANDE],
-      ['RECEPTION', COMMANDE],
+      ['RECEPTION', commandeId],
+      ['RECEPTION', commandeId],
+      ['RECEPTION', commandeId],
     ]);
     const entree = await prisma().mouvementAccessoire.findFirstOrThrow();
-    expect(entree).toMatchObject({ type: 'ENTREE', quantite: 12, commandeId: COMMANDE });
+    expect(entree).toMatchObject({ type: 'ENTREE', quantite: 12, commandeId });
     const stock = await prisma().stockAccessoire.findFirstOrThrow();
     expect(stock.quantite).toBe(12);
   });

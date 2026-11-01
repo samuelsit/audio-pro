@@ -36,97 +36,101 @@ enum StatutOrganisation {
 
 /// Un client : réseau de centres ou centre indépendant. Chaque donnée métier lui est rattachée (ADR-016).
 model Organisation {
-  id                    String                    @id @default(uuid(7))
-  raisonSociale         String                    @map("raison_sociale")
+  id                      String                    @id @default(uuid(7))
+  raisonSociale           String                    @map("raison_sociale")
   /// Vide pour une organisation antérieure au SaaS ; exigé à la création depuis la console.
-  siren                 String?                   @unique @db.Char(9)
+  siren                   String?                   @unique @db.Char(9)
   /// Segment client de l'URL publique de réservation (`/rdv/<slug>/<centre>`).
-  slug                  String                    @unique @default(dbgenerated("slug_provisoire()"))
-  adresseLigne1         String?                   @map("adresse_ligne1")
-  adresseLigne2         String?                   @map("adresse_ligne2")
-  codePostal            String?                   @map("code_postal")
-  ville                 String?
-  statut                StatutOrganisation        @default(ESSAI)
-  parametres            Json                      @default("{}")
-  createdAt             DateTime                  @default(now()) @map("created_at")
-  updatedAt             DateTime                  @updatedAt @map("updated_at")
-  centres               Centre[]
-  utilisateurs          Utilisateur[]
-  patients              Patient[]
-  lecturesVitale        LectureVitale[]
-  fabricants            Fabricant[]
-  centralesAchat        CentraleAchat[]
-  fournisseurs          Fournisseur[]
-  fournisseurContacts   FournisseurContact[]
-  fournisseurComptes    FournisseurCompteCentre[]
-  parametresCommande    ParametresCommande?
-  reglesCommande        RegleCommande[]
-  compteursCommande     CompteurCommande[]
-  commandes             Commande[]
-  lignesCommande        CommandeLigne[]
-  modeles               ModeleAideAuditive[]
-  accessoires           Accessoire[]
-  prescripteurs         Prescripteur[]
-  appareils             Appareil[]
-  mouvementsAppareil    MouvementAppareil[]
-  mouvementsAccessoire  MouvementAccessoire[]
-  dossiers              Dossier[]
-  delivrances           Delivrance[]
-  devis                 Devis[]
-  compteursDevis        CompteurDevis[]
-  essais                Essai[]
-  factures              Facture[]
-  lignesFacture         LigneFacture[]
-  seriesFacture         SerieFacture[]
-  chainesCaisse         ChaineCaisse[]
-  evenementsCaisse      EvenementCaisse[]
-  encaissements         Encaissement[]
-  complementaires       Complementaire[]
-  creances              Creance[]
-  reglementsOrganismes  ReglementOrganisme[]
-  lettrages             Lettrage[]
-  regularisations       RegularisationCreance[]
-  rejetsCreances        RejetCreance[]
-  sessionsCaisse        SessionCaisse[]
-  comptagesCaisse       ComptageCaisse[]
-  cloturesCaisse        ClotureCaisse[]
-  archivesCaisse        ArchiveCaisse[]
-  fses                  Fse[]
-  journalAudit          JournalAudit[]
-  utilisateursCentres   UtilisateurCentre[]
-  praticiens            Praticien[]
-  praticiensCentres     PraticienCentre[]
-  couverturesAmo        CouvertureAmo[]
-  couverturesAmc        CouvertureAmc[]
-  modelesCodesLpp       ModeleCodeLpp[]
-  stocksAccessoires     StockAccessoire[]
-  transitionsDossier    TransitionDossier[]
-  prescriptions         Prescription[]
-  prisesEnCharge        PriseEnCharge[]
-  devisOffres           DevisOffre[]
-  devisLignes           DevisLigne[]
-  signaturesDevis       SignatureDevis[]
-  essaisAppareils       EssaiAppareil[]
-  essaisRdv             EssaiRdv[]
-  prolongationsEssai    ProlongationEssai[]
-  cabines               Cabine[]
-  typesRdv              TypeRdv[]
-  exceptionsAgenda      ExceptionAgenda[]
-  rendezVous            RendezVous[]
-  evenementsDomaine     EvenementDomaine[]
-  parametresComptables  ParametresComptables[]
-  parametresReservation ParametresReservation[]
-  typesRdvEnLigne       TypeRdvEnLigne[]
-  reservationsEnLigne   ReservationEnLigne[]
-  notifications         Notification[]
-  bilansAudiologiques   BilanAudiologique[]
-  inventaires           Inventaire[]
-  lignesInventaire      InventaireLigne[]
-  liensDocument         LienDocument[]
-  mesuresAudiologiques  MesureAudiologique[]
-  otoscopies            Otoscopie[]
-  modelesFormulaire     ModeleFormulaire[]
-  reponsesFormulaire    ReponseFormulaire[]
+  slug                    String                    @unique @default(dbgenerated("slug_provisoire()"))
+  adresseLigne1           String?                   @map("adresse_ligne1")
+  adresseLigne2           String?                   @map("adresse_ligne2")
+  codePostal              String?                   @map("code_postal")
+  ville                   String?
+  statut                  StatutOrganisation        @default(ESSAI)
+  parametres              Json                      @default("{}")
+  createdAt               DateTime                  @default(now()) @map("created_at")
+  updatedAt               DateTime                  @updatedAt @map("updated_at")
+  centres                 Centre[]
+  utilisateurs            Utilisateur[]
+  patients                Patient[]
+  lecturesVitale          LectureVitale[]
+  fabricants              Fabricant[]
+  centralesAchat          CentraleAchat[]
+  fournisseurs            Fournisseur[]
+  fournisseurContacts     FournisseurContact[]
+  fournisseurComptes      FournisseurCompteCentre[]
+  parametresCommande      ParametresCommande?
+  reglesCommande          RegleCommande[]
+  compteursCommande       CompteurCommande[]
+  commandes               Commande[]
+  lignesCommande          CommandeLigne[]
+  modeles                 ModeleAideAuditive[]
+  accessoires             Accessoire[]
+  prescripteurs           Prescripteur[]
+  appareils               Appareil[]
+  mouvementsAppareil      MouvementAppareil[]
+  mouvementsAccessoire    MouvementAccessoire[]
+  dossiers                Dossier[]
+  delivrances             Delivrance[]
+  devis                   Devis[]
+  compteursDevis          CompteurDevis[]
+  essais                  Essai[]
+  factures                Facture[]
+  lignesFacture           LigneFacture[]
+  seriesFacture           SerieFacture[]
+  chainesCaisse           ChaineCaisse[]
+  evenementsCaisse        EvenementCaisse[]
+  encaissements           Encaissement[]
+  complementaires         Complementaire[]
+  creances                Creance[]
+  reglementsOrganismes    ReglementOrganisme[]
+  lettrages               Lettrage[]
+  regularisations         RegularisationCreance[]
+  rejetsCreances          RejetCreance[]
+  sessionsCaisse          SessionCaisse[]
+  comptagesCaisse         ComptageCaisse[]
+  cloturesCaisse          ClotureCaisse[]
+  archivesCaisse          ArchiveCaisse[]
+  fses                    Fse[]
+  journalAudit            JournalAudit[]
+  utilisateursCentres     UtilisateurCentre[]
+  praticiens              Praticien[]
+  praticiensCentres       PraticienCentre[]
+  couverturesAmo          CouvertureAmo[]
+  couverturesAmc          CouvertureAmc[]
+  modelesCodesLpp         ModeleCodeLpp[]
+  stocksAccessoires       StockAccessoire[]
+  transitionsDossier      TransitionDossier[]
+  prescriptions           Prescription[]
+  prisesEnCharge          PriseEnCharge[]
+  devisOffres             DevisOffre[]
+  devisLignes             DevisLigne[]
+  signaturesDevis         SignatureDevis[]
+  essaisAppareils         EssaiAppareil[]
+  essaisRdv               EssaiRdv[]
+  prolongationsEssai      ProlongationEssai[]
+  cabines                 Cabine[]
+  typesRdv                TypeRdv[]
+  exceptionsAgenda        ExceptionAgenda[]
+  rendezVous              RendezVous[]
+  evenementsDomaine       EvenementDomaine[]
+  parametresComptables    ParametresComptables[]
+  parametresReservation   ParametresReservation[]
+  typesRdvEnLigne         TypeRdvEnLigne[]
+  reservationsEnLigne     ReservationEnLigne[]
+  notifications           Notification[]
+  bilansAudiologiques     BilanAudiologique[]
+  inventaires             Inventaire[]
+  lignesInventaire        InventaireLigne[]
+  liensDocument           LienDocument[]
+  mesuresAudiologiques    MesureAudiologique[]
+  otoscopies              Otoscopie[]
+  modelesFormulaire       ModeleFormulaire[]
+  reponsesFormulaire      ReponseFormulaire[]
+  receptions              Reception[]
+  receptionLignes         ReceptionLigne[]
+  receptionLigneAppareils ReceptionLigneAppareil[]
+  ecartAchats             EcartAchat[]
 
   @@map("organisation")
 }
@@ -194,6 +198,8 @@ model Centre {
   comptesFournisseurs   FournisseurCompteCentre[]
   reglesCommande        RegleCommande[]
   commandes             Commande[]
+  receptions            Reception[]
+  ecartsAchat           EcartAchat[]
 
   @@unique([organisationId, slug])
   @@unique([organisationId, nom])
@@ -271,6 +277,8 @@ model Utilisateur {
   reponsesFormulaire    ReponseFormulaire[]
   commandesDemandees    Commande[]              @relation("CommandeDemandeur")
   commandesApprouvees   Commande[]              @relation("CommandeApprobateur")
+  receptions            Reception[]
+  ecartsTraites         EcartAchat[]
 
   @@index([organisationId])
   @@map("utilisateur")
@@ -979,6 +987,8 @@ model Commande {
   mouvementsAppareil   MouvementAppareil[]
   mouvementsAccessoire MouvementAccessoire[]
   notifications        Notification[]
+  receptions           Reception[]
+  ecarts               EcartAchat[]
 
   @@unique([organisationId, numero])
   @@index([centreId, statut])
@@ -1014,6 +1024,8 @@ model CommandeLigne {
   modele             ModeleAideAuditive? @relation(fields: [modeleId], references: [id], onDelete: Restrict)
   accessoire         Accessoire?         @relation(fields: [accessoireId], references: [id], onDelete: Restrict)
   patient            Patient?            @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  lignesReception    ReceptionLigne[]
+  ecarts             EcartAchat[]
 
   @@unique([organisationId, referencePatient])
   @@index([commandeId])
@@ -1021,6 +1033,113 @@ model CommandeLigne {
   @@index([accessoireId])
   @@index([patientId])
   @@map("commande_ligne")
+}
+
+/// Livraison pointée au centre, en ajout seul (ADR-031).
+model Reception {
+  id                    String           @id @default(uuid(7))
+  organisationId        String           @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  commandeId            String           @map("commande_id")
+  centreId              String           @map("centre_id")
+  dateReception         DateTime         @map("date_reception") @db.Date
+  referenceBonLivraison String           @map("reference_bon_livraison")
+  acteurId              String           @map("acteur_id")
+  createdAt             DateTime         @default(now()) @map("created_at")
+  organisation          Organisation     @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  commande              Commande         @relation(fields: [commandeId], references: [id], onDelete: Restrict)
+  centre                Centre           @relation(fields: [centreId], references: [id], onDelete: Restrict)
+  acteur                Utilisateur      @relation(fields: [acteurId], references: [id], onDelete: Restrict)
+  lignes                ReceptionLigne[]
+  ecarts                EcartAchat[]
+
+  @@index([commandeId])
+  @@index([organisationId])
+  @@map("reception")
+}
+
+model ReceptionLigne {
+  id                  String                   @id @default(uuid(7))
+  organisationId      String                   @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  receptionId         String                   @map("reception_id")
+  commandeLigneId     String                   @map("commande_ligne_id")
+  /// Entrée en stock. Un produit non conforme n'y entre pas : il reste dans `quantiteNonConforme`.
+  quantite            Int
+  quantiteNonConforme Int                      @default(0) @map("quantite_non_conforme")
+  organisation        Organisation             @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  reception           Reception                @relation(fields: [receptionId], references: [id], onDelete: Restrict)
+  commandeLigne       CommandeLigne            @relation(fields: [commandeLigneId], references: [id], onDelete: Restrict)
+  appareils           ReceptionLigneAppareil[]
+
+  @@index([receptionId])
+  @@index([commandeLigneId])
+  @@map("reception_ligne")
+}
+
+/// Relie un appareil reçu à sa ligne : le rapprochement d'une facture compare les numéros de série.
+model ReceptionLigneAppareil {
+  organisationId   String         @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  receptionLigneId String         @map("reception_ligne_id")
+  appareilId       String         @unique @map("appareil_id")
+  organisation     Organisation   @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  receptionLigne   ReceptionLigne @relation(fields: [receptionLigneId], references: [id], onDelete: Restrict)
+  appareil         Appareil       @relation(fields: [appareilId], references: [id], onDelete: Restrict)
+
+  @@id([receptionLigneId, appareilId])
+  @@map("reception_ligne_appareil")
+}
+
+enum TypeEcartAchat {
+  QUANTITE_MANQUANTE
+  SURPLUS
+  PRODUIT_NON_CONFORME
+  PRIX
+  QUANTITE_FACTUREE
+  LIGNE_NON_COMMANDEE
+  SERIE_INCONNUE
+  SERIE_ABSENTE
+  SERIE_DEJA_FACTUREE
+  TOTAL_INCOHERENT
+}
+
+enum StatutEcartAchat {
+  OUVERT
+  ACCEPTE
+  CONTESTE
+  RESOLU
+}
+
+/// Écart à traiter, relevé à la réception ou au rapprochement d'une facture.
+model EcartAchat {
+  id                      String           @id @default(uuid(7))
+  organisationId          String           @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  centreId                String           @map("centre_id")
+  commandeId              String?          @map("commande_id")
+  commandeLigneId         String?          @map("commande_ligne_id")
+  receptionId             String?          @map("reception_id")
+  type                    TypeEcartAchat
+  statut                  StatutEcartAchat @default(OUVERT)
+  quantiteAttendue        Int?             @map("quantite_attendue")
+  quantiteConstatee       Int?             @map("quantite_constatee")
+  /// Réservés aux rôles de gestion, comme tout prix d'achat.
+  montantAttenduCentimes  Int?             @map("montant_attendu_centimes")
+  montantConstateCentimes Int?             @map("montant_constate_centimes")
+  numeroSerie             String?          @map("numero_serie")
+  /// Chiffré (contexte « ecart_achat.commentaire ») : texte libre.
+  commentaire             String?
+  traiteParId             String?          @map("traite_par_id")
+  traiteLe                DateTime?        @map("traite_le") @db.Timestamptz(3)
+  createdAt               DateTime         @default(now()) @map("created_at")
+  organisation            Organisation     @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  centre                  Centre           @relation(fields: [centreId], references: [id], onDelete: Restrict)
+  commande                Commande?        @relation(fields: [commandeId], references: [id], onDelete: Restrict)
+  commandeLigne           CommandeLigne?   @relation(fields: [commandeLigneId], references: [id], onDelete: Restrict)
+  reception               Reception?       @relation(fields: [receptionId], references: [id], onDelete: Restrict)
+  traitePar               Utilisateur?     @relation(fields: [traiteParId], references: [id], onDelete: Restrict)
+
+  @@index([centreId, statut])
+  @@index([commandeId, statut])
+  @@index([organisationId, statut])
+  @@map("ecart_achat")
 }
 
 // ---------------------------------------------------------------------------
@@ -1061,34 +1180,35 @@ enum StatutInventaire {
 /// Aide auditive physique, suivie au numéro de série. Jamais supprimée (traçabilité, convention art. 21).
 /// `statut`, `centreId` et `patientId` ne changent que par le service, avec un mouvement (voir ADR-010).
 model Appareil {
-  id                        String              @id @default(uuid(7))
-  organisationId            String              @map("organisation_id")
-  modeleId                  String              @map("modele_id")
+  id                        String                  @id @default(uuid(7))
+  organisationId            String                  @map("organisation_id")
+  modeleId                  String                  @map("modele_id")
   /// Copie du fabricant du modèle, tenue à jour par la clé composite : porte l'unicité du numéro de série.
-  fabricantId               String              @map("fabricant_id")
-  centreId                  String              @map("centre_id")
+  fabricantId               String                  @map("fabricant_id")
+  centreId                  String                  @map("centre_id")
   /// Forme normalisée (sans espaces, majuscules).
-  numeroSerie               String              @map("numero_serie")
-  statut                    StatutAppareil      @default(EN_STOCK)
+  numeroSerie               String                  @map("numero_serie")
+  statut                    StatutAppareil          @default(EN_STOCK)
   /// Patient rattaché : réservation, essai, prêt, vente, et SAV ou retour d'un appareil vendu.
-  patientId                 String?             @map("patient_id")
-  dateReception             DateTime            @map("date_reception") @db.Date
-  referenceBonLivraison     String              @map("reference_bon_livraison")
-  referenceFactureFabricant String?             @map("reference_facture_fabricant")
+  patientId                 String?                 @map("patient_id")
+  dateReception             DateTime                @map("date_reception") @db.Date
+  referenceBonLivraison     String                  @map("reference_bon_livraison")
+  referenceFactureFabricant String?                 @map("reference_facture_fabricant")
   /// Réservé à l'ADMIN_CLIENT (lecture et saisie).
-  prixAchatCentimes         Int?                @map("prix_achat_centimes")
-  enConsignation            Boolean             @default(false) @map("en_consignation")
-  createdAt                 DateTime            @default(now()) @map("created_at")
-  updatedAt                 DateTime            @updatedAt @map("updated_at")
-  organisation              Organisation        @relation(fields: [organisationId], references: [id], onDelete: Restrict)
-  modele                    ModeleAideAuditive  @relation(fields: [modeleId, fabricantId], references: [id, fabricantId], onDelete: Restrict, onUpdate: Restrict)
-  fabricant                 Fabricant           @relation(fields: [fabricantId], references: [id], onDelete: Restrict)
-  centre                    Centre              @relation(fields: [centreId], references: [id], onDelete: Restrict)
-  patient                   Patient?            @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  prixAchatCentimes         Int?                    @map("prix_achat_centimes")
+  enConsignation            Boolean                 @default(false) @map("en_consignation")
+  createdAt                 DateTime                @default(now()) @map("created_at")
+  updatedAt                 DateTime                @updatedAt @map("updated_at")
+  organisation              Organisation            @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  modele                    ModeleAideAuditive      @relation(fields: [modeleId, fabricantId], references: [id, fabricantId], onDelete: Restrict, onUpdate: Restrict)
+  fabricant                 Fabricant               @relation(fields: [fabricantId], references: [id], onDelete: Restrict)
+  centre                    Centre                  @relation(fields: [centreId], references: [id], onDelete: Restrict)
+  patient                   Patient?                @relation(fields: [patientId], references: [id], onDelete: Restrict)
   mouvements                MouvementAppareil[]
   essais                    EssaiAppareil[]
   lignesInventaire          InventaireLigne[]
   lignesFacture             LigneFacture[]
+  receptionLigne            ReceptionLigneAppareil?
 
   @@unique([fabricantId, numeroSerie])
   @@index([organisationId, numeroSerie])

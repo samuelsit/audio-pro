@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
-import { coche, texte, type EtatFormulaire } from '@/lib/formulaire';
+import { coche, liste, texte, type EtatFormulaire } from '@/lib/formulaire';
 import { executer } from '@/server/actions';
 import type { UtilisateurConnecte } from '@/server/auth/acces';
 import { requireSession } from '@/server/auth/gardes';
@@ -19,7 +19,9 @@ import {
   retirerLigne,
   soumettreCommande,
 } from '@/server/services/commandes';
+import { traiterEcart } from '@/server/services/ecarts-achat';
 import { saisirAccuse, transmettreCommande } from '@/server/services/envoi-commandes';
+import { abandonnerReliquat, pointerReception } from '@/server/services/reception-commande';
 
 function actualiser(commandeId: string): void {
   revalidatePath('/commandes');
@@ -183,4 +185,72 @@ export async function annulerCommandeAction(
   }
   actualiser(commandeId);
   return { succes: 'Commande annulée.' };
+}
+
+export async function pointerReceptionAction(
+  commandeId: string,
+  ligneIds: readonly string[],
+  _: EtatFormulaire,
+  formData: FormData,
+): Promise<EtatFormulaire> {
+  const acteur = await requireSession();
+  const donnees = {
+    dateReception: texte(formData, 'dateReception'),
+    referenceBonLivraison: texte(formData, 'referenceBonLivraison'),
+    lignes: ligneIds.map((ligneId) => ({
+      ligneId,
+      quantite: texte(formData, `quantite-${ligneId}`) || '0',
+      numerosSerie: liste(formData, `numeros-${ligneId}`),
+      quantiteNonConforme: texte(formData, `nonConforme-${ligneId}`) || '0',
+      commentaire: texte(formData, `commentaire-${ligneId}`),
+    })),
+  };
+  const erreur = await executer(() => pointerReception(acteur, commandeId, donnees), {
+    dateReception: donnees.dateReception,
+    referenceBonLivraison: donnees.referenceBonLivraison,
+  });
+  if (erreur) {
+    return erreur;
+  }
+  actualiser(commandeId);
+  revalidatePath('/stock');
+  await notifier('Réception enregistrée.');
+  redirect(`/commandes/${commandeId}`);
+}
+
+export async function abandonnerReliquatAction(
+  commandeId: string,
+  ligneId: string,
+  _: EtatFormulaire,
+  formData: FormData,
+): Promise<EtatFormulaire> {
+  const acteur = await requireSession();
+  const donnees = { motif: texte(formData, 'motif') };
+  const erreur = await executer(
+    () => abandonnerReliquat(acteur, commandeId, ligneId, donnees),
+    donnees,
+  );
+  if (erreur) {
+    return erreur;
+  }
+  actualiser(commandeId);
+  return { succes: 'Reliquat abandonné.' };
+}
+
+export async function traiterEcartAction(
+  ecartId: string,
+  _: EtatFormulaire,
+  formData: FormData,
+): Promise<EtatFormulaire> {
+  const acteur = await requireSession();
+  const donnees = {
+    statut: texte(formData, 'statut'),
+    commentaire: texte(formData, 'commentaire'),
+  };
+  const erreur = await executer(() => traiterEcart(acteur, ecartId, donnees), donnees);
+  if (erreur) {
+    return erreur;
+  }
+  revalidatePath('/commandes/ecarts');
+  return { succes: 'Écart traité.' };
 }

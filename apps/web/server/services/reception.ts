@@ -36,13 +36,15 @@ function versDate(iso: string): Date {
 
 export interface ResultatReception {
   readonly appareilIds: readonly string[];
+  /** Appareils créés, dans l'ordre de `saisie.appareils` : la commande les relie à ses lignes. */
+  readonly appareilsParEntree: readonly (readonly { id: string; numeroSerie: string }[])[];
   /** À journaliser par l'appelant, dans la transaction qu'il a ouverte. */
   readonly evenements: readonly EvenementAudit[];
 }
 
 /**
- * Enregistre une livraison dans la transaction de l'appelant : le prompt 17 y ajoutera la mise à jour de sa
- * commande. Tout ou rien : si un numéro est refusé, l'erreur liste chaque numéro en cause. Le contrôle du droit
+ * Enregistre une livraison dans la transaction de l'appelant : `reception-commande.ts` y ajoute la mise à jour de
+ * sa commande. Tout ou rien : si un numéro est refusé, l'erreur liste chaque numéro en cause. Le contrôle du droit
  * de saisir un prix reste au formulaire, car un prix de commande n'est pas une saisie de l'utilisateur.
  */
 export async function receptionnerDansTransaction(
@@ -59,6 +61,7 @@ export async function receptionnerDansTransaction(
   await verifierCentreActif(tx, acteur, centreId, 'centreId');
 
   const appareilIds: string[] = [];
+  const appareilsParEntree: { id: string; numeroSerie: string }[][] = [];
   const evenements: EvenementAudit[] = [];
   for (const { modeleId, numerosSerie, prixAchatCentimes, enConsignation } of entree.appareils) {
     const modele = await lireModeleActif(tx, acteur, modeleId);
@@ -103,6 +106,7 @@ export async function receptionnerDansTransaction(
         commandeId,
       })),
     });
+    appareilsParEntree.push(crees);
     for (const a of crees) {
       appareilIds.push(a.id);
       evenements.push({
@@ -129,7 +133,7 @@ export async function receptionnerDansTransaction(
       await ecrireMouvementAccessoire(tx, acteur, 'ENTREE', operation, quantiteApres),
     );
   }
-  return { appareilIds, evenements };
+  return { appareilIds, appareilsParEntree, evenements };
 }
 
 /** Réception autonome, dans sa propre transaction. */
