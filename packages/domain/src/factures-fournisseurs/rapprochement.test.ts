@@ -42,6 +42,11 @@ describe('rapprocher', () => {
     expect(rapprocher([ligne], [appareil], totaux, 0)).toEqual([]);
   });
 
+  it('une ligne de commande que la facture ne cite pas n’entre pas dans le cumul', () => {
+    const autre = { ...appareil, id: 'cl2', quantiteRecue: 0, numerosRecus: [] };
+    expect(rapprocher([ligne], [appareil, autre], totaux, 0)).toEqual([]);
+  });
+
   describe('écart de prix', () => {
     const chere = { ...ligne, prixUnitaireCentimes: 61_000 };
     const totauxChers = {

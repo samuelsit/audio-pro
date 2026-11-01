@@ -177,8 +177,8 @@ export function proposerLigneCommande(
   if (parSerie) {
     return parSerie.id;
   }
-  const parReference = commandes.filter(
+  const [seule, ...autres] = commandes.filter(
     (c) => c.reference !== null && c.reference === ligne.reference,
   );
-  return parReference.length === 1 ? (parReference[0]?.id ?? null) : null;
+  return seule !== undefined && autres.length === 0 ? seule.id : null;
 }

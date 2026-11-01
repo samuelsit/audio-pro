@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation';
 
 import { liste, texte, type EtatFormulaire } from '@/lib/formulaire';
 import { executer } from '@/server/actions';
-import { requireSession } from '@/server/auth/gardes';
+import { perimetreCourant, requireSession } from '@/server/auth/gardes';
 import { notifier } from '@/server/notifications';
 import {
   deposerFacture,
@@ -24,14 +24,18 @@ export async function deposerFactureAction(
   _: EtatFormulaire,
   formData: FormData,
 ): Promise<EtatFormulaire> {
-  const acteur = await requireSession();
+  const { acteur, perimetre } = await perimetreCourant();
   const fichier = formData.get('fichier');
   if (!(fichier instanceof File) || fichier.size === 0) {
     return { erreurs: { fichier: ['Choisir un fichier PDF.'] } };
   }
   let id = '';
   const erreur = await executer(async () => {
-    id = await deposerFacture(acteur, new Uint8Array(await fichier.arrayBuffer()));
+    id = await deposerFacture(
+      acteur,
+      new Uint8Array(await fichier.arrayBuffer()),
+      perimetre.type === 'centre' ? perimetre.centreId : null,
+    );
   });
   if (erreur) {
     return erreur;

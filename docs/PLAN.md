@@ -60,7 +60,7 @@ Numérotation du plan SaaS (ADR-015). Les références aux étapes dans `docs/DE
   - reporté à l'étape 24 : port `NoahConnector`, import, correspondance des champs sur la documentation HIMSA, schéma de relecture sans le pas de 5 dB
   - reporté à l'étape 22 : durée de conservation des bilans et des photos, retrait d'une photo seule
 - [x] **10** – Stock (ADR-023)
-  - reporté à l'étape 17 : clés étrangères de `commande_id`, avec leur trigger ; appel de `receptionnerDansTransaction`
+  - [x] clés étrangères de `commande_id`, avec leur trigger ; appel de `receptionnerDansTransaction` (étape 17)
   - à arbitrer : statut de sortie pour un appareil perdu (reste `EN_STOCK`, ressort manquant à chaque inventaire)
   - [x] vente pilotée par le dossier (étape 14)
   - reporté à l'étape 29 : reprise des appareils de Cosium, sans passer par la machine à états
@@ -117,7 +117,16 @@ Numérotation du plan SaaS (ADR-015). Les références aux étapes dans `docs/DE
 
 ## Phase G – Commandes fabricants et SAV
 
-- [ ] **17** – Commandes fabricants
+- [x] **17** – Commandes fabricants (ADR-031)
+  - fait : fournisseurs, contacts, centrales d'achat, numéros de client par centre, paramètres ; demande et commande, statuts déduits des quantités ; règles d'approbation paramétrables ; bon de commande PDF, envoi par e-mail avec pièce jointe, accusé par lien signé ou saisi, relances ; réception ligne à ligne, numéros de série, reliquat, écarts ; factures fournisseurs, dépôt et boîte mail, extraction locale, validation humaine, rapprochement commande, réception et facture ; relevé mensuel de centrale, prévisualisation et pointage ; seuils et proposition de réapprovisionnement ; statistiques d'achats, délais, écarts, export CSV ; ports `BoiteFactures`, `ExtracteurFacture`, `PlateformeFactures`
+  - corrigé en passant : les libellés des formulaires répétés dans un tableau visaient tous la première ligne
+  - À VÉRIFIER : facturation électronique, calendrier et factures concernées ; conservation des bons et factures d'achat ; oreille sur le bon ; format réel d'un relevé de centrale ; hors chaîne de caisse des factures d'achat (voir `docs/REGLES_AUDIO.md`, R47 à R51)
+  - à choisir : fournisseur d'e-mail entrant et plateforme agréée (documentation à déposer dans `docs/vendor`). Sans eux, seul le dépôt à l'écran fait entrer des factures
+  - à mesurer : l'extraction sur de vraies factures de fabricants, les tests n'utilisent que des PDF générés
+  - à arbitrer : précisions de fabrication du sur-mesure (couleur, évent), une facture couvrant plusieurs centres, avoirs fournisseurs, prévenir le fabricant d'une annulation (message manuel pour l'instant)
+  - reporté à l'étape 18 : retour au fabricant d'un produit non conforme
+  - reporté à l'étape 19 : prévenir l'approbateur d'une demande en attente (la liste filtrée suffit pour l'instant)
+  - à planifier : EDI fabricant, à brancher sur `transmettreCommande` ; paiement des fournisseurs et écritures comptables d'achat
 - [ ] **18** – SAV, garanties, prêts
 
 ## Phase H – Relances

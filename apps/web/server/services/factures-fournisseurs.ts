@@ -9,6 +9,7 @@ import {
   filtreFacturesFournisseurSchema,
   motifCommandeSchema,
   PARAMETRES_COMMANDE_DEFAUT,
+  peutAccederAuCentre,
   peutGererAchats,
   proposerLigneCommande,
   rapprocher,
@@ -123,10 +124,14 @@ function versDate(iso: string): Date {
   return new Date(`${iso}T00:00:00.000Z`);
 }
 
-/** Dépôt d'un PDF à l'écran. Le même chemin que la boîte mail : extraction, puis validation humaine. */
+/**
+ * Dépôt d'un PDF à l'écran. Le même chemin que la boîte mail : extraction, puis validation humaine. `centreCourant` :
+ * centre choisi à l'écran, retenu si la facture n'en désigne aucun. Celle-ci doit rester lisible par qui la dépose.
+ */
 export async function deposerFacture(
   acteur: UtilisateurConnecte,
   contenu: Uint8Array,
+  centreCourant: string | null = null,
 ): Promise<string> {
   exigerGestion(acteur);
   if (contenu.length > TAILLE_MAX_FACTURE_OCTETS) {
@@ -158,7 +163,15 @@ export async function deposerFacture(
       select: { fournisseurId: true, centreId: true, numeroClient: true },
     }),
   ]);
-  const { fournisseurId, centreId } = reperer(extraite, null, fournisseurs, centres, comptes);
+  const repere = reperer(extraite, null, fournisseurs, centres, comptes);
+  const { fournisseurId } = repere;
+  const centreId = repere.centreId ?? centreCourant;
+  if (acteur.role !== 'ADMIN_CLIENT' && centreId === null) {
+    throw ErreurSaisie.surChamp('fichier', 'Choisissez d’abord un centre en haut de page.');
+  }
+  if (centreId !== null && !peutAccederAuCentre(acteur, centreId)) {
+    throw ErreurSaisie.surChamp('fichier', 'Cette facture relève d’un autre centre.');
+  }
   const documentCle = `factures-fournisseurs/${randomUUID()}`;
   await documents().put(documentCle, contenu, 'application/pdf');
   try {

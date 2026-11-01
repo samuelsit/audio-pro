@@ -175,6 +175,7 @@ export default async function PageCommande({ params }: PageProps<'/commandes/[id
                 <TableCell className="text-right">
                   {prixCommandeModifiable(statut) ? (
                     <FormulairePrix
+                      ligneId={l.id}
                       action={fixerPrixLigneAction.bind(null, id, l.id)}
                       defaut={
                         l.prixAchatCentimes === null
@@ -233,6 +234,7 @@ export default async function PageCommande({ params }: PageProps<'/commandes/[id
             />
           </div>
           <FormulaireMotif
+            id="motif-refus"
             action={refuserCommandeAction.bind(null, id)}
             libelle="Motif du refus"
             bouton="Refuser"
@@ -248,6 +250,7 @@ export default async function PageCommande({ params }: PageProps<'/commandes/[id
                   Reliquat de {resteARecevoir(l)} : {l.designation}
                 </h2>
                 <FormulaireMotif
+                  id={`motif-reliquat-${l.id}`}
                   action={abandonnerReliquatAction.bind(null, id, l.id)}
                   libelle="Motif de l’abandon"
                   bouton="Abandonner le reliquat"
@@ -305,6 +308,7 @@ export default async function PageCommande({ params }: PageProps<'/commandes/[id
             </p>
           ) : null}
           <FormulaireMotif
+            id="motif-annulation"
             action={annulerCommandeAction.bind(null, id)}
             libelle="Motif de l’annulation"
             bouton="Annuler la commande"

@@ -68,7 +68,7 @@ export default async function PageFactureFournisseur({
       {aValider ? (
         <>
           <FormulaireFacture
-            key={facture.lignes.length}
+            key={`${facture.fournisseurId ?? ''}-${facture.centreId ?? ''}-${String(facture.lignes.length)}`}
             action={modifierFactureAction.bind(null, id)}
             facture={facture}
             fournisseurs={fournisseurs.filter((f) => f.actif)}

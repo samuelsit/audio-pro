@@ -55,14 +55,14 @@ export function reperer(
       (fournisseurId === null || c.fournisseurId === fournisseurId) &&
       extraite.numerosClient.includes(c.numeroClient),
   );
-  const candidats = new Set(
+  const [centreId, ...autres] = new Set(
     centresParSiret.length > 0
       ? centresParSiret.map((c) => c.id)
       : centresParCompte.map((c) => c.centreId),
   );
   return {
     fournisseurId,
-    centreId: candidats.size === 1 ? ([...candidats][0] ?? null) : null,
+    centreId: centreId !== undefined && autres.length === 0 ? centreId : null,
     expediteurInconnu: expediteur !== null && parExpediteur === undefined,
   };
 }

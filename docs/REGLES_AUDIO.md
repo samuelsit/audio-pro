@@ -674,6 +674,34 @@ Le lettrage n'écrit rien. Une contre-passation retourne l'écriture.
 
 **Règle** : règlements et régularisations sont chaînés et archivés, mais n'entrent pas dans les totaux de clôture. Le paiement reçu d'un organisme appartient-il au périmètre des « paiements reçus » ? Si oui, les clôtures devront les totaliser, ce qui serait une version majeure.
 
+## R47 – Factures d'achat et caisse
+
+**Statut : À VÉRIFIER.** `fiscal/boi-tva-decla-30-10-30.html` traite des opérations de caisse.
+
+**Règle** : une facture fournisseur n'entre ni dans la chaîne ni dans le journal de caisse. Elle passe au journal d'audit et se fige à la validation. Choix fondé sur la nature de l'opération, un achat et non un paiement reçu : à confirmer par un conseil fiscal.
+
+## R48 – Traçabilité des achats (`validerFactureFournisseur`)
+
+**Source** : `convention-audioprothesistes.pdf` art. 21, p. 21 : le bon de livraison se conserve « jusqu'à ce que la facturation soit reçue du fabricant », et la facture du fabricant avec les autres pièces.
+
+**Règle** : la réception garde la référence du bon de livraison, et le PDF de la facture reste au stockage chiffré. La validation écrit le numéro de facture sur les appareils rapprochés. La durée se lit à l'art. L. 332-1 CSS, À VÉRIFIER (R17).
+
+## R49 – Facturation électronique (`PlateformeFactures`)
+
+**Statut : À VÉRIFIER.** Aucun texte dans `docs/ref`.
+
+**Règle** : le port recevra les factures de la plateforme agréée du client, sans adaptateur à cette étape. Si l'obligation de réception s'applique déjà à ces entreprises, les factures de fournisseurs français devraient arriver par la plateforme, et la boîte mail ne servirait plus que pour les autres. Calendrier, factures concernées et formats à cadrer avec l'expert-comptable.
+
+## R50 – Bon de commande et données du patient (`BonCommandeVue`)
+
+**Statut : À VÉRIFIER pour l'oreille.** Aucun texte dans `docs/ref`.
+
+**Règle** : le bon ne porte ni identité ni donnée de santé, seulement un code interne aléatoire. L'oreille figure sur une ligne nominative, le sur-mesure ne se fabrique pas sans elle. Associée à un code, est-ce une donnée de santé ? Les précisions de fabrication (couleur, évent) restent hors du bon, faute de pouvoir exclure une donnée de santé d'un texte libre.
+
+## R51 – Règles de gestion des achats (`deciderApprobation`, `statutSelonQuantites`, `rapprocher`, `relanceDue`, `quantiteAReapprovisionner`)
+
+**Statut : choix de gestion**, sans texte de référence (ADR-031). Paramètres par client : `ParametresCommande`, `RegleCommande`, `SeuilStock`. Par défaut : relance à 3 jours, 2 relances, tolérance de prix nulle, approbation humaine.
+
 ## Points À VÉRIFIER
 
 | Point                                                    | Règle | Document qui trancherait                      |
@@ -732,6 +760,11 @@ Le lettrage n'écrit rien. Une contre-passation retourne l'écriture.
 | Plan de comptes et écritures d'écart                     | R39   | Expert-comptable                              |
 | Format du FEC, description                               | R40   | Art. A47 A-1 du LPF, expert-comptable         |
 | Durée de l'article L. 332-1 CSS                          | R17   | Code de la sécurité sociale                   |
+| Factures d'achat hors chaîne de caisse                   | R47   | Conseil fiscal                                |
+| Conservation des bons et factures d'achat                | R48   | Code de commerce, code de la sécurité sociale |
+| Facturation électronique : calendrier, factures, formats | R49   | Expert-comptable, textes de la réforme        |
+| Oreille sur le bon de commande                           | R50   | Délégué à la protection des données           |
+| Format réel d'un relevé de centrale                      | R51   | Centrale d'achat                              |
 | Numéro de lot à conserver                                | R17   | Vigilance ANSM                                |
 | Format des numéros et codes lus à la douchette           | R17   | Étiquettes réelles des fabricants             |
 | Consignation                                             | R17   | Contrats fabricants                           |

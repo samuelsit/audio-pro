@@ -79,7 +79,7 @@ const COLONNES: readonly Colonne<EcartListe>[] = [
     libelle: 'Traitement',
     rendu: (e) =>
       ecartTraitable(e.statut) ? (
-        <FormulaireEcart action={traiterEcartAction.bind(null, e.id)} />
+        <FormulaireEcart action={traiterEcartAction.bind(null, e.id)} ecartId={e.id} />
       ) : null,
   },
 ];

@@ -4,6 +4,7 @@ import type { PrismaClient } from '../src/generated/prisma/client';
 
 const CENTRALE_ID = '019a9000-0000-7000-8000-000000000001';
 const FOURNISSEUR_PILES_ID = '019a9000-0000-7000-8000-000000000002';
+const REGLE_PILES_ID = '019a9000-0000-7000-8000-000000000003';
 
 function idFournisseur(rang: number): string {
   return `019a9100-0000-7000-8000-${String(rang).padStart(12, '0')}`;
@@ -53,6 +54,19 @@ export async function seedAchats(db: PrismaClient, organisationId: string): Prom
     where: { id: FOURNISSEUR_PILES_ID },
     create: { id: FOURNISSEUR_PILES_ID, ...piles },
     update: piles,
+  });
+  const regle = {
+    organisationId,
+    libelle: 'Piles et accessoires jusqu’à 200 €',
+    priorite: 10,
+    montantMaxCentimes: 20_000,
+    fournisseurId: FOURNISSEUR_PILES_ID,
+    decision: 'ENVOI_DIRECT' as const,
+  };
+  await db.regleCommande.upsert({
+    where: { id: REGLE_PILES_ID },
+    create: { id: REGLE_PILES_ID, ...regle },
+    update: regle,
   });
   await db.accessoire.updateMany({
     where: { organisationId },

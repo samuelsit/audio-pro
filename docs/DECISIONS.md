@@ -964,3 +964,43 @@ Les parts AMO et AMC étaient calculées et figées, mais rien ne suivait ce que
 - Un paramètre comptable nouveau a une valeur par défaut, pour lire les lignes déjà enregistrées.
 - Une base de développement garde ses factures sans créance : leur patient y garde une part calculée, mais aucune créance à lettrer.
 - Un reversement à un organisme n'a pas d'écriture : l'indu s'affiche, et seul le délettrage le reporte. Reporté à l'étape 26, avec les retenues de l'art. 37.
+
+---
+
+## ADR-031 – Commandes fabricants : approbation, réception, factures et rapprochement
+
+- **Date** : 2026-11-01
+- **Statut** : acceptée. Complète l'ADR-023 et l'ADR-021.
+
+### Contexte
+
+La page `/commandes` était vide, `commande_id` n'avait pas de clé étrangère et `receptionnerDansTransaction` attendait son appelant. `Fabricant` n'a ni e-mail ni contact, `Notifier` ne connaît pas les pièces jointes, rien ne lit un PDF ni ne reçoit d'e-mail, et les fournisseurs d'e-mail et de plateforme ne sont pas choisis. Les prix d'achat sont réservés aux rôles de gestion, alors qu'assistantes et audioprothésistes font les demandes.
+
+### Décision
+
+- **`Fournisseur` à côté de `Fabricant`** : `Fabricant` reste la fiche de catalogue du devis. Un fabricant commandé a sa fiche d'achat, liée par `fabricantId` (CHECK sur le type). Aucune reprise, faute de production. `ModeleAideAuditive.prixAchatCentimes` et `Accessoire.fournisseurId` s'ajoutent : le premier reste hors de `ModeleResume`, qui part vers des écrans ouverts à tous.
+- **Une table `Commande`** : la demande est un `BROUILLON`. Un fournisseur, un centre. Numéro par client et par année, `CMD-AAAA-NNNNNN` : une commande n'est pas une pièce comptable, un trou est sans effet.
+- **Statuts déduits des quantités** : `statutSelonQuantites` après chaque réception, reliquat ou facture. Une facture peut précéder la livraison ; `FACTUREE` attend `RECUE`. `CLOSE` est un geste, refusé tant qu'un écart est ouvert ou contesté. Une ligne en consignation n'attend pas de facture.
+- **Caches de quantités** : `quantiteRecue` et `quantiteFacturee` sont stockés et écrits sous le verrou de la commande, comme le solde des créances (ADR-030).
+- **Gel** : le trigger `commande_ligne_figee` protège le contenu dès l'approbation, hors quantités reçues, facturées et abandonnées.
+- **Approbation** : `RegleCommande`, première règle active par priorité croissante. Par défaut, un humain approuve : sans règle, ou si un prix manque. Une commande mixte ne vaut pour un type que si toutes ses lignes en sont. La règle se désactive, jamais ne se supprime, et reste citée par la commande. Le demandeur peut approuver : un centre indépendant n'a souvent qu'un gérant.
+- **Prix masqués** : AUDIO et ASSISTANT passent commande sans voir de prix. Le serveur prend celui du catalogue et calcule le montant ; un prix saisi par eux est refusé. Le bon, qui porte les prix, n'est téléchargeable que par la gestion. Une réception garde le prix de la commande sans droit sur les prix, comme le prévoyait l'ADR-023.
+- **Bon sans identité** : `BonCommandeVue` n'a pas de champ pour un nom, un NIR ou un texte libre. `referencePatient` est aléatoire, sans lien avec l'identité. L'oreille y figure, car le sur-mesure l'exige (R50). Toute lecture ou écriture d'une ligne nominative passe au journal avec `patientId`.
+- **Pièce jointe** : `EmailSortant` reçoit `piecesJointes` et `repondreA`. La règle « jamais de pièce jointe » vise les patients ; `gabaritAvecPieceJointe` limite les pièces jointes aux gabarits fournisseur. Le bon se rend hors transaction ; un échec laisse au pire un fichier orphelin.
+- **`Notification` réutilisée** : colonne `commande_id`, une source parmi trois. `ENVOYEE` veut dire confiée à l'envoi : la date réelle se lit sur la notification, et `ABANDONNEE` s'affiche. Sans stockage réel, le message attend au lieu de partir sans pièce jointe. L'annulation abandonne un bon pas encore parti ; s'il est parti, prévenir le fabricant reste manuel.
+- **Accusé** : jeton signé, sans donnée stockée, et page publique à confirmer par un bouton, car les passerelles de messagerie ouvrent les liens. Elle ne montre qu'un numéro et un centre. Le premier accusé fait foi. Pas de limitation de débit : aucun secret à deviner derrière le jeton.
+- **Relance** : `relancer-commandes`, horaire, clé `relance:<commande>:<rang>`. Le délai court depuis le dernier envoi réel. Un message encore en attente suspend la relance : sans cela, une relance non partie en appelait une autre.
+- **Réception** : `Reception`, `ReceptionLigne`, `ReceptionLigneAppareil`, en ajout seul. Une livraison partielle n'est pas un écart : le reste reste attendu, et le manque ne se constate qu'à l'abandon du reliquat. Un surplus entre en stock et s'écarte ; un produit non conforme n'y entre pas. Un appareil nominatif reste `EN_STOCK`, signalé à affecter : le réserver exige un dossier.
+- **`EcartAchat` unique** : réception et facture. Un écart traité ne se rouvre pas ; un commentaire est obligatoire. Une réception lève seule les écarts de quantité et de série qu'elle explique. Accepter un écart de prix corrige `Appareil.prixAchatCentimes` : la valeur du stock doit dire le vrai coût.
+- **Factures hors caisse** : un achat n'est pas un encaissement. Ni chaîne, ni journal de caisse, ni `VERSION_CAISSE` : journal d'audit seulement (R47). Une facture validée se fige par trigger.
+- **Extraction locale** : `pdfjs-dist` lit la couche texte, les heuristiques sont pures et dans le domaine. Aucune donnée ne quitte l'infrastructure : une facture peut citer un patient, et une API externe poserait la question de la sous-traitance. Un scan rend une facture vide, à saisir. Le texte brut n'est pas conservé. La désignation d'une ligne est chiffrée.
+- **Boîte unique** : une adresse par client, le centre se lit sur la facture, par SIRET puis par numéro de client. Un doute laisse le champ vide. Un expéditeur inconnu entre quand même, signalé. Une facture sans centre revient à l'administrateur ; un responsable qui dépose retient son centre courant, pour ne pas perdre de vue ce qu'il vient de déposer. Le PDF reçu n'est pas de confiance : taille bornée, octets de signature contrôlés, téléchargement en `attachment`.
+- **Rapprochement** : `rapprocher` compare aux lignes citées par la facture, pas aux autres. La tolérance de prix est par article, nulle par défaut. La facture ne se valide pas sans fournisseur, centre, numéro, date et totaux ; les écarts, eux, ne la bloquent pas : ils se traitent ensuite.
+- **Relevé** : format CSV défini ici, provisoire. Le pointage se voit avant l'import, et se refait : une facture peut arriver après. Réservé à l'administrateur, car un relevé couvre tous les centres.
+- **Réapprovisionnement** : calcul à la lecture, sans travail de nuit. Une ligne nominative ne compte pas : elle est déjà promise. Le brouillon compte, pour que deux propositions ne s'additionnent pas.
+- **Ports** : `BoiteFactures`, `ExtracteurFacture`, `PlateformeFactures`, structures provisoires, chacun avec son Fake, aucun champ fournisseur inventé. `transmettreCommande` est le seul point de sortie : l'EDI s'y branchera, sans port à cette étape.
+
+### Conséquences
+
+- En production, rien ne part et rien n'arrive par e-mail tant qu'un fournisseur n'est pas retenu (ADR-021). Le dépôt à l'écran fonctionne seul.
+- L'efficacité de l'extraction n'est pas mesurée : les tests n'utilisent que des PDF générés, faute de vraies factures de fabricants.

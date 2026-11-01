@@ -11,5 +11,6 @@ export type { Hacheur } from './hacheur';
 export * from './notifier';
 export * from './pdf-renderer';
 export * from './pec-gateway';
+export type { FactureElectronique, PlateformeFactures } from './plateforme-factures';
 export type { SignatureCaisse } from './signature-caisse';
 export * from './vitale-reader';

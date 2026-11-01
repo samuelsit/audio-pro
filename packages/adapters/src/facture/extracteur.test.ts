@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import { FakeBoiteFactures } from './fake-boite';
 import { FakeExtracteurFacture } from './fake-extracteur';
+import { FakePlateformeFactures } from './fake-plateforme';
 import { PdfTexteExtracteurFacture } from './pdf-texte-extracteur';
 
 async function facturePdf(lignes: readonly string[]): Promise<Uint8Array> {
@@ -71,6 +72,14 @@ describe('PdfTexteExtracteurFacture', () => {
 describe('adaptateurs simulés', () => {
   it('FakeExtracteurFacture rend ce qu’on lui a confié', async () => {
     expect((await new FakeExtracteurFacture().extraire()).numero).toBeNull();
+  });
+
+  it('FakePlateformeFactures garde les factures jusqu’à l’acquittement', async () => {
+    const plateforme = new FakePlateformeFactures();
+    plateforme.deposer({ identifiant: 'f1', pdf: null });
+    expect(await plateforme.relever()).toHaveLength(1);
+    await plateforme.acquitter('f1');
+    expect(await plateforme.relever()).toEqual([]);
   });
 
   it('FakeBoiteFactures garde les messages jusqu’à l’acquittement', async () => {

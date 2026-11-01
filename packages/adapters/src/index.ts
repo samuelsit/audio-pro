@@ -3,6 +3,7 @@ export { FakeCaptcha, REPONSE_CAPTCHA_SIMULEE } from './captcha/fake-captcha';
 export { FakeBillingEngine } from './billing/fake-billing-engine';
 export { FakeBoiteFactures } from './facture/fake-boite';
 export { FakeExtracteurFacture } from './facture/fake-extracteur';
+export { FakePlateformeFactures } from './facture/fake-plateforme';
 export { PdfTexteExtracteurFacture } from './facture/pdf-texte-extracteur';
 export { FakePecGateway } from './pec/fake-pec-gateway';
 export { FakeClock } from './clock/fake-clock';

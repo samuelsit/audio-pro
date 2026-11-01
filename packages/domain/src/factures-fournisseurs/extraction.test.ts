@@ -45,7 +45,12 @@ describe('extraireDepuisTexte', () => {
       prixUnitaireCentimes: 60_000,
       numerosSerie: ['SN1001', 'SN1002', 'SN1003'],
     });
-    expect(extraite.lignes.at(-1)).toMatchObject({ quantite: 10, prixUnitaireCentimes: 60 });
+    expect(extraite.lignes.at(-1)).toMatchObject({
+      reference: null,
+      designation: 'Piles 13',
+      quantite: 10,
+      prixUnitaireCentimes: 60,
+    });
   });
 
   it('écarte une ligne dont quantité × prix ne donne pas le total', () => {

@@ -104,7 +104,7 @@ test('un virement se lettre sur une créance, qui s’exporte', async ({ page })
   await page.waitForLoadState('networkidle');
 
   // Lettrage partiel : la créance garde son solde.
-  await page.getByLabel(/^Montant à lettrer sur/).fill('30,00');
+  await page.getByLabel(`Montant à lettrer sur ${facture.numero ?? ''} AMO`).fill('30,00');
   await page.getByRole('button', { name: 'Lettrer' }).click();
   await expect(page.getByText(/reste à lettrer 0,00/)).toBeVisible();
 

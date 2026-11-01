@@ -405,6 +405,20 @@ describe('validation', () => {
   });
 });
 
+describe('dépôt par un responsable', () => {
+  it('retient le centre courant : la facture reste lisible par qui la dépose', async () => {
+    const responsable = await creerResponsable(d);
+    await expect(deposerFacture(responsable, fichier())).rejects.toBeInstanceOf(ErreurSaisie);
+
+    const id = await deposerFacture(responsable, fichier(), d.centres.a.id);
+    expect((await obtenirFactureFournisseur(responsable, id)).centreId).toBe(d.centres.a.id);
+
+    await expect(deposerFacture(responsable, fichier(), d.centres.c.id)).rejects.toBeInstanceOf(
+      ErreurSaisie,
+    );
+  });
+});
+
 describe('droits', () => {
   it('réservés à la gestion, sur ses centres ; une facture sans centre à l’administrateur', async () => {
     const { admin, assistantA } = d.acteurs;

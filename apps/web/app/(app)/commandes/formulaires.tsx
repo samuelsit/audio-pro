@@ -128,11 +128,25 @@ export function FormulaireLigne({
   );
 }
 
-export function FormulairePrix({ action, defaut }: { action: Action; defaut: string }) {
+export function FormulairePrix({
+  action,
+  defaut,
+  ligneId,
+}: {
+  action: Action;
+  defaut: string;
+  ligneId: string;
+}) {
   const [etat, envoyer] = useActionState(action, ETAT_INITIAL);
   return (
     <form action={envoyer} className="flex items-end gap-2">
-      <ChampTexte etat={etat} nom="prixAchatCentimes" libelle="Prix (€)" defaut={defaut} />
+      <ChampTexte
+        etat={etat}
+        nom="prixAchatCentimes"
+        id={`prix-${ligneId}`}
+        libelle="Prix (€)"
+        defaut={defaut}
+      />
       <BoutonEnvoi>OK</BoutonEnvoi>
     </form>
   );
@@ -142,16 +156,19 @@ export function FormulaireMotif({
   action,
   libelle,
   bouton,
+  id = 'motif',
 }: {
   action: Action;
   libelle: string;
   bouton: string;
+  /** À fournir quand plusieurs motifs partagent la page. */
+  id?: string;
 }) {
   const [etat, envoyer] = useActionState(action, ETAT_INITIAL);
   return (
     <form action={envoyer} className="grid max-w-2xl gap-3">
       <MessageFormulaire etat={etat} />
-      <ZoneDeTexte etat={etat} nom="motif" libelle={libelle} requis />
+      <ZoneDeTexte etat={etat} nom="motif" id={id} libelle={libelle} requis />
       <div>
         <BoutonEnvoi>{bouton}</BoutonEnvoi>
       </div>
@@ -240,7 +257,7 @@ export function FormulaireReception({
   );
 }
 
-export function FormulaireEcart({ action }: { action: Action }) {
+export function FormulaireEcart({ action, ecartId }: { action: Action; ecartId: string }) {
   const [etat, envoyer] = useActionState(action, ETAT_INITIAL);
   return (
     <form action={envoyer} className="grid gap-2">
@@ -248,6 +265,7 @@ export function FormulaireEcart({ action }: { action: Action }) {
       <ListeDeroulante
         etat={etat}
         nom="statut"
+        id={`statut-${ecartId}`}
         libelle="Traitement"
         options={[
           { valeur: 'ACCEPTE', libelle: 'Accepter' },
@@ -256,7 +274,13 @@ export function FormulaireEcart({ action }: { action: Action }) {
         ]}
         vide="Choisir…"
       />
-      <ChampTexte etat={etat} nom="commentaire" libelle="Commentaire" requis />
+      <ChampTexte
+        etat={etat}
+        nom="commentaire"
+        id={`commentaire-${ecartId}`}
+        libelle="Commentaire"
+        requis
+      />
       <div>
         <BoutonEnvoi>Enregistrer</BoutonEnvoi>
       </div>

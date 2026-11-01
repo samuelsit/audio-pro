@@ -38,11 +38,12 @@ export const FACTURE_VIDE: FactureExtraite = {
 const MONTANT = String.raw`(\d{1,3}(?:[ \u00a0\u202f]\d{3})*(?:[.,]\d{2})|\d+[.,]\d{2})`;
 
 function premier(texte: string, motif: RegExp): string | null {
-  return motif.exec(texte)?.[1]?.trim() ?? null;
+  const trouve = motif.exec(texte);
+  return trouve ? (trouve[1] as string).trim() : null;
 }
 
 function tous(texte: string, motif: RegExp): string[] {
-  return [...new Set([...texte.matchAll(motif)].map((m) => (m[1] ?? '').trim()))];
+  return [...new Set([...texte.matchAll(motif)].map((m) => (m[1] as string).trim()))];
 }
 
 function montantApres(texte: string, libelle: string): number | null {
@@ -55,17 +56,18 @@ function dateIso(texte: string): string | null {
   if (!trouvee) {
     return null;
   }
-  const [, jour, mois, annee] = trouvee;
-  return `${annee ?? ''}-${mois ?? ''}-${jour ?? ''}`;
+  return `${trouvee[3] as string}-${trouvee[2] as string}-${trouvee[1] as string}`;
 }
 
 function sirets(texte: string): string[] {
-  return tous(texte, /siret[^\d\n]{0,10}(\d[\d \u00a0]{12,18}\d)/gi).map((s) => s.replace(/\D/g, ''));
+  return tous(texte, /siret[^\d\n]{0,10}(\d[\d \u00a0]{12,18}\d)/gi).map((s) =>
+    s.replace(/\D/g, ''),
+  );
 }
 
+// Une référence porte un chiffre : sinon, le premier mot d'une désignation passerait pour elle.
 const LIGNE_ARTICLE = new RegExp(
-  String.raw`^\s*(?:([A-Z0-9][A-Z0-9._/-]{2,})\s+)?(.+?)\s+(\d{1,4})\s+${MONTANT}\s*€?\s+${MONTANT}\s*€?\s*$`,
-  'i',
+  String.raw`^\s*(?:((?=\S*\d)[A-Z0-9][A-Z0-9._/-]{2,})\s+)?(.+?)\s+(\d{1,4})\s+${MONTANT}\s*€?\s+${MONTANT}\s*€?\s*$`,
 );
 const LIGNE_SERIES =
   /^\s*(?:s\/n|n°\s*de\s*s[ée]rie|num[ée]ros?\s+de\s+s[ée]rie|serial)\s*[:.]?\s*(.+)$/i;
@@ -84,7 +86,10 @@ function lignes(texte: string): LigneExtraite[] {
     const series = LIGNE_SERIES.exec(brute);
     const precedente = resultat.at(-1);
     if (series && precedente) {
-      precedente.numerosSerie = [...precedente.numerosSerie, ...numerosDeLaLigne(series[1] ?? '')];
+      precedente.numerosSerie = [
+        ...precedente.numerosSerie,
+        ...numerosDeLaLigne(series[1] as string),
+      ];
       continue;
     }
     const article = LIGNE_ARTICLE.exec(brute);
@@ -92,14 +97,15 @@ function lignes(texte: string): LigneExtraite[] {
       continue;
     }
     const [, reference, designation, quantite, unitaire, total] = article;
-    const prixUnitaireCentimes = centimesDepuisSaisieEuros(unitaire ?? '');
-    const prixTotal = centimesDepuisSaisieEuros(total ?? '');
+    // Le motif ne retient que des montants lisibles.
+    const prixUnitaireCentimes = centimesDepuisSaisieEuros(unitaire as string) as number;
+    const prixTotal = centimesDepuisSaisieEuros(total as string);
     const nombre = Number(quantite);
     // Quantité × prix = total : sans ce recoupement, toute ligne de chiffres passerait pour un article.
-    if (prixUnitaireCentimes !== null && prixTotal === nombre * prixUnitaireCentimes) {
+    if (prixTotal === nombre * prixUnitaireCentimes) {
       resultat.push({
         reference: reference ?? null,
-        designation: (designation ?? '').trim(),
+        designation: (designation as string).trim(),
         quantite: nombre,
         prixUnitaireCentimes,
         numerosSerie: [],
