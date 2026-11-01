@@ -927,3 +927,40 @@ L'objectif est de remettre une attestation individuelle d'éditeur à chaque cli
 - Une base de développement semée avant cette étape garde l'ancien avoir : `pnpm caisse:verifier` y signale une rupture, à effacer en repartant d'une base neuve.
 - Changer le format d'empreinte, les recalculs ou le format d'archive est une version majeure : nouvelles attestations (§ 380).
 - **Aucune attestation avant l'étape 23** : Object Lock, KMS et sauvegardes sont des conditions, et les textes À VÉRIFIER doivent être levés (voir `docs/CAISSE.md`).
+
+---
+
+## ADR-030 – Tiers payant : PEC, créances, règlements et lettrage
+
+- **Date** : 2026-11-01
+- **Statut** : acceptée. Complète l'ADR-025 et l'ADR-029 ; remplace le plafond d'encaissement de l'ADR-029.
+
+### Contexte
+
+Les parts AMO et AMC étaient calculées et figées, mais rien ne suivait ce que devaient les organismes : aucune créance, aucun règlement, aucun référentiel. 411100 et 411200 étaient débités à la facture et jamais soldés. `Encaissement` exige un patient et une pièce, donc ne peut pas porter un virement de plusieurs factures. Rien ne disait si une facture était en tiers payant, et le suivi reste manuel jusqu'aux étapes 26 et 28. `docs/vendor/pec` n'existe pas.
+
+### Décision
+
+- **Drapeau `facture.tiers_payant_amo`** : vrai par défaut, posé sur le brouillon, figé à la validation. Il n'entre dans la charge que s'il est faux : les anciens maillons restent identiques. Faux interdit en C2S.
+- **Créances** : une par part, dans la transaction de validation. Libellé d'organisme figé, repli « Assurance maladie » si la caisse est inconnue.
+- **Solde de créance stocké** : `creance.solde_centimes`, écrit par le service sous le verrou de chaîne. Écart assumé au « solde calculé » de l'ADR-029 : une créance n'est pas une pièce figée, et les listes filtrent et agrègent en base sur une table qui ne fait que grandir. Un test compare ce cache au recalcul. Même choix pour `reglement_organisme.reste_a_lettrer_centimes`.
+- **Pas de compte d'attente** : un virement crédite 411100 et 411200 dès réception ; le lettrage n'écrit rien et n'est pas chaîné, il passe au journal d'audit. Un virement porte deux parts, pour qu'une caisse payant AMO et C2S reste une seule ligne bancaire.
+- **Chaîne** : `REGLEMENT_ORGANISME`, `ANNULATION_REGLEMENT_ORGANISME`, `REGULARISATION_ORGANISME`, une ligne par maillon comme `Encaissement`. Toute écriture du tiers payant prend le verrou de tête du centre, y compris le lettrage, pour sérialiser les soldes.
+- **Par centre** : un règlement appartient à un centre, comme la chaîne. Un virement de réseau se saisit par centre, même référence.
+- **Clôtures inchangées** : ces maillons sont vérifiés et archivés, pas totalisés (R46, À VÉRIFIER).
+- **Solde patient** : calculé depuis les pièces et les transferts, sans dépendre des créances. `plafond` disparaît : on encaisse au plus `du`. Le trop-perçu se mesure à la part du patient, ce qui corrige le cas d'un avoir partiel après paiement.
+- **Avoir** : `imputerAvoir` dans la transaction de l'avoir. Un transfert ou une perte se contre-passent, ce qui est déjà payé devient un indu.
+- **PEC** : conservée par dossier. `A_DEMANDER`, `PARTIELLE`, `EXPIREE` s'ajoutent, `SANS_TIERS_PAYANT` reste. Un refus vaut 0 et non `null`, pour que la ventilation et l'alerte du devis suivent. L'expiration se déduit à la lecture, sans travail de nuit. La demande est un instantané JSON validé par Zod.
+- **`PecGateway`** : structure provisoire, aucun champ fournisseur. Sans adaptateur, l'écran reste en saisie manuelle (`pecGatewayDisponible`).
+- **Référentiel par client** : `complementaire`. Pas de clé vers `couverture_amc` : l'identifiant suffit à une préselection.
+- **Prévu pour NOEMIE** : `reglement_organisme.origine`, `identifiant_externe` unique par centre, `ecrireReglement` réutilisable, code de rejet.
+- **Reprise** : aucune. L'étape 23 n'est pas faite, donc pas de production, et une reprise exigerait `BYPASSRLS`.
+- **Export** : sans identité de patient, comme le stock.
+
+### Conséquences
+
+- `VERSION_CAISSE` passe à `2.0` : types chaînés et recalculs de la vérification. Aucune attestation n'existant, rien n'est à renouveler.
+- La revue a révélé un défaut de l'étape 15 : l'avoir qui solde ne reprenait pas les acomptes, repris une seconde fois par la facture suivante. Corrigé.
+- Un paramètre comptable nouveau a une valeur par défaut, pour lire les lignes déjà enregistrées.
+- Une base de développement garde ses factures sans créance : leur patient y garde une part calculée, mais aucune créance à lettrer.
+- Un reversement à un organisme n'a pas d'écriture : l'indu s'affiche, et seul le délettrage le reporte. Reporté à l'étape 26, avec les retenues de l'art. 37.

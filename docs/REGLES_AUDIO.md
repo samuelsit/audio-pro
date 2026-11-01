@@ -8,15 +8,15 @@ Statuts : **Confirmé** (le texte dit exactement cela), **Confirmé avec écart*
 
 ## Sources
 
-| Fichier                            | Contenu                                                      | Version                                                                                                                                                                                     |
-| ---------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `convention-audioprothesistes.pdf` | Convention nationale, version consolidée                     | Convention du 23/03/2022 (JORF 02/07/2022) et avenant n° 1 du 04/11/2024 (JO 04/12/2024), en vigueur le 01/01/2025. Seuls ces deux textes sont opposables, pas la version consolidée (p. 1) |
-| `ameli-100-sante-audio.pdf`        | Page amelipro « Aide auditive dans le cadre du 100 % Santé » | Datée du 04/10/2023                                                                                                                                                                         |
-| `fr201-codes-prestation.pdf`       | Fiche d'évolution réglementaire FR 201v2 et cas de tests     | Application 01/01/2021, CDC 1.40                                                                                                                                                            |
-| `modele-devis-audio.pdf`           | Annexe I, devis normalisé                                    | Fichier de 2019 ; encore rédigé avec « CMU-c » et « Dès 2020 »                                                                                                                              |
-| `lpp/908/`                         | Base LPP                                                     | Version 908, actualisée au 16/10/2026                                                                                                                                                       |
-| `fiscal/`                          | BOFiP : logiciels de caisse, modèle d'attestation, format du FEC | Pages enregistrées le 01/11/2026, versions du 25/03/2026 (caisse) et du 07/06/2017 (FEC). Art. 286 du CGI et A47 A-1 du LPF absents : Légifrance refuse le téléchargement |
-| `biap-rec-02-2-en.pdf`             | BIAP, Recommandation 02/2, classification audiométrique      | Version anglaise, langue d'origine, publiée le 01/09/2026, acceptée en juillet 2026 ; retire la 02/1 bis (p. 6). Recommandation professionnelle, pas un texte opposable                     |
+| Fichier                            | Contenu                                                          | Version                                                                                                                                                                                     |
+| ---------------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `convention-audioprothesistes.pdf` | Convention nationale, version consolidée                         | Convention du 23/03/2022 (JORF 02/07/2022) et avenant n° 1 du 04/11/2024 (JO 04/12/2024), en vigueur le 01/01/2025. Seuls ces deux textes sont opposables, pas la version consolidée (p. 1) |
+| `ameli-100-sante-audio.pdf`        | Page amelipro « Aide auditive dans le cadre du 100 % Santé »     | Datée du 04/10/2023                                                                                                                                                                         |
+| `fr201-codes-prestation.pdf`       | Fiche d'évolution réglementaire FR 201v2 et cas de tests         | Application 01/01/2021, CDC 1.40                                                                                                                                                            |
+| `modele-devis-audio.pdf`           | Annexe I, devis normalisé                                        | Fichier de 2019 ; encore rédigé avec « CMU-c » et « Dès 2020 »                                                                                                                              |
+| `lpp/908/`                         | Base LPP                                                         | Version 908, actualisée au 16/10/2026                                                                                                                                                       |
+| `fiscal/`                          | BOFiP : logiciels de caisse, modèle d'attestation, format du FEC | Pages enregistrées le 01/11/2026, versions du 25/03/2026 (caisse) et du 07/06/2017 (FEC). Art. 286 du CGI et A47 A-1 du LPF absents : Légifrance refuse le téléchargement                   |
+| `biap-rec-02-2-en.pdf`             | BIAP, Recommandation 02/2, classification audiométrique          | Version anglaise, langue d'origine, publiée le 01/09/2026, acceptée en juillet 2026 ; retire la 02/1 bis (p. 6). Recommandation professionnelle, pas un texte opposable                     |
 
 Les pages citées sont celles du PDF (identiques à la numérotation imprimée pour la convention).
 
@@ -422,15 +422,23 @@ Le taux est copié sur chaque ligne de devis et de facture. La facture suit le t
 
 **Règle retenue** : un tiers payant AMC est attendu, hors C2S, si le patient a une couverture complémentaire ou si le devis annonce une part AMC.
 
-**Au devis** (`amcDepuisPec`, ADR-025) : une PEC `ACCORDEE`, hors C2S, remplace la part AMC saisie sur un brouillon, répartie entre les postes de chaque offre au prorata du reste après AMO, plafonnée au reste. Un devis émis reste figé ; une PEC arrivée après lui lève une alerte qui propose une nouvelle version.
+**Au devis** (`amcDepuisPec`, `montantPecApplicable`, ADR-025, ADR-030) : une PEC accordée, hors C2S, remplace la part AMC saisie sur un brouillon, répartie entre les postes de chaque offre au prorata du reste après AMO, plafonnée au reste. Un refus ou une expiration la remplacent par 0. Sans décision, la part estimée reste. Un devis émis reste figé ; une réponse arrivée après lui lève une alerte qui propose une nouvelle version.
 
 | Statut               | Bloque | Part AMC                                      |
 | -------------------- | ------ | --------------------------------------------- |
 | Aucune PEC, attendue | Oui    | 0                                             |
+| `A_DEMANDER`         | Oui    | 0                                             |
 | `DEMANDEE`           | Oui    | 0                                             |
 | `ACCORDEE`           | Non    | Montant accordé, réparti                      |
+| `PARTIELLE`          | Non    | Montant accordé, réparti                      |
 | `REFUSEE`            | Non    | 0, avertissement                              |
+| `EXPIREE`            | Oui    | 0                                             |
+| Accord dépassé       | Oui    | 0                                             |
 | `SANS_TIERS_PAYANT`  | Non    | 0, le reste à charge couvre la part AMC (R13) |
+
+**Demande** : montants par ligne, préremplis depuis une offre du devis (`lignesDemandeDepuisOffre`). Un accord partiel est inférieur à la demande, un accord total ne l'est pas.
+
+**Validité** : un accord dont `validiteFin` précède la date de délivrance est expiré, par analogie avec les droits (art. 27). Aucune tâche planifiée : l'expiration se déduit à la lecture.
 
 **Répartition** : au prorata du reste après AMO, arrondis cumulés, le dernier centime sur la dernière ligne. Un excédent n'est pas affecté et lève un avertissement. Choix applicatif, la saisie ne donnant qu'un montant par dossier.
 
@@ -551,9 +559,9 @@ L'anamnèse, les questionnaires livrés et la synthèse en PDF sont des proposit
 
 ## R34 – Plafond d'encaissement (`calculerSolde`)
 
-**Statut : À VÉRIFIER.** Choix applicatif, faute de drapeau de tiers payant avant l'étape 16.
+**Statut : À VÉRIFIER.** Choix applicatif, remplacé à l'étape 16 (voir R43).
 
-**Règle** : on encaisse au plus le TTC net d'avoirs. Le formulaire propose le reste à charge : le patient peut avancer la part des organismes. Le solde se calcule, il n'est jamais stocké. Espèces : une session ouverte du jour est exigée, et `remis - rendu = montant`.
+**Règle** : on encaisse au plus ce que le patient doit (R43). Un patient qui avance la part de la caisse est une facture sans tiers payant AMO. Le solde se calcule, il n'est jamais stocké. Espèces : une session ouverte du jour est exigée, et `remis - rendu = montant`.
 
 **À VÉRIFIER** : plafond légal des paiements en espèces, non codé.
 
@@ -605,6 +613,67 @@ L'anamnèse, les questionnaires livrés et la synthèse en PDF sont des proposit
 
 **Règle** : `evenement_caisse` trace ouverture, comptage, encaissement, remboursement, annulation, duplicata, clôture, archivage, changement de paramètres avec l'avant et l'après (préfixe, comptes, identité de l'entreprise), et échec de vérification, une fois par rupture.
 
+## R42 – Créances et échéances (`creancesDeFacture`, `echeanceAmo`, `echeanceAmc`)
+
+**Statut : Confirmé avec écart** pour la part de la caisse, **À VÉRIFIER** pour le reste. `convention-audioprothesistes.pdf`, art. 27, p. 26 (subrogation) ; art. 35 § 3, p. 32 (« ordre de virement [...] dans un délai maximal de cinq jours ouvrés, à compter du jour de la réception de l'accusé de réception logique (ARL) positif », y compris la part AMC C2S en tiers payant intégral coordonné).
+
+**Règle** : à la validation, une créance par part portée par un organisme, dans la même transaction. Part AMC C2S : payée par la caisse, au même délai. Part AMC hors C2S : l'organisme de la PEC.
+
+**Échéance** : caisse, 5 jours ouvrés depuis la facture, recalculés à la FSE `ACCEPTEE`. Complémentaire, `delaiPaiementJours` du référentiel, 30 jours par défaut.
+
+**Écarts** : l'ARL n'est pas connu avant l'étape 26, l'acceptation de la FSE en tient lieu. Le texte vise l'ordre de virement en mode sécurisé, pas la réception des fonds.
+
+**À VÉRIFIER** : délai des complémentaires, aucun texte ; jours fériés non déduits, la convention ne définit pas « ouvré » ; échéance en B2D, papier et AME.
+
+**Ancienneté** : comptée depuis la facture, en tranches 0-30, 31-60, 61-90 et plus de 90 jours. Choix applicatif.
+
+## R43 – Tiers payant et solde du patient (`partPatientDeLaPiece`, `calculerSolde`)
+
+**Statut : Confirmé avec écart.** `convention-audioprothesistes.pdf`, art. 1, p. 6 et art. 27, p. 26 (tiers payant obligatoire pour la C2S, l'AME, la maternité, l'ALD, les risques professionnels et la détention ; dispense d'avance ouverte aux autres assurés).
+
+**Règle** : le tiers payant AMO se choisit sur le brouillon, coché par défaut, et se fige à la validation. Décoché, le patient règle la part AMO et aucune créance AMO ne naît. La part du patient vaut reste à charge net d'avoirs, plus la part AMO sans tiers payant, plus les créances passées à sa charge. On encaisse au plus ce qu'il doit ; le trop-perçu se mesure à sa part.
+
+**Écart** : seule la C2S bloque (`TIERS_PAYANT_OBLIGATOIRE`). Les autres cas de l'art. 27 ne sont pas connus de façon fiable à la facturation : À VÉRIFIER.
+
+## R44 – Lettrage, écarts et rejets (`verifierLettrage`, `imputerAvoir`)
+
+**Statut : À VÉRIFIER.** Seule la définition du lettrage est dans docs/ref : `fiscal/boi-cf-ior-60-40-20.html` § 240 (« apparier deux écritures »). `convention-audioprothesistes.pdf`, art. 37, p. 33 : rapprochement des factures et des virements par référence, motifs de rejet par part.
+
+**Lettrage** : manuel, sur une ou plusieurs créances d'un même centre, partiel ou complet. Au plus le solde de chaque créance et le reste du règlement, par part AMO et AMC. Sans effet comptable. Un délettrage est une ligne inverse.
+
+**Écarts** : ce qu'un organisme a versé en moins passe en perte sur la créance ; ce qu'il a versé en plus reste à lettrer, ou se classe en produit sur le règlement. Motif obligatoire.
+
+**Rejets** : la créance reste due. Trois suites : représentation (l'échéance repart), transfert au patient, abandon en perte.
+
+**Avoir sur une créance** : dans l'ordre, solde ouvert, transfert au patient, perte, puis ce que l'organisme a déjà payé, qui devient un indu (solde négatif).
+
+**À VÉRIFIER** : le transfert au patient laisse la facture figée, faut-il une pièce rectificative ?
+
+## R45 – Écritures du tiers payant (`ecrituresDepuisMaillon`)
+
+**Statut : À VÉRIFIER.** À faire valider par l'expert-comptable, comme R39.
+
+**Règle** :
+
+| Opération                 | Débit                   | Crédit           |
+| ------------------------- | ----------------------- | ---------------- |
+| Virement reçu             | 512000                  | 411100 et 411200 |
+| Annulation du virement    | 411100 et 411200        | 512000           |
+| Écart en perte            | 654000                  | 411100 ou 411200 |
+| Écart en produit          | 411100 ou 411200        | 758000           |
+| Transfert au patient      | 411000                  | 411100 ou 411200 |
+| Facture sans tiers payant | 411000 pour la part AMO |                  |
+
+Le lettrage n'écrit rien. Une contre-passation retourne l'écriture.
+
+**À VÉRIFIER** : compte 654000, régularisation de la TVA sur une créance irrécouvrable.
+
+## R46 – Virements d'organismes et clôtures
+
+**Statut : À VÉRIFIER.** `fiscal/boi-tva-decla-30-10-30.html` § 40 ne range pas expressément le tiers payant.
+
+**Règle** : règlements et régularisations sont chaînés et archivés, mais n'entrent pas dans les totaux de clôture. Le paiement reçu d'un organisme appartient-il au périmètre des « paiements reçus » ? Si oui, les clôtures devront les totaliser, ce qui serait une version majeure.
+
 ## Points À VÉRIFIER
 
 | Point                                                    | Règle | Document qui trancherait                      |
@@ -647,7 +716,14 @@ L'anamnèse, les questionnaires livrés et la synthèse en PDF sont des proposit
 | Prescription et taux AMO d'une vente directe             | R30   | Nomenclature LPP, cahier des charges          |
 | Contrat `BillingEngine`, champs de `FseDraft`            | R31   | Documentation AreaFSE                         |
 | Correction d'une FSE après un avoir                      | R31   | Documentation AreaFSE                         |
-| Plafond d'encaissement avant le tiers payant             | R34   | Étape 16, comptable                           |
+| Plafond d'encaissement selon le tiers payant             | R34   | Comptable                                     |
+| Délai de paiement des complémentaires                    | R42   | Conventions des complémentaires               |
+| Jours fériés, échéance en B2D, papier et AME             | R42   | Convention, documentation AreaFSE             |
+| Tiers payant obligatoire hors C2S, à la facturation      | R43   | Documentation AreaFSE                         |
+| Pièce rectificative après un transfert au patient        | R44   | Code général des impôts ou comptable          |
+| Limites du lettrage, ordre d'imputation d'un avoir       | R44   | Expert-comptable                              |
+| Écritures du tiers payant, TVA irrécouvrable             | R45   | Expert-comptable                              |
+| Virements d'organismes et paiements reçus                | R46   | Conseil fiscal                                |
 | TVA sur acomptes, facture d'acompte                      | R36   | Code général des impôts ou comptable          |
 | Plafond légal des espèces                                | R34   | Code monétaire et financier ou comptable      |
 | Jour sans opération sans clôture                         | R37   | Conseil fiscal                                |

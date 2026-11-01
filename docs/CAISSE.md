@@ -2,7 +2,7 @@
 
 Ce document décrit comment AudioGest remplit chaque condition, avec le mécanisme, le code et le test qui le prouvent. Il sert de base à l'attestation individuelle de l'éditeur. **Il n'est pas une attestation** : voir « Avant la première attestation ».
 
-État au 2026-11-01, version de la fonction de caisse `1.0` (`VERSION_CAISSE`, [cloture.ts](../packages/domain/src/caisse/cloture.ts)).
+État au 2026-11-01, version de la fonction de caisse `2.0` (`VERSION_CAISSE`, [cloture.ts](../packages/domain/src/caisse/cloture.ts)).
 
 ## Sources
 
@@ -19,7 +19,8 @@ Les paragraphes (§) ci-dessous sont ceux du BOI-TVA-DECLA-30-10-30.
 ## Périmètre
 
 - **Fonction de caisse couverte** : encaissements, remboursements, annulations, sessions et comptages de caisse, clôtures, archives, et les factures et avoirs auxquels ces règlements se rattachent (§ 30, § 40, § 50).
-- **Hors fonction de caisse** (§ 40) : dossier patient, agenda, stock, FSE, tiers payant.
+- **Hors fonction de caisse** (§ 40) : dossier patient, agenda, stock, FSE, suivi des prises en charge et des créances.
+- **Virements d'organismes** : chaînés, vérifiés et archivés depuis la version `2.0`, comme les écarts et les transferts au patient. Ils n'entrent pas dans les totaux de clôture : à faire trancher (R46).
 - **Logiciel en ligne** : l'obligation s'applique aussi (§ 30). AudioGest est un SaaS, mutualisé entre clients, avec isolation par ligne.
 - **Une caisse par centre** : le centre tient lieu de numéro de caisse (§ 50). Une chaîne, une série et un jeu de clôtures par centre.
 - **Allègement non utilisé** : le § 170 dispense de clôtures un logiciel de facturation avec fonction de caisse. Le logiciel les réalise quand même.

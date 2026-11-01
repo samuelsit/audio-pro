@@ -236,7 +236,8 @@ export function FormulairePec({
           <ChampTexte
             etat={etat}
             nom="datePec"
-            libelle="Date de la prise en charge"
+            libelle="Date"
+            aide="Date de la demande ou de la réponse."
             type="date"
             defaut={pec?.datePec}
             requis={!aDemander}

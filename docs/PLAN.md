@@ -105,7 +105,15 @@ Numérotation du plan SaaS (ADR-015). Les références aux étapes dans `docs/DE
   - reporté à l'étape 16 : encaissements des organismes, plafond selon le tiers payant
   - reporté à l'étape 22 : durées de conservation et purge, face au RGPD
   - reporté à l'étape 23 : S3 Object Lock sur `archives-caisse/`, clé de signature en KMS et rotation, restauration de sauvegarde vérifiée. **Aucune attestation avant cette étape**
-- [ ] **16** – Tiers payant et PEC
+- [x] **16** – Tiers payant et PEC (ADR-030)
+  - fait : PEC étendue, statuts, demande par ligne, saisie depuis le devis ; port `PecGateway` et `FakePecGateway`, déjà branchés à l'écran ; tiers payant AMO par facture ; créances AMO et AMC à la validation, échéances ; règlements d'organismes chaînés, parts AMO et AMC, annulation ; lettrage partiel et multiple, délettrage ; écarts, rejets, transfert au patient ; avoir répercuté sur les créances ; solde patient et trop-perçu corrigés ; écritures, vérification, archive, `VERSION_CAISSE` 2.0 ; référentiel des complémentaires ; écrans créances, règlements, rejets, impayés, export CSV
+  - corrigé en passant : l'avoir qui solde reprend les acomptes déduits (défaut de l'étape 15)
+  - À VÉRIFIER : procédure et validité de la PEC, délai des complémentaires, jours fériés, B2D, papier et AME, tiers payant obligatoire hors C2S, C2S gérée par un organisme complémentaire, pièce rectificative après un transfert, limites du lettrage, virements d'organismes dans les clôtures (voir `docs/REGLES_AUDIO.md`, R23, R42 à R46)
+  - à valider : écritures du tiers payant et compte 654000 par l'expert-comptable
+  - à déposer dans `docs/vendor/pec` : documentation des plateformes
+  - reporté à l'étape 19 : courriers de relance (l'écran note la relance)
+  - reporté à l'étape 26 : import NOEMIE et lettrage automatique, reversement d'un indu, date réelle de l'ARL
+  - reporté à l'étape 28 : adaptateur réel de `PecGateway`
 
 ## Phase G – Commandes fabricants et SAV
 
