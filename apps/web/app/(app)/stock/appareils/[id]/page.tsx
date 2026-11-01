@@ -109,6 +109,26 @@ export default async function PageAppareil({ params }: PageProps<'/stock/apparei
           </Information>
         ) : null}
         {fiche.parcPret ? <Information libelle="Parc de prêt">Oui</Information> : null}
+        {fiche.remplacePar ? (
+          <Information libelle="Remplacé par">
+            <Link
+              href={`/stock/appareils/${fiche.remplacePar.id}`}
+              className="underline underline-offset-2"
+            >
+              {fiche.remplacePar.numeroSerie}
+            </Link>
+          </Information>
+        ) : null}
+        {fiche.remplace ? (
+          <Information libelle="Remplace">
+            <Link
+              href={`/stock/appareils/${fiche.remplace.id}`}
+              className="underline underline-offset-2"
+            >
+              {fiche.remplace.numeroSerie}
+            </Link>
+          </Information>
+        ) : null}
       </dl>
 
       {fiche.garantie ? <BlocGarantie appareilId={fiche.id} garantie={fiche.garantie} /> : null}
@@ -135,6 +155,12 @@ export default async function PageAppareil({ params }: PageProps<'/stock/apparei
         <div>
           <Button asChild variant="outline">
             <Link href={`/sav/nouveau?serie=${fiche.numeroSerie}`}>Ouvrir un ticket SAV</Link>
+          </Button>
+        </div>
+      ) : fiche.statut === 'EN_STOCK' && fiche.voitPrix ? (
+        <div>
+          <Button asChild variant="outline">
+            <Link href={`/sav/retours/nouveau?appareil=${fiche.id}`}>Retour au fabricant</Link>
           </Button>
         </div>
       ) : null}

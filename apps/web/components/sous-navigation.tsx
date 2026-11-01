@@ -63,7 +63,10 @@ export const LIENS_COMMANDES: readonly LienSousNavigation[] = [
   { href: '/commandes/statistiques', libelle: 'Statistiques' },
 ];
 
-export const LIENS_SAV: readonly LienSousNavigation[] = [{ href: '/sav', libelle: 'Tickets' }];
+export const LIENS_SAV: readonly LienSousNavigation[] = [
+  { href: '/sav', libelle: 'Tickets' },
+  { href: '/sav/retours', libelle: 'Retours fabricant' },
+];
 
 export const LIENS_PILOTAGE: readonly LienSousNavigation[] = [
   { href: '/tableau-de-bord', libelle: 'Tableau de bord' },

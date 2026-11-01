@@ -7,15 +7,22 @@ import { EntetePage } from '@/components/entete-page';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formaterDate } from '@/lib/format';
 import { ouIntrouvable, requireSession } from '@/server/auth/gardes';
+import { listerModeles } from '@/server/services/catalogue';
+import { fournisseursDuRetour, retourDuTicket } from '@/server/services/retours-fabricant';
 import { obtenirTicket } from '@/server/services/tickets-sav';
 
 import { BadgeCouverture, BadgeTicket } from '../../badge-ticket';
 import {
+  ActionRemise,
   ActionReparationTerminee,
   ActionRestitution,
+  FormulaireAbandonRemplacant,
   FormulaireAnnulation,
+  FormulaireCorrectionSerie,
   FormulaireDiagnostic,
   FormulaireFacturation,
+  FormulairePreparationRetour,
+  FormulaireRemplacant,
 } from '../../formulaires';
 
 export const metadata: Metadata = { title: 'Ticket SAV – HA-Gestion' };
@@ -45,6 +52,18 @@ export default async function PageTicket({ params }: PageProps<'/sav/tickets/[id
   const acteur = await requireSession();
   const ticket = await ouIntrouvable(obtenirTicket(acteur, id));
   const ouvert = ticket.statut === 'OUVERT' || ticket.statut === 'EN_COURS';
+  const retour = await retourDuTicket(acteur, id);
+  const retourEnCours = retour?.statut === 'PREPARE' || retour?.statut === 'ENVOYE';
+  const versFabricant = ticket.action === 'ENVOI_FABRICANT' || ticket.action === 'ECHANGE';
+  const perdu = ticket.motif === 'PERTE' || ticket.motif === 'VOL';
+  const attendRemplacant =
+    ticket.statut === 'CHEZ_FABRICANT' ||
+    (ticket.statut === 'EN_COURS' && ticket.action === 'ECHANGE' && perdu);
+  const fournisseurs =
+    ticket.statut === 'EN_COURS' && versFabricant && !retourEnCours && !perdu
+      ? await fournisseursDuRetour(acteur, ticket.appareil.fabricantId)
+      : null;
+  const modeles = attendRemplacant ? await listerModeles(acteur) : [];
   return (
     <div className="grid gap-6">
       <EntetePage titre={ticket.numero}>
@@ -92,6 +111,27 @@ export default async function PageTicket({ params }: PageProps<'/sav/tickets/[id
         <Information libelle="Coût">
           {ticket.coutCentimes === null ? '—' : formatEuros(centimes(ticket.coutCentimes))}
         </Information>
+        <Information libelle="Retour fabricant">
+          {retour ? (
+            <Link href={`/sav/retours/${retour.id}`} className="underline underline-offset-2">
+              {retour.numero}
+            </Link>
+          ) : (
+            '—'
+          )}
+        </Information>
+        <Information libelle="Remplaçant">
+          {ticket.remplacant ? (
+            <Link
+              href={`/stock/appareils/${ticket.remplacant.id}`}
+              className="underline underline-offset-2"
+            >
+              {ticket.remplacant.numeroSerie}
+            </Link>
+          ) : (
+            '—'
+          )}
+        </Information>
         <Information libelle="Facture">
           {ticket.facture ? (
             <Link href={`/factures/${ticket.facture.id}`} className="underline underline-offset-2">
@@ -134,6 +174,40 @@ export default async function PageTicket({ params }: PageProps<'/sav/tickets/[id
       ) : null}
       {ticket.statut === 'A_RESTITUER' && ticket.remplacant === null ? (
         <ActionRestitution ticketId={ticket.id} />
+      ) : null}
+
+      {fournisseurs && ticket.peutDiagnostiquer ? (
+        <Section titre="Retour au fabricant">
+          <FormulairePreparationRetour
+            ticketId={ticket.id}
+            fournisseurs={fournisseurs.options}
+            defaut={fournisseurs.defaut}
+          />
+        </Section>
+      ) : null}
+      {attendRemplacant && ticket.peutDiagnostiquer ? (
+        <Section titre="Remplaçant">
+          <FormulaireRemplacant
+            ticketId={ticket.id}
+            modeles={modeles
+              .filter((m) => m.actif)
+              .map((m) => ({ id: m.id, libelle: `${m.fabricant} ${m.gamme} ${m.nom}` }))}
+            modeleId={ticket.appareil.modeleId}
+          />
+        </Section>
+      ) : null}
+      {ticket.statut === 'A_RESTITUER' && ticket.remplacant ? (
+        <Section titre="Remise du remplaçant">
+          <div className="grid gap-6">
+            <ActionRemise ticketId={ticket.id} />
+            {ticket.peutDiagnostiquer ? (
+              <>
+                <FormulaireCorrectionSerie ticketId={ticket.id} />
+                <FormulaireAbandonRemplacant ticketId={ticket.id} />
+              </>
+            ) : null}
+          </div>
+        </Section>
       ) : null}
 
       {ticket.peutFacturer ? (

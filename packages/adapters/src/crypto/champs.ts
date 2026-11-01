@@ -17,6 +17,7 @@ export const CHAMPS_CHIFFRES: ConfigurationChampsChiffres = {
   },
   EcartAchat: { commentaire: 'ecart_achat.commentaire' },
   Facture: { motif: 'facture.motif' },
+  RetourFabricant: { descriptionPanne: 'retour_fabricant.description_panne' },
   TicketSav: {
     description: 'ticket_sav.description',
     diagnostic: 'ticket_sav.diagnostic',

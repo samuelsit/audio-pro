@@ -596,6 +596,9 @@ export interface FicheAppareil {
   parcPret: boolean;
   /** Ticket ouvert qui pilote l'appareil. */
   ticketId: string | null;
+  /** Appareil de l'autre côté d'un échange : l'historique du stock reste complet. */
+  remplacePar: { id: string; numeroSerie: string } | null;
+  remplace: { id: string; numeroSerie: string } | null;
   corrigeable: boolean;
   voitPrix: boolean;
 }
@@ -682,7 +685,18 @@ async function lireFicheAppareil(
     where: { appareilId, retireLe: null },
     select: { essai: { select: { dossierId: true } } },
   });
-  const issuDunEchange = await client.appareil.count({ where: { remplaceParId: appareilId } });
+  const [remplacePar, remplace] = await Promise.all([
+    a.remplaceParId === null
+      ? null
+      : client.appareil.findUnique({
+          where: { id: a.remplaceParId },
+          select: { id: true, numeroSerie: true },
+        }),
+    client.appareil.findUnique({
+      where: { remplaceParId: appareilId },
+      select: { id: true, numeroSerie: true },
+    }),
+  ]);
   const ticketId = await ticketOuvertSur(client, appareilId);
   const fiche: FicheAppareil = {
     id: a.id,
@@ -702,6 +716,8 @@ async function lireFicheAppareil(
     parcPret: a.parcPret,
     mouvements,
     ticketId,
+    remplacePar,
+    remplace,
     transitions:
       lienEssai || ticketId !== null
         ? []
@@ -712,7 +728,7 @@ async function lireFicheAppareil(
     dossierEssaiId: lienEssai?.essai.dossierId ?? null,
     transferable: peutTransferer(a.statut),
     annulable:
-      verifierAnnulationVente(a.statut) && peutAnnulerVente(acteur.role) && issuDunEchange === 0,
+      verifierAnnulationVente(a.statut) && peutAnnulerVente(acteur.role) && remplace === null,
     corrigeable: lignes.length === 1 && peutCorrigerIdentite(acteur.role),
     garantie: await garantieDeLAppareil(client, appareilId),
     voitPrix,

@@ -20,10 +20,19 @@ import { ETAT_INITIAL, type EtatFormulaire } from '@/lib/formulaire';
 import type { FicheTicket } from '@/server/services/tickets-sav';
 
 import {
+  abandonnerRemplacantAction,
   annulerAction,
+  annulerRetourAction,
+  corrigerSerieAction,
   diagnostiquerAction,
+  echangerStockAction,
+  enregistrerIssueAction,
+  enregistrerRemplacantAction,
+  envoyerRetourAction,
   facturerAction,
   ouvrirTicketAction,
+  preparerRetourAction,
+  remettreRemplacantAction,
   restituerAction,
   terminerReparationAction,
 } from './actions';
@@ -155,4 +164,209 @@ export function ActionReparationTerminee({ ticketId }: { ticketId: string }) {
 
 export function ActionRestitution({ ticketId }: { ticketId: string }) {
   return <BoutonAction libelle="Rendre l’appareil" action={restituerAction.bind(null, ticketId)} />;
+}
+
+export interface OptionsRetour {
+  readonly ticketId?: string | undefined;
+  readonly appareilId?: string | undefined;
+  readonly ecartId?: string | undefined;
+  readonly fournisseurs: readonly { id: string; nom: string }[];
+  readonly defaut: string;
+}
+
+export function FormulairePreparationRetour({
+  ticketId,
+  appareilId,
+  ecartId,
+  fournisseurs,
+  defaut,
+}: OptionsRetour) {
+  const [etat, envoyer] = useActionState(preparerRetourAction, ETAT_INITIAL);
+  return (
+    <form action={envoyer} className="grid max-w-2xl gap-4">
+      <MessageFormulaire etat={etat} />
+      <input type="hidden" name="ticketId" value={ticketId ?? ''} />
+      <input type="hidden" name="appareilId" value={appareilId ?? ''} />
+      <input type="hidden" name="ecartId" value={ecartId ?? ''} />
+      <ListeDeroulante
+        etat={etat}
+        nom="fournisseurId"
+        libelle="Fournisseur"
+        options={fournisseurs.map((f) => ({ valeur: f.id, libelle: f.nom }))}
+        defaut={defaut}
+        vide="Choisir"
+      />
+      <ZoneDeTexte
+        etat={etat}
+        nom="descriptionPanne"
+        libelle="Description pour le fabricant"
+        aide="Elle part sur le bon de retour : ni nom, ni donnée de santé du patient."
+      />
+      <div>
+        <BoutonEnvoi>Préparer le bon de retour</BoutonEnvoi>
+      </div>
+    </form>
+  );
+}
+
+export function FormulaireEnvoi({ retourId, jour }: { retourId: string; jour: string }) {
+  const [etat, envoyer] = useActionState(envoyerRetourAction.bind(null, retourId), ETAT_INITIAL);
+  return (
+    <form action={envoyer} className="grid max-w-2xl gap-4">
+      <MessageFormulaire etat={etat} />
+      <div className="grid gap-4 sm:grid-cols-3">
+        <ChampTexte etat={etat} nom="transporteur" libelle="Transporteur" />
+        <ChampTexte etat={etat} nom="numeroSuivi" libelle="Numéro de suivi" />
+        <ChampTexte
+          etat={etat}
+          nom="dateEnvoi"
+          libelle="Envoyé le"
+          type="date"
+          defaut={jour}
+          requis
+        />
+      </div>
+      <div>
+        <BoutonEnvoi>Marquer envoyé</BoutonEnvoi>
+      </div>
+    </form>
+  );
+}
+
+export function FormulaireIssue({ retourId }: { retourId: string }) {
+  const [etat, envoyer] = useActionState(enregistrerIssueAction.bind(null, retourId), ETAT_INITIAL);
+  return (
+    <form action={envoyer} className="grid max-w-2xl gap-4">
+      <MessageFormulaire etat={etat} />
+      <ListeDeroulante
+        etat={etat}
+        nom="issue"
+        libelle="Retour du fabricant"
+        options={[
+          { valeur: 'REPARE', libelle: 'Réparé' },
+          { valeur: 'REFUSE', libelle: 'Refusé' },
+        ]}
+        defaut=""
+        vide="Choisir"
+      />
+      <div>
+        <BoutonEnvoi>Enregistrer le retour</BoutonEnvoi>
+      </div>
+    </form>
+  );
+}
+
+export function ActionAnnulerRetour({ retourId }: { retourId: string }) {
+  return (
+    <BoutonAction libelle="Annuler ce retour" action={annulerRetourAction.bind(null, retourId)} />
+  );
+}
+
+function ChampsRemplacant({
+  etat,
+  modeles,
+  modeleId,
+}: {
+  etat: EtatFormulaire;
+  modeles: readonly { id: string; libelle: string }[];
+  modeleId: string;
+}) {
+  return (
+    <>
+      <MessageFormulaire etat={etat} />
+      <ListeDeroulante
+        etat={etat}
+        nom="modeleId"
+        libelle="Modèle"
+        options={modeles.map((m) => ({ valeur: m.id, libelle: m.libelle }))}
+        defaut={modeleId}
+      />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <ChampTexte etat={etat} nom="numeroSerie" libelle="Nouveau numéro de série" requis />
+        <ChampTexte etat={etat} nom="confirmation" libelle="Confirmer le numéro" requis />
+      </div>
+      <ChampTexte etat={etat} nom="referenceBonLivraison" libelle="Bon de livraison" requis />
+      <div>
+        <BoutonEnvoi>Enregistrer le remplaçant</BoutonEnvoi>
+      </div>
+    </>
+  );
+}
+
+export function FormulaireRemplacant({
+  ticketId,
+  modeles,
+  modeleId,
+}: {
+  ticketId: string;
+  modeles: readonly { id: string; libelle: string }[];
+  modeleId: string;
+}) {
+  const [etat, envoyer] = useActionState(
+    enregistrerRemplacantAction.bind(null, ticketId),
+    ETAT_INITIAL,
+  );
+  return (
+    <form action={envoyer} className="grid max-w-2xl gap-4">
+      <ChampsRemplacant etat={etat} modeles={modeles} modeleId={modeleId} />
+    </form>
+  );
+}
+
+export function FormulaireEchangeStock({
+  retourId,
+  modeles,
+  modeleId,
+}: {
+  retourId: string;
+  modeles: readonly { id: string; libelle: string }[];
+  modeleId: string;
+}) {
+  const [etat, envoyer] = useActionState(echangerStockAction.bind(null, retourId), ETAT_INITIAL);
+  return (
+    <form action={envoyer} className="grid max-w-2xl gap-4">
+      <ChampsRemplacant etat={etat} modeles={modeles} modeleId={modeleId} />
+    </form>
+  );
+}
+
+export function FormulaireCorrectionSerie({ ticketId }: { ticketId: string }) {
+  const [etat, envoyer] = useActionState(corrigerSerieAction.bind(null, ticketId), ETAT_INITIAL);
+  return (
+    <form action={envoyer} className="grid max-w-2xl gap-4">
+      <MessageFormulaire etat={etat} />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <ChampTexte etat={etat} nom="numeroSerie" libelle="Numéro corrigé" requis />
+        <ChampTexte etat={etat} nom="confirmation" libelle="Confirmer le numéro" requis />
+      </div>
+      <div>
+        <BoutonEnvoi variant="outline">Corriger le numéro</BoutonEnvoi>
+      </div>
+    </form>
+  );
+}
+
+export function FormulaireAbandonRemplacant({ ticketId }: { ticketId: string }) {
+  const [etat, envoyer] = useActionState(
+    abandonnerRemplacantAction.bind(null, ticketId),
+    ETAT_INITIAL,
+  );
+  return (
+    <form action={envoyer} className="grid max-w-2xl gap-4">
+      <MessageFormulaire etat={etat} />
+      <ZoneDeTexte etat={etat} nom="motif" libelle="Motif" requis />
+      <div>
+        <BoutonEnvoi variant="outline">Remettre le remplaçant en stock</BoutonEnvoi>
+      </div>
+    </form>
+  );
+}
+
+export function ActionRemise({ ticketId }: { ticketId: string }) {
+  return (
+    <BoutonAction
+      libelle="Remettre le remplaçant au patient"
+      action={remettreRemplacantAction.bind(null, ticketId)}
+    />
+  );
 }

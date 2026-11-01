@@ -26,6 +26,7 @@ import {
   type TypeDocument,
   type TypeRdvEssai,
   type VueCompteRenduEssai,
+  STATUTS_TICKET_OUVERTS,
 } from '@ha/domain';
 import { z } from 'zod';
 
@@ -593,6 +594,7 @@ export async function appareilsProposables(
       organisationId: acteur.organisationId,
       centreId: dossier.centreId,
       parcPret: false,
+      ticketsRemplacant: { none: { statut: { in: [...STATUTS_TICKET_OUVERTS] } } },
       OR: [{ statut: 'EN_STOCK' }, { statut: 'RESERVE', patientId: dossier.patientId }],
     },
     select: selectionAppareilAffiche,

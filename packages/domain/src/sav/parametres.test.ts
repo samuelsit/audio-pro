@@ -28,9 +28,9 @@ describe('parametresSavSaisieSchema', () => {
   });
 
   it('refuse une garantie sous le minimum de 4 ans', () => {
-    expect(parametresSavSaisieSchema.safeParse({ ...VALIDE, dureeGarantieMois: '47' }).success).toBe(
-      false,
-    );
+    expect(
+      parametresSavSaisieSchema.safeParse({ ...VALIDE, dureeGarantieMois: '47' }).success,
+    ).toBe(false);
   });
 
   it.each(['', '6, 3', '3, 3', '0', '61', '3,x'])('refuse le rythme « %s »', (suiviMois) => {

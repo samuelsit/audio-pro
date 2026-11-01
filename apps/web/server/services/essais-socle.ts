@@ -6,6 +6,7 @@ import {
   type EtatEssai,
   type IssueEssai,
   type Oreille,
+  STATUTS_TICKET_OUVERTS,
 } from '@ha/domain';
 
 import type { UtilisateurConnecte } from '../auth/acces';
@@ -168,6 +169,13 @@ export async function poserAppareil(
   });
   if (refus !== null) {
     throw ErreurSaisie.surChamp(pose.champ, MESSAGES_REFUS_APPAREIL_ESSAI[refus]);
+  }
+  // Un remplaçant attendant sa remise reste réservé au patient de son ticket, pas à ses dossiers.
+  const attendu = await tx.ticketSav.count({
+    where: { appareilRemplacantId: appareil.id, statut: { in: [...STATUTS_TICKET_OUVERTS] } },
+  });
+  if (attendu > 0) {
+    throw ErreurSaisie.surChamp(pose.champ, MESSAGES_REFUS_APPAREIL_ESSAI.INDISPONIBLE);
   }
   const evenement = await deplacer(
     tx,

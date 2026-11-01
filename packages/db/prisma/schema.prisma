@@ -64,6 +64,7 @@ model Organisation {
   garantiesAppareil        GarantieAppareil[]
   compteursSav             CompteurSav[]
   ticketsSav               TicketSav[]
+  retoursFabricant         RetourFabricant[]
   reglesCommande           RegleCommande[]
   compteursCommande        CompteurCommande[]
   commandes                Commande[]
@@ -176,6 +177,7 @@ model Centre {
   patients              Patient[]
   lecturesVitale        LectureVitale[]
   appareils             Appareil[]
+  retoursFabricant      RetourFabricant[]
   ticketsSav            TicketSav[]
   mouvementsDepart      MouvementAppareil[]       @relation("MouvementCentreAvant")
   mouvementsArrivee     MouvementAppareil[]       @relation("MouvementCentreApres")
@@ -248,6 +250,7 @@ model Utilisateur {
   comptes                      Compte[]
   deuxFacteurs                 DeuxFacteurs[]
   lecturesVitale               LectureVitale[]
+  retoursFabricant             RetourFabricant[]
   ticketsSavOuverts            TicketSav[]
   mouvementsAppareil           MouvementAppareil[]
   mouvementsAccessoire         MouvementAccessoire[]
@@ -849,6 +852,7 @@ model Fournisseur {
   reglesCommande    RegleCommande[]
   commandes         Commande[]
   factures          FactureFournisseur[]
+  retoursFabricant  RetourFabricant[]
 
   @@unique([organisationId, nom])
   @@index([centraleAchatId])
@@ -1307,6 +1311,7 @@ model EcartAchat {
   reception               Reception?          @relation(fields: [receptionId], references: [id], onDelete: Restrict)
   factureFournisseur      FactureFournisseur? @relation(fields: [factureFournisseurId], references: [id], onDelete: Restrict)
   traitePar               Utilisateur?        @relation(fields: [traiteParId], references: [id], onDelete: Restrict)
+  retoursFabricant        RetourFabricant[]
 
   @@index([centreId, statut])
   @@index([commandeId, statut])
@@ -1394,6 +1399,7 @@ model Appareil {
   garantie                  GarantieAppareil?
   tickets                   TicketSav[]             @relation("TicketAppareil")
   ticketsRemplacant         TicketSav[]             @relation("TicketRemplacant")
+  retoursFabricant          RetourFabricant[]
 
   @@unique([fabricantId, numeroSerie])
   @@index([organisationId, numeroSerie])
@@ -1511,6 +1517,7 @@ model TicketSav {
   facture              Facture?            @relation(fields: [factureId], references: [id], onDelete: Restrict)
   ouvertPar            Utilisateur         @relation(fields: [ouvertParId], references: [id], onDelete: Restrict)
   mouvements           MouvementAppareil[]
+  retours              RetourFabricant[]
 
   @@unique([organisationId, numero])
   @@index([centreId, statut])
@@ -1519,6 +1526,54 @@ model TicketSav {
   @@index([patientId])
   @@index([factureId])
   @@map("ticket_sav")
+}
+
+enum StatutRetourFabricant {
+  PREPARE
+  ENVOYE
+  REPARE
+  ECHANGE
+  REFUSE
+  ANNULE
+}
+
+/// Retour au fabricant : appareil d'un ticket, appareil en stock, ou produit non conforme jamais entré en stock
+/// (`ecartAchatId`). `descriptionPanne` est chiffrée : elle part sur le bon de retour.
+model RetourFabricant {
+  id               String                @id @default(uuid(7))
+  organisationId   String                @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  numero           String
+  centreId         String                @map("centre_id")
+  fournisseurId    String                @map("fournisseur_id")
+  ticketSavId      String?               @map("ticket_sav_id")
+  appareilId       String?               @map("appareil_id")
+  ecartAchatId     String?               @map("ecart_achat_id")
+  descriptionPanne String?               @map("description_panne")
+  bonPdfCle        String?               @map("bon_pdf_cle")
+  transporteur     String?
+  numeroSuivi      String?               @map("numero_suivi")
+  statut           StatutRetourFabricant @default(PREPARE)
+  dateBon          DateTime              @map("date_bon") @db.Date
+  dateEnvoi        DateTime?             @map("date_envoi") @db.Date
+  dateRetour       DateTime?             @map("date_retour") @db.Date
+  createdById      String                @map("created_by_id")
+  createdAt        DateTime              @default(now()) @map("created_at")
+  updatedAt        DateTime              @updatedAt @map("updated_at")
+  organisation     Organisation          @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  centre           Centre                @relation(fields: [centreId], references: [id], onDelete: Restrict)
+  fournisseur      Fournisseur           @relation(fields: [fournisseurId], references: [id], onDelete: Restrict)
+  ticketSav        TicketSav?            @relation(fields: [ticketSavId], references: [id], onDelete: Restrict)
+  appareil         Appareil?             @relation(fields: [appareilId], references: [id], onDelete: Restrict)
+  ecartAchat       EcartAchat?           @relation(fields: [ecartAchatId], references: [id], onDelete: Restrict)
+  createdBy        Utilisateur           @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@unique([organisationId, numero])
+  @@index([centreId, statut])
+  @@index([ticketSavId])
+  @@index([appareilId])
+  @@index([ecartAchatId])
+  @@index([fournisseurId])
+  @@map("retour_fabricant")
 }
 
 /// Sans ligne, `PARAMETRES_SAV_DEFAUT` s'applique.

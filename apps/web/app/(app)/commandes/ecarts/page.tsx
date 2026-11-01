@@ -79,7 +79,14 @@ const COLONNES: readonly Colonne<EcartListe>[] = [
     libelle: 'Traitement',
     rendu: (e) =>
       ecartTraitable(e.statut) ? (
-        <FormulaireEcart action={traiterEcartAction.bind(null, e.id)} ecartId={e.id} />
+        <div className="grid gap-2">
+          <FormulaireEcart action={traiterEcartAction.bind(null, e.id)} ecartId={e.id} />
+          {e.type === 'PRODUIT_NON_CONFORME' ? (
+            <Link href={`/sav/retours/nouveau?ecart=${e.id}`} className="text-sm underline">
+              Préparer un bon de retour
+            </Link>
+          ) : null}
+        </div>
       ) : null,
   },
 ];

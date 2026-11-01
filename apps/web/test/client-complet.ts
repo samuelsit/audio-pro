@@ -33,6 +33,7 @@ import { aujourdhui } from '@/server/services/patients';
 
 import { confirmerCouvertureVente, validerFacture } from '@/server/services/facturation';
 import { enregistrerParametresSav } from '@/server/services/garanties';
+import { preparerRetour } from '@/server/services/retours-fabricant';
 import { ouvrirTicket } from '@/server/services/tickets-sav';
 import {
   ajouterContact,
@@ -469,6 +470,13 @@ export async function creerClientComplet(suffixe: string) {
     motif: 'PANNE',
     description: 'Panne fictive',
   });
+  const retourId = await preparerRetour(d.acteurs.admin, {
+    fournisseurId: fournisseur.id,
+    ticketId: '',
+    appareilId: '',
+    ecartId,
+    descriptionPanne: '',
+  });
   await enregistrerSeuil(d.acteurs.admin, {
     centreId: d.centres.a.id,
     produit: `modele:${catalogue.classeI}`,
@@ -491,6 +499,7 @@ export async function creerClientComplet(suffixe: string) {
     commandeId,
     commandeRecueId,
     ticketId,
+    retourId,
     ecartId,
     factureFournisseurId,
     releveId,

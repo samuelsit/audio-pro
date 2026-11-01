@@ -43,14 +43,26 @@ describe('periodeEnCours', () => {
 
 describe('couvertureTicket', () => {
   it.each([
-    { cas: 'panne, veille de la fin', motif: 'PANNE', g: GARANTIE, jour: '2030-03-14', a: 'GARANTIE' },
+    {
+      cas: 'panne, veille de la fin',
+      motif: 'PANNE',
+      g: GARANTIE,
+      jour: '2030-03-14',
+      a: 'GARANTIE',
+    },
     { cas: 'panne, dernier jour', motif: 'PANNE', g: GARANTIE, jour: '2030-03-15', a: 'GARANTIE' },
     { cas: 'panne, lendemain', motif: 'PANNE', g: GARANTIE, jour: '2030-03-16', a: 'AUCUNE' },
     { cas: 'panne sans garantie', motif: 'PANNE', g: null, jour: '2027-01-01', a: 'AUCUNE' },
     { cas: 'casse assurée', motif: 'CASSE', g: ASSUREE, jour: '2027-01-01', a: 'ASSURANCE' },
     { cas: 'perte assurée', motif: 'PERTE', g: ASSUREE, jour: '2028-06-30', a: 'ASSURANCE' },
     { cas: 'vol assuré', motif: 'VOL', g: ASSUREE, jour: '2027-01-01', a: 'ASSURANCE' },
-    { cas: 'casse, assurance expirée', motif: 'CASSE', g: ASSUREE, jour: '2028-07-01', a: 'AUCUNE' },
+    {
+      cas: 'casse, assurance expirée',
+      motif: 'CASSE',
+      g: ASSUREE,
+      jour: '2028-07-01',
+      a: 'AUCUNE',
+    },
     { cas: 'casse sans assurance', motif: 'CASSE', g: GARANTIE, jour: '2027-01-01', a: 'AUCUNE' },
     { cas: 'entretien assuré', motif: 'ENTRETIEN', g: ASSUREE, jour: '2027-01-01', a: 'AUCUNE' },
     { cas: 'autre motif', motif: 'AUTRE', g: GARANTIE, jour: '2027-01-01', a: 'AUCUNE' },
@@ -70,7 +82,11 @@ describe('assuranceSaisieSchema', () => {
   });
 
   it('exige une date de fin', () => {
-    const resultat = assuranceSaisieSchema.safeParse({ assureur: 'X', contrat: '', assuranceFin: '' });
+    const resultat = assuranceSaisieSchema.safeParse({
+      assureur: 'X',
+      contrat: '',
+      assuranceFin: '',
+    });
     expect(resultat.success).toBe(false);
   });
 

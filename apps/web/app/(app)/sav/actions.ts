@@ -7,6 +7,17 @@ import { texte, type EtatFormulaire } from '@/lib/formulaire';
 import { executer } from '@/server/actions';
 import { requireSession } from '@/server/auth/gardes';
 import {
+  abandonnerRemplacant,
+  annulerRetour,
+  corrigerSerieRemplacant,
+  echangerAppareilDuStock,
+  enregistrerIssue,
+  enregistrerRemplacant,
+  envoyerRetour,
+  preparerRetour,
+  remettreRemplacant,
+} from '@/server/services/retours-fabricant';
+import {
   annulerTicket,
   diagnostiquerTicket,
   facturerTicket,
@@ -19,6 +30,22 @@ function terminerTicket(ticketId: string): EtatFormulaire {
   revalidatePath(`/sav/tickets/${ticketId}`);
   revalidatePath('/sav');
   return {};
+}
+
+function terminerRetour(retourId: string): EtatFormulaire {
+  revalidatePath(`/sav/retours/${retourId}`);
+  revalidatePath('/sav/retours');
+  revalidatePath('/sav');
+  return {};
+}
+
+function donneesRemplacant(formData: FormData) {
+  return {
+    modeleId: texte(formData, 'modeleId'),
+    numeroSerie: texte(formData, 'numeroSerie'),
+    confirmation: texte(formData, 'confirmation'),
+    referenceBonLivraison: texte(formData, 'referenceBonLivraison'),
+  };
 }
 
 export async function ouvrirTicketAction(
@@ -97,4 +124,112 @@ export async function facturerAction(
   }
   revalidatePath(`/sav/tickets/${ticketId}`);
   redirect(`/factures/${factureId}`);
+}
+
+export async function preparerRetourAction(
+  _: EtatFormulaire,
+  formData: FormData,
+): Promise<EtatFormulaire> {
+  const acteur = await requireSession();
+  const donnees = {
+    fournisseurId: texte(formData, 'fournisseurId'),
+    ticketId: texte(formData, 'ticketId'),
+    appareilId: texte(formData, 'appareilId'),
+    ecartId: texte(formData, 'ecartId'),
+    descriptionPanne: texte(formData, 'descriptionPanne'),
+  };
+  let id = '';
+  const erreur = await executer(async () => {
+    id = await preparerRetour(acteur, donnees);
+  }, donnees);
+  if (erreur) {
+    return erreur;
+  }
+  revalidatePath('/sav/retours');
+  redirect(`/sav/retours/${id}`);
+}
+
+export async function envoyerRetourAction(
+  retourId: string,
+  _: EtatFormulaire,
+  formData: FormData,
+): Promise<EtatFormulaire> {
+  const acteur = await requireSession();
+  const donnees = {
+    transporteur: texte(formData, 'transporteur'),
+    numeroSuivi: texte(formData, 'numeroSuivi'),
+    dateEnvoi: texte(formData, 'dateEnvoi'),
+  };
+  const erreur = await executer(() => envoyerRetour(acteur, retourId, donnees), donnees);
+  return erreur ?? terminerRetour(retourId);
+}
+
+export async function enregistrerIssueAction(
+  retourId: string,
+  _: EtatFormulaire,
+  formData: FormData,
+): Promise<EtatFormulaire> {
+  const acteur = await requireSession();
+  const donnees = { issue: texte(formData, 'issue') };
+  const erreur = await executer(() => enregistrerIssue(acteur, retourId, donnees), donnees);
+  return erreur ?? terminerRetour(retourId);
+}
+
+export async function annulerRetourAction(retourId: string): Promise<EtatFormulaire> {
+  const acteur = await requireSession();
+  const erreur = await executer(() => annulerRetour(acteur, retourId), {});
+  return erreur ?? terminerRetour(retourId);
+}
+
+export async function enregistrerRemplacantAction(
+  ticketId: string,
+  _: EtatFormulaire,
+  formData: FormData,
+): Promise<EtatFormulaire> {
+  const acteur = await requireSession();
+  const donnees = donneesRemplacant(formData);
+  const erreur = await executer(() => enregistrerRemplacant(acteur, ticketId, donnees), donnees);
+  return erreur ?? terminerTicket(ticketId);
+}
+
+export async function echangerStockAction(
+  retourId: string,
+  _: EtatFormulaire,
+  formData: FormData,
+): Promise<EtatFormulaire> {
+  const acteur = await requireSession();
+  const donnees = donneesRemplacant(formData);
+  const erreur = await executer(() => echangerAppareilDuStock(acteur, retourId, donnees), donnees);
+  return erreur ?? terminerRetour(retourId);
+}
+
+export async function corrigerSerieAction(
+  ticketId: string,
+  _: EtatFormulaire,
+  formData: FormData,
+): Promise<EtatFormulaire> {
+  const acteur = await requireSession();
+  const donnees = {
+    numeroSerie: texte(formData, 'numeroSerie'),
+    confirmation: texte(formData, 'confirmation'),
+  };
+  const erreur = await executer(() => corrigerSerieRemplacant(acteur, ticketId, donnees), donnees);
+  return erreur ?? terminerTicket(ticketId);
+}
+
+export async function abandonnerRemplacantAction(
+  ticketId: string,
+  _: EtatFormulaire,
+  formData: FormData,
+): Promise<EtatFormulaire> {
+  const acteur = await requireSession();
+  const donnees = { motif: texte(formData, 'motif') };
+  const erreur = await executer(() => abandonnerRemplacant(acteur, ticketId, donnees), donnees);
+  return erreur ?? terminerTicket(ticketId);
+}
+
+export async function remettreRemplacantAction(ticketId: string): Promise<EtatFormulaire> {
+  const acteur = await requireSession();
+  const erreur = await executer(() => remettreRemplacant(acteur, ticketId), {});
+  return erreur ?? terminerTicket(ticketId);
 }

@@ -162,7 +162,7 @@ export async function deplacerAppareilDuTicket(
   tx: ClientTransaction,
   acteur: UtilisateurConnecte,
   appareil: AppareilLu,
-  ticketId: string,
+  ticketId: string | null,
   mouvement: Pick<Mouvement, 'statut' | 'motif'> & Partial<Mouvement>,
 ): Promise<EvenementAudit> {
   const transition = verifierTransition(etatAppareil(appareil), mouvement.statut, true);
@@ -173,7 +173,7 @@ export async function deplacerAppareilDuTicket(
     type: 'CHANGEMENT_STATUT',
     centreId: appareil.centreId,
     patientId: transition.effetPatient === 'DETACHER' ? null : appareil.patientId,
-    ticketSavId: ticketId,
+    ...(ticketId === null ? {} : { ticketSavId: ticketId }),
     ...mouvement,
   };
   await appliquerMouvement(tx, acteur, appareil, complet);
@@ -344,6 +344,10 @@ export async function annulerTicket(
       await changerStatutTicket(tx, ticket, 'ANNULE', {
         motifAnnulation: motif,
         dateCloture: versDate(aujourdhui()),
+      });
+      await tx.retourFabricant.updateMany({
+        where: { ticketSavId: ticket.id, statut: 'PREPARE' },
+        data: { statut: 'ANNULE' },
       });
       const appareil = await lireAppareil(tx, acteur, ticket.appareilId);
       const evenement = await deplacerAppareilDuTicket(tx, acteur, appareil, ticket.id, {
@@ -560,6 +564,8 @@ export interface FicheTicket {
     numeroSerie: string;
     designation: string;
     statut: StatutAppareil;
+    modeleId: string;
+    fabricantId: string;
   };
   remplacant: { id: string; numeroSerie: string } | null;
   garantie: GarantieAffichee | null;
@@ -589,6 +595,8 @@ export async function obtenirTicket(
         id: true,
         numeroSerie: true,
         statut: true,
+        modeleId: true,
+        fabricantId: true,
         modele: { select: { gamme: true, nom: true } },
         fabricant: { select: { nom: true } },
       },
@@ -634,6 +642,8 @@ export async function obtenirTicket(
       numeroSerie: appareil.numeroSerie,
       designation: `${appareil.fabricant.nom} ${appareil.modele.gamme} ${appareil.modele.nom}`,
       statut: appareil.statut,
+      modeleId: appareil.modeleId,
+      fabricantId: appareil.fabricantId,
     },
     remplacant,
     garantie,
