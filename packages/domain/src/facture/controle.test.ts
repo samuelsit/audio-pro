@@ -2,13 +2,16 @@ import { describe, expect, it } from 'vitest';
 
 import type { TarifsAudio } from '../audio-rules/tarifs';
 import { centimes } from '../money';
+import type { ClientFacture, VendeurFacture } from './mentions';
+import type { TauxTvaDate } from './tva';
 import {
   controlerFacture,
+  controlerVenteDirecte,
   etatFacture,
   type FaitsFacture,
   type ResultatControleFacture,
 } from './controle';
-import { preparerFacture, type FacturePreparee, type LigneFacture } from './preparation';
+import { preparerFacture, type ContenuFacture, type LigneFacture } from './preparation';
 
 const TARIFS: TarifsAudio = {
   VINGT_ET_PLUS: { baseRemboursement: centimes(40_000), prixLimiteClasseI: centimes(95_000) },
@@ -16,6 +19,24 @@ const TARIFS: TarifsAudio = {
 };
 
 const DELIVRANCE = '2026-10-31';
+
+const TAUX_TVA: readonly TauxTvaDate[] = [
+  { type: 'AIDE_AUDITIVE', taux: 550, debut: '2021-01-01' },
+];
+
+const VENDEUR: VendeurFacture = {
+  raisonSociale: 'Audition Fictive SAS',
+  nomCentre: 'Centre de test',
+  adresse: ['1 rue de la Paix', '75002 Paris'],
+  telephone: '0100000000',
+  email: 'centre@example.test',
+  siret: '00000000000000',
+  rcs: 'Paris 000 000 000',
+  finess: '750000000',
+  tvaIntracommunautaire: 'FR00000000000',
+};
+
+const CLIENT: ClientFacture = { prenomNom: 'Jeanne Fictive', adresse: ['2 rue Test'] };
 
 function faits(surcharge: Partial<FaitsFacture> = {}): FaitsFacture {
   return {
@@ -44,9 +65,12 @@ function faits(surcharge: Partial<FaitsFacture> = {}): FaitsFacture {
       contratResponsable: false,
       amoPrevue: centimes(24_000),
       amcPrevue: false,
+      tauxTva: [{ nature: 'AIDE_AUDITIVE', taux: 550 }],
     },
     pec: null,
     tarifs: TARIFS,
+    vendeur: VENDEUR,
+    client: CLIENT,
     ...surcharge,
   };
 }
@@ -65,6 +89,7 @@ function facture(surcharge: { prixTTC?: number; numeroSerie?: string | null } = 
         libelle: 'Aurore',
         prixTTC: centimes(surcharge.prixTTC ?? 95_000),
         numeroSerie: surcharge.numeroSerie === undefined ? 'SN-1' : surcharge.numeroSerie,
+        appareilId: 'appareil-1',
         candidatsLpp: [
           {
             code: '7310442',
@@ -77,14 +102,15 @@ function facture(surcharge: { prixTTC?: number; numeroSerie?: string | null } = 
     consommables: [],
     montantAccorde: null,
     tarifs: TARIFS,
+    tauxTva: TAUX_TVA,
   });
 }
 
 const codes = (constats: ResultatControleFacture['erreurs']) => constats.map((c) => c.code);
-const controler = (f: Partial<FaitsFacture>, base: FacturePreparee = facture()) =>
+const controler = (f: Partial<FaitsFacture>, base: ContenuFacture = facture()) =>
   controlerFacture(base, faits(f));
 
-function avecLigne(surcharge: Partial<LigneFacture>): FacturePreparee {
+function avecLigne(surcharge: Partial<LigneFacture>): ContenuFacture {
   const base = facture();
   return { ...base, lignes: base.lignes.map((l) => ({ ...l, ...surcharge })) };
 }
@@ -359,5 +385,65 @@ describe('avertissements', () => {
   it('une AMO du devis inconnue n’est pas comparée', () => {
     const devis = { ...faits().devis, amoPrevue: null } as FaitsFacture['devis'];
     expect(controler({ devis })).toEqual({ erreurs: [], avertissements: [] });
+  });
+});
+
+describe('TVA et mentions', () => {
+  it('bloque sans taux à la date de la facture', () => {
+    expect(codes(controler({}, avecLigne({ tauxTva: null })).erreurs)).toContain('TAUX_TVA_ABSENT');
+  });
+
+  it('signale un taux différent de celui du devis signé', () => {
+    const devis = { ...faits().devis, tauxTva: [{ nature: 'AIDE_AUDITIVE', taux: 2000 }] };
+    const resultat = controler({ devis: devis as FaitsFacture['devis'] });
+    expect(codes(resultat.avertissements)).toEqual(['TVA_DIFFERENTE_DEVIS']);
+  });
+
+  it.each([
+    { cas: 'raison sociale', vendeur: { ...VENDEUR, raisonSociale: null } },
+    { cas: 'SIRET', vendeur: { ...VENDEUR, siret: null } },
+  ])('bloque sans $cas', ({ vendeur }) => {
+    expect(codes(controler({ vendeur }).erreurs)).toEqual(['IDENTIFICATION_ENTREPRISE_INCOMPLETE']);
+  });
+
+  it.each([
+    { cas: 'RCS', vendeur: { ...VENDEUR, rcs: null } },
+    { cas: 'FINESS', vendeur: { ...VENDEUR, finess: null } },
+    { cas: 'TVA', vendeur: { ...VENDEUR, tvaIntracommunautaire: null } },
+  ])('signale sans bloquer l’absence de $cas', ({ vendeur }) => {
+    const resultat = controler({ vendeur });
+    expect(resultat.erreurs).toEqual([]);
+    expect(codes(resultat.avertissements)).toEqual(['IDENTIFIANTS_ENTREPRISE_A_COMPLETER']);
+  });
+
+  it('signale une adresse de patient manquante', () => {
+    const resultat = controler({ client: { ...CLIENT, adresse: [] } });
+    expect(codes(resultat.avertissements)).toEqual(['ADRESSE_CLIENT_MANQUANTE']);
+  });
+});
+
+describe('vente directe', () => {
+  const directe = {
+    remboursable: false,
+    couvertureAmo: null,
+    amoConfirmeeLe: null,
+    vendeur: VENDEUR,
+    client: CLIENT,
+  };
+
+  it('ne demande pas de couverture sans prescription', () => {
+    expect(controlerVenteDirecte(facture(), directe)).toEqual({ erreurs: [], avertissements: [] });
+  });
+
+  it('exige une couverture dès qu’une prescription ouvre le remboursement', () => {
+    const resultat = controlerVenteDirecte(facture(), { ...directe, remboursable: true });
+    expect(codes(resultat.erreurs)).toEqual(['COUVERTURE_AMO_ABSENTE']);
+  });
+
+  it('refuse une vente sans ligne ou sans taux', () => {
+    const vide = { ...facture(), lignes: [] };
+    expect(codes(controlerVenteDirecte(vide, directe).erreurs)).toEqual(['AUCUNE_LIGNE_FACTURE']);
+    const sansTaux = avecLigne({ tauxTva: null });
+    expect(codes(controlerVenteDirecte(sansTaux, directe).erreurs)).toEqual(['TAUX_TVA_ABSENT']);
   });
 });

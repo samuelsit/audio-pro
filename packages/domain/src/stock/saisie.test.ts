@@ -8,6 +8,7 @@ import {
   modificationAppareilSaisieSchema,
   mouvementAccessoireSaisieSchema,
   NUMEROS_MAX_PAR_RECEPTION,
+  receptionEntreeSchema,
   receptionSaisieSchema,
   transfertAccessoireSaisieSchema,
   transfertSaisieSchema,
@@ -76,6 +77,21 @@ describe('receptionSaisieSchema', () => {
   ])('refuse : $cas', ({ champ, attendu }) => {
     const resultat = receptionSaisieSchema.safeParse({ ...reception, ...champ });
     expect(messages(resultat).join(' ')).toContain(attendu);
+  });
+});
+
+describe('receptionEntreeSchema', () => {
+  it('refuse une réception sans article', () => {
+    const resultat = receptionEntreeSchema.safeParse({
+      centreId: ID_A,
+      dateReception: '2026-10-30',
+      referenceBonLivraison: 'BL-1',
+      referenceFactureFabricant: null,
+      commandeId: null,
+      appareils: [],
+      accessoires: [],
+    });
+    expect(messages(resultat)).toEqual(['Une réception porte sur au moins un article.']);
   });
 });
 

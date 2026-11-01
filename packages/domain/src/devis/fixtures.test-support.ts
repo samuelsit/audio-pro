@@ -1,4 +1,3 @@
-import { TAUX_TVA_AIDE_AUDITIVE, TAUX_TVA_CONSOMMABLES } from '../audio-rules/constantes';
 import type { TarifsAudio } from '../audio-rules/tarifs';
 import { centimes, type Centimes } from '../money';
 import type {
@@ -8,6 +7,9 @@ import type {
   LigneConsommable,
   OffreDonnees,
 } from './types';
+
+const TVA_AIDE = 550;
+const TVA_CONSOMMABLE = 2000;
 
 export const TARIFS: TarifsAudio = {
   VINGT_ET_PLUS: { baseRemboursement: centimes(40_000), prixLimiteClasseI: centimes(95_000) },
@@ -66,7 +68,7 @@ export function aide(
     classe: designation.classe,
     prixUnitaireAvantRemise: centimes(prixAvantRemise),
     prixUnitaire: centimes(prix),
-    tauxTVA: TAUX_TVA_AIDE_AUDITIVE.valeur,
+    tauxTVA: TVA_AIDE,
     designation,
   };
 }
@@ -82,7 +84,7 @@ export function piles(
     codeLpp,
     prixUnitaireAvantRemise: centimes(prix),
     prixUnitaire: centimes(prix),
-    tauxTVA: TAUX_TVA_CONSOMMABLES.valeur,
+    tauxTVA: TVA_CONSOMMABLE,
     designation: PILES,
   };
 }

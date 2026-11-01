@@ -19,7 +19,7 @@ const AUTORISEES: Readonly<Record<StatutDossier, readonly StatutDossier[]>> = {
   EN_ESSAI: ['DEVIS_SIGNE', 'ABANDONNE'],
   DEVIS_SIGNE: ['A_FACTURER', 'EN_ESSAI', 'ABANDONNE'],
   A_FACTURER: ['FACTURE'],
-  FACTURE: ['CLOS'],
+  FACTURE: ['CLOS', 'A_FACTURER'],
   CLOS: [],
   ABANDONNE: [],
 };

@@ -42,6 +42,10 @@ export const CODES_CONTROLE = [
   'PEC_REFUSEE',
   'PEC_SANS_JUSTIFICATIF',
   'PEC_SUPERIEURE_AU_RESTE',
+  'TAUX_TVA_ABSENT',
+  'TVA_DIFFERENTE_DEVIS',
+  'AUCUNE_LIGNE_FACTURE',
+  'ADRESSE_CLIENT_MANQUANTE',
 ] as const;
 export type CodeControle = (typeof CODES_CONTROLE)[number];
 
@@ -101,6 +105,10 @@ export const LIBELLES_CONTROLES: Readonly<Record<CodeControle, string>> = {
   PEC_REFUSEE: 'Prise en charge complémentaire refusée : la part AMC revient au patient.',
   PEC_SANS_JUSTIFICATIF: 'Joindre le justificatif de la prise en charge complémentaire.',
   PEC_SUPERIEURE_AU_RESTE: 'Le montant accordé dépasse ce qui reste après l’AMO : il a été écrêté.',
+  TAUX_TVA_ABSENT: 'Aucun taux de TVA ne couvre cette date pour ce type de produit.',
+  TVA_DIFFERENTE_DEVIS: 'Le taux de TVA en vigueur diffère de celui du devis signé.',
+  AUCUNE_LIGNE_FACTURE: 'La facture ne comporte aucune ligne.',
+  ADRESSE_CLIENT_MANQUANTE: 'L’adresse du patient manque sur sa fiche (à vérifier).',
 };
 
 /** Résultat d'un contrôle ; `oreille` est `null` s'il concerne tout le devis. */

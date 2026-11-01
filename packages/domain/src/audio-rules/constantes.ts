@@ -111,21 +111,6 @@ export const FRAICHEUR_LECTURE_VITALE_JOURS: ConstanteReglementaire<number> = {
   source: 'Choix applicatif, À VÉRIFIER : absent de docs/ref',
 };
 
-/** Taux en pour dix mille, 550 pour 5,5 %. */
-// À VÉRIFIER : aucun document de docs/ref ne donne de taux de TVA (R18).
-export const TAUX_TVA_AIDE_AUDITIVE: ConstanteReglementaire<number> = {
-  valeur: 550,
-  dateEffet: null,
-  source: 'À VÉRIFIER : absent de docs/ref',
-};
-
-// À VÉRIFIER : aucun document de docs/ref ne donne de taux de TVA (R18).
-export const TAUX_TVA_CONSOMMABLES: ConstanteReglementaire<number> = {
-  valeur: 2000,
-  dateEffet: null,
-  source: 'À VÉRIFIER : absent de docs/ref',
-};
-
 // À VÉRIFIER : aucun document de docs/ref ne donne ce seuil (R10).
 export const AGE_SEUIL_PRESCRIPTION: ConstanteReglementaire<number> = {
   valeur: 6,

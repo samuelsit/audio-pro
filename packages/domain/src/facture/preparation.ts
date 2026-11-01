@@ -3,9 +3,11 @@ import { codePrestation, type CodePrestation, type Oreille } from '../audio-rule
 import { baseRemboursement, plafondC2S, type TarifsAudio } from '../audio-rules/tarifs';
 import { partAMCC2S, ventilation } from '../audio-rules/ventilation';
 import type { ClasseLpp, NatureAccessoire } from '../catalogue';
-import type { NatureLigneDevis } from '../devis/types';
+import { prixHT } from '../devis/calcul';
 import { additionnerCentimes, centimes, type Centimes } from '../money';
 import { ageAt } from '../patient/age';
+import { tauxTvaEnVigueur, type TauxTvaDate } from './tva';
+import type { NatureLigneFacture } from './types';
 
 export interface AideAPreparer {
   readonly oreille: Oreille;
@@ -14,6 +16,8 @@ export interface AideAPreparer {
   /** Prix unitaire net de remise. */
   readonly prixTTC: Centimes;
   readonly numeroSerie: string | null;
+  /** Appareil délivré, `null` si l'essai n'en porte plus sur cette oreille. */
+  readonly appareilId: string | null;
   /** Codes du modèle valides à la date de délivrance. */
   readonly candidatsLpp: readonly CodeLppCandidat[];
 }
@@ -23,12 +27,15 @@ export interface TarifConsommable {
   readonly naturePrestation: string;
 }
 
+/** Piles, accessoires et entretien : devis signé, vente directe ou ligne ajoutée au brouillon. */
 export interface ConsommableAPreparer {
-  readonly nature: NatureAccessoire;
+  readonly nature: NatureAccessoire | 'ENTRETIEN';
   readonly libelle: string;
   readonly quantite: number;
   readonly prixUnitaire: Centimes;
   readonly codeLpp: string | null;
+  /** Article du stock à débiter, `null` pour l'entretien ou hors catalogue. */
+  readonly accessoireId: string | null;
   /** Tarif unitaire à la date de délivrance ; `null` : aucun remboursement. */
   readonly tarif: TarifConsommable | null;
 }
@@ -44,10 +51,11 @@ export interface EntreePreparation {
   /** Montant d'une prise en charge accordée, `null` sinon. */
   readonly montantAccorde: Centimes | null;
   readonly tarifs: TarifsAudio;
+  readonly tauxTva: readonly TauxTvaDate[];
 }
 
 export interface LigneFacture {
-  readonly nature: NatureLigneDevis;
+  readonly nature: NatureLigneFacture;
   readonly oreille: Oreille | null;
   /** Classe de l'aide, `null` sur un consommable. */
   readonly classe: ClasseLpp | null;
@@ -55,9 +63,17 @@ export interface LigneFacture {
   readonly quantite: number;
   readonly codeLpp: string | null;
   readonly codeLppGenerique: boolean;
-  readonly codePrestation: CodePrestation;
+  /** `null` sur une ligne d'entretien. */
+  readonly codePrestation: CodePrestation | null;
   readonly numeroSerie: string | null;
+  readonly appareilId: string | null;
+  readonly accessoireId: string | null;
+  readonly prixUnitaire: Centimes;
   readonly prixTTC: Centimes;
+  /** Pour dix mille, `null` si aucun taux ne couvre la date : la validation est bloquée. */
+  readonly tauxTva: number | null;
+  readonly montantHT: Centimes;
+  readonly montantTva: Centimes;
   readonly baseRemboursement: Centimes;
   readonly amo: Centimes;
   readonly amc: Centimes;
@@ -66,13 +82,15 @@ export interface LigneFacture {
 
 export interface TotauxFacture {
   readonly prixTTC: Centimes;
+  readonly ht: Centimes;
+  readonly tva: Centimes;
   readonly amo: Centimes;
   readonly amc: Centimes;
   readonly resteACharge: Centimes;
 }
 
-/** Dossier prêt à facturer. Sans numéro ni encaissement : ils arrivent aux étapes 14 et 15 (ADR-015). */
-export interface FacturePreparee {
+/** Contenu calculé d'une facture, figé à la validation (ADR-028). */
+export interface ContenuFacture {
   readonly dateDelivrance: string;
   readonly lignes: readonly LigneFacture[];
   readonly totaux: TotauxFacture;
@@ -107,7 +125,10 @@ const ORDRE_OREILLES: Readonly<Record<Oreille, number>> = { DROITE: 0, GAUCHE: 1
 
 /** Ligne avant la part AMC ; `plafondC2S` borne la prise en charge d'un bénéficiaire. */
 interface LigneBrute {
-  readonly ligne: Omit<LigneFacture, 'amo' | 'amc' | 'resteACharge'>;
+  readonly ligne: Omit<
+    LigneFacture,
+    'amo' | 'amc' | 'resteACharge' | 'tauxTva' | 'montantHT' | 'montantTva'
+  >;
   readonly plafondC2S: Centimes;
 }
 
@@ -119,7 +140,7 @@ function ligneAide(aide: AideAPreparer, entree: EntreePreparation): LigneBrute {
   const { c2s, surdicecite, tarifs } = entree;
   const age = ageAt(entree.dateNaissance, entree.dateDelivrance);
   const base = baseRemboursement({ age }, tarifs);
-  const { oreille, classe, libelle, prixTTC, numeroSerie, candidatsLpp } = aide;
+  const { oreille, classe, libelle, prixTTC, numeroSerie, appareilId, candidatsLpp } = aide;
   const { code, generique } = choisirCodeLpp({
     classe,
     oreille,
@@ -139,6 +160,9 @@ function ligneAide(aide: AideAPreparer, entree: EntreePreparation): LigneBrute {
       codeLppGenerique: generique,
       codePrestation: codePrestation({ classe, oreille, c2s }),
       numeroSerie,
+      appareilId,
+      accessoireId: null,
+      prixUnitaire: prixTTC,
       prixTTC,
       baseRemboursement: base,
     },
@@ -147,8 +171,8 @@ function ligneAide(aide: AideAPreparer, entree: EntreePreparation): LigneBrute {
 }
 
 function ligneConsommable(consommable: ConsommableAPreparer): LigneBrute {
-  const { nature, libelle, quantite, prixUnitaire, codeLpp, tarif } = consommable;
-  const prestation = codePrestation({ nature });
+  const { nature, libelle, quantite, prixUnitaire, codeLpp, accessoireId, tarif } = consommable;
+  const prestation = nature === 'ENTRETIEN' ? null : codePrestation({ nature });
   const base = centimes((tarif?.baseRemboursement ?? 0) * quantite);
   return {
     ligne: {
@@ -161,11 +185,27 @@ function ligneConsommable(consommable: ConsommableAPreparer): LigneBrute {
       codeLppGenerique: tarif !== null && tarif.naturePrestation !== prestation,
       codePrestation: prestation,
       numeroSerie: null,
+      appareilId: null,
+      accessoireId,
+      prixUnitaire,
       prixTTC: centimes(prixUnitaire * quantite),
       baseRemboursement: base,
     },
     plafondC2S: base,
   };
+}
+
+/**
+ * TVA d'une ligne au taux de la date : le TTC reste la référence, le HT s'en déduit (`prixHT`).
+ * À VÉRIFIER : taux et fait générateur absents de docs/ref (R18).
+ */
+function partsTva(
+  { nature, prixTTC }: LigneBrute['ligne'],
+  { tauxTva, dateDelivrance }: EntreePreparation,
+) {
+  const taux = tauxTvaEnVigueur(tauxTva, nature, dateDelivrance);
+  const montantHT = taux === null ? prixTTC : prixHT(prixTTC, taux);
+  return { tauxTva: taux, montantHT, montantTva: centimes(prixTTC - montantHT) };
 }
 
 /** AMC de chaque ligne : C2S calculée, PEC accordée répartie, sinon rien (R13, R23). */
@@ -186,11 +226,11 @@ function partsAmc(lignes: readonly LigneAvecAmo[], { c2s, montantAccorde }: Entr
 
 /**
  * Lignes de la facture à la date de délivrance : base, AMO et code LPP s'y recalculent, le devis signé ne
- * fournit que les articles et leurs prix. Aucune écriture : le contenu se figera à la facture (ADR-015).
+ * fournit que les articles et leurs prix. Aucune écriture : le contenu se fige à la validation (ADR-028).
  * Source : voir `ventilation`, `baseRemboursement`, `codePrestation`, `choisirCodeLpp`, `partAMCC2S`
  * (R4 à R7, R13) ; convention-audioprothesistes.pdf, art. 27, p. 26 (date de délivrance).
  */
-export function preparerFacture(entree: EntreePreparation): FacturePreparee {
+export function preparerFacture(entree: EntreePreparation): ContenuFacture {
   const { tauxAMO, aides, consommables, dateDelivrance, c2s, montantAccorde } = entree;
   const ventiler = ({ prixTTC, baseRemboursement: base }: LigneBrute['ligne'], amc: Centimes) =>
     ventilation({
@@ -208,12 +248,15 @@ export function preparerFacture(entree: EntreePreparation): FacturePreparee {
   const amcs = partsAmc(brutes, entree);
   const lignes = brutes.map(({ ligne }, index) => ({
     ...ligne,
+    ...partsTva(ligne, entree),
     ...ventiler(ligne, amcs[index] as Centimes),
   }));
   const somme = (montant: (ligne: LigneFacture) => Centimes) =>
     additionnerCentimes(...lignes.map(montant));
   const totaux = {
     prixTTC: somme((l) => l.prixTTC),
+    ht: somme((l) => l.montantHT),
+    tva: somme((l) => l.montantTva),
     amo: somme((l) => l.amo),
     amc: somme((l) => l.amc),
     resteACharge: somme((l) => l.resteACharge),

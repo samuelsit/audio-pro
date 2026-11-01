@@ -43,8 +43,9 @@ const PRESCRIPTION_MODIFIABLE: readonly StatutDossier[] = ['BROUILLON', 'PRESCRI
 export const MESSAGE_TRANSITION_DOSSIER_REFUSEE = 'Ce changement de statut n’est pas autorisé.';
 
 /**
- * Le dossier passe à l'étape suivante, sans en sauter, ou est abandonné. Seul retour arrière : un devis
- * signé remplacé par une nouvelle version, dont la signature reste à recueillir (ADR-012).
+ * Le dossier passe à l'étape suivante, sans en sauter, ou est abandonné. Deux retours arrière : un devis
+ * signé remplacé par une nouvelle version, dont la signature reste à recueillir (ADR-012), et un avoir
+ * total, qui annule la vente et rouvre la facturation (ADR-028).
  * L'essai précède la signature : modele-devis-audio.pdf p. 1 et p. 2 § 5.
  * L'enchaînement reste un choix d'organisation (ADR-011), pas une règle réglementaire.
  */
@@ -52,7 +53,10 @@ export function transitionDossierAutorisee(de: StatutDossier, vers: StatutDossie
   if (vers === 'ABANDONNE') {
     return ABANDON_POSSIBLE.includes(de);
   }
-  if (de === 'DEVIS_SIGNE' && vers === 'EN_ESSAI') {
+  if (
+    (de === 'DEVIS_SIGNE' && vers === 'EN_ESSAI') ||
+    (de === 'FACTURE' && vers === 'A_FACTURER')
+  ) {
     return true;
   }
   const rang = ETAPES_DOSSIER.indexOf(de);

@@ -10,6 +10,7 @@ import {
   type ConsommableAPreparer,
   type EntreePreparation,
 } from './preparation';
+import type { TauxTvaDate } from './tva';
 
 const TARIFS: TarifsAudio = {
   VINGT_ET_PLUS: {
@@ -22,6 +23,13 @@ const TARIFS: TarifsAudio = {
   },
 };
 
+const TAUX_TVA: readonly TauxTvaDate[] = [
+  { type: 'AIDE_AUDITIVE', taux: 550, debut: '2021-01-01' },
+  { type: 'PILE', taux: 2000, debut: '2021-01-01' },
+  { type: 'ACCESSOIRE', taux: 2000, debut: '2021-01-01' },
+  { type: 'ENTRETIEN', taux: 2000, debut: '2021-01-01' },
+];
+
 const ADULTE = '1960-05-12';
 const MOINS_DE_20 = '2010-05-12';
 const DELIVRANCE = '2026-10-31';
@@ -33,6 +41,7 @@ function aide(surcharge: Partial<AideAPreparer> = {}): AideAPreparer {
     libelle: 'Aurore Essentiel',
     prixTTC: centimes(95_000),
     numeroSerie: 'SN-1',
+    appareilId: 'appareil-1',
     candidatsLpp: [],
     ...surcharge,
   };
@@ -49,9 +58,66 @@ function entree(surcharge: Partial<EntreePreparation> = {}): EntreePreparation {
     consommables: [],
     montantAccorde: null,
     tarifs: TARIFS,
+    tauxTva: TAUX_TVA,
     ...surcharge,
   };
 }
+
+describe('TVA par ligne', () => {
+  it('déduit le HT du TTC au taux de la date, par nature', () => {
+    const { lignes, totaux } = preparerFacture(
+      entree({
+        consommables: [
+          {
+            nature: 'ENTRETIEN',
+            libelle: 'Nettoyage',
+            quantite: 1,
+            prixUnitaire: centimes(1_200),
+            codeLpp: null,
+            accessoireId: null,
+            tarif: null,
+          },
+        ],
+      }),
+    );
+    expect(lignes.map((l) => [l.tauxTva, l.montantHT, l.montantTva])).toEqual([
+      [550, 90_047, 4_953],
+      [2000, 1_000, 200],
+    ]);
+    expect(totaux).toMatchObject({ ht: 91_047, tva: 5_153, prixTTC: 96_200 });
+  });
+
+  it('laisse le taux vide sans vigueur à la date : le contrôle bloquera', () => {
+    const [ligne] = preparerFacture(entree({ tauxTva: [] })).lignes;
+    expect(ligne).toMatchObject({ tauxTva: null, montantHT: 95_000, montantTva: 0 });
+  });
+
+  it('une ligne d’entretien n’a ni code prestation ni base', () => {
+    const contenu = preparerFacture(
+      entree({
+        aides: [],
+        consommables: [
+          {
+            nature: 'ENTRETIEN',
+            libelle: 'Nettoyage',
+            quantite: 2,
+            prixUnitaire: centimes(600),
+            codeLpp: null,
+            accessoireId: null,
+            tarif: null,
+          },
+        ],
+      }),
+    );
+    expect(contenu.lignes[0]).toMatchObject({
+      codePrestation: null,
+      codeLppGenerique: false,
+      baseRemboursement: 0,
+      amo: 0,
+      resteACharge: 1_200,
+    });
+  });
+});
 
 const parts = (e: EntreePreparation) =>
   preparerFacture(e).lignes.map((l) => [l.prixTTC, l.amo, l.amc, l.resteACharge]);
@@ -158,6 +224,8 @@ describe('ventilation de la facture préparée', () => {
     expect(facture.lignes.map((l) => l.amc)).toEqual([50_000, 50_001]);
     expect(facture.totaux).toEqual({
       prixTTC: 190_000,
+      ht: 180_094,
+      tva: 9_906,
       amo: 48_000,
       amc: 100_001,
       resteACharge: 41_999,
@@ -215,6 +283,7 @@ describe('piles et accessoires', () => {
     quantite: 2,
     prixUnitaire: centimes(150),
     codeLpp: '7000001',
+    accessoireId: 'accessoire-1',
     tarif: { baseRemboursement: centimes(150), naturePrestation: 'PIL' },
     ...surcharge,
   });

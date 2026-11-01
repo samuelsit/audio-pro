@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { dateDelivranceSaisieSchema, filtreAFacturerSchema, pecSaisieSchema } from './saisie';
+import {
+  filtreAFacturerSchema,
+  filtreFacturesSchema,
+  ligneBrouillonSaisieSchema,
+  pecSaisieSchema,
+  venteDirecteSaisieSchema,
+} from './saisie';
 
 const accordee = {
   statut: 'ACCORDEE',
@@ -67,14 +73,6 @@ describe('pecSaisieSchema', () => {
   });
 });
 
-describe('dateDelivranceSaisieSchema', () => {
-  it('valide une date calendaire', () => {
-    expect(dateDelivranceSaisieSchema.safeParse({ dateDelivrance: '2026-02-30' }).success).toBe(
-      false,
-    );
-  });
-});
-
 describe('filtreAFacturerSchema', () => {
   it('revient aux dossiers prêts sur un état inconnu', () => {
     expect(filtreAFacturerSchema.parse({ page: 'x', etat: 'autre' })).toEqual({
@@ -82,5 +80,59 @@ describe('filtreAFacturerSchema', () => {
       etat: 'PRET',
     });
     expect(filtreAFacturerSchema.parse({ etat: 'BLOQUE' }).etat).toBe('BLOQUE');
+  });
+});
+
+describe('filtreFacturesSchema', () => {
+  it('ignore un filtre inconnu', () => {
+    expect(filtreFacturesSchema.parse({ nature: 'x', statut: 'y' })).toEqual({ page: 1 });
+    expect(filtreFacturesSchema.parse({ nature: 'AVOIR', statut: 'VALIDEE' })).toMatchObject({
+      nature: 'AVOIR',
+      statut: 'VALIDEE',
+    });
+  });
+});
+
+describe('ligneBrouillonSaisieSchema', () => {
+  const ligne = {
+    nature: 'PILE',
+    accessoireId: 'a1',
+    libelle: 'Piles 312',
+    quantite: '2',
+    prixUnitaire: '1,50',
+  };
+  const erreur = (surcharge: object) =>
+    ligneBrouillonSaisieSchema.safeParse({ ...ligne, ...surcharge }).error?.issues[0]?.message;
+
+  it('convertit prix et quantité', () => {
+    expect(ligneBrouillonSaisieSchema.parse(ligne)).toMatchObject({
+      quantite: 2,
+      prixUnitaire: 150,
+    });
+  });
+
+  it.each([
+    { cas: 'article manquant', surcharge: { accessoireId: '' }, message: 'Choisir un article.' },
+    {
+      cas: 'entretien avec article',
+      surcharge: { nature: 'ENTRETIEN' },
+      message: 'Un entretien ne porte pas d’article.',
+    },
+    {
+      cas: 'prix illisible',
+      surcharge: { prixUnitaire: 'abc' },
+      message: 'Prix invalide (exemple : 12,50).',
+    },
+    { cas: 'quantité nulle', surcharge: { quantite: '0' }, message: 'Quantité invalide.' },
+  ])('refuse : $cas', ({ surcharge, message }) => {
+    expect(erreur(surcharge)).toBe(message);
+  });
+});
+
+describe('venteDirecteSaisieSchema', () => {
+  it('rend la prescription facultative', () => {
+    expect(
+      venteDirecteSaisieSchema.parse({ patientId: 'p', centreId: 'c', prescriptionId: '' }),
+    ).toEqual({ patientId: 'p', centreId: 'c', prescriptionId: null });
   });
 });

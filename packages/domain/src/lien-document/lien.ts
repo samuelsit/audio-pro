@@ -7,12 +7,13 @@ import { CANAUX_NOTIFICATION, type CanalNotification } from '../notification/gab
 export const DUREE_LIEN_DOCUMENT_JOURS = 7;
 export const TENTATIVES_MAX_LIEN_DOCUMENT = 5;
 
-export const CIBLES_LIEN_DOCUMENT = ['DEVIS', 'COMPTE_RENDU_ESSAI'] as const;
+export const CIBLES_LIEN_DOCUMENT = ['DEVIS', 'COMPTE_RENDU_ESSAI', 'FACTURE'] as const;
 export type CibleLienDocument = (typeof CIBLES_LIEN_DOCUMENT)[number];
 
 export const LIBELLES_CIBLES_LIEN: Readonly<Record<CibleLienDocument, string>> = {
   DEVIS: 'Devis',
   COMPTE_RENDU_ESSAI: 'Compte rendu d’essai',
+  FACTURE: 'Facture',
 };
 
 export const DESTINATAIRES_LIEN = ['PATIENT', 'PRESCRIPTEUR'] as const;

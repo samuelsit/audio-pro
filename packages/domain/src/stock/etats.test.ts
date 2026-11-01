@@ -38,7 +38,7 @@ const MATRICE: Readonly<Record<StatutAppareil, Readonly<Record<StatutAppareil, A
     EN_STOCK: 'DETACHER',
     RESERVE: INTERDIT,
     EN_ESSAI: 'CONSERVER',
-    VENDU: INTERDIT,
+    VENDU: 'CONSERVER',
     RETOUR_FABRICANT: INTERDIT,
     SAV: INTERDIT,
     PRET: INTERDIT,
@@ -47,14 +47,14 @@ const MATRICE: Readonly<Record<StatutAppareil, Readonly<Record<StatutAppareil, A
     EN_STOCK: 'DETACHER',
     RESERVE: 'CONSERVER',
     EN_ESSAI: INTERDIT,
-    VENDU: 'CONSERVER',
+    VENDU: INTERDIT,
     RETOUR_FABRICANT: INTERDIT,
     SAV: 'DETACHER',
     PRET: INTERDIT,
   },
   VENDU: {
     EN_STOCK: 'ANNULATION_REQUISE',
-    RESERVE: INTERDIT,
+    RESERVE: 'CONSERVER',
     EN_ESSAI: INTERDIT,
     VENDU: INTERDIT,
     RETOUR_FABRICANT: INTERDIT,
@@ -152,6 +152,8 @@ describe('verifierTransitionManuelle', () => {
     { statut: 'EN_STOCK', patientRattache: false, vers: 'EN_ESSAI' },
     { statut: 'RESERVE', patientRattache: true, vers: 'EN_ESSAI' },
     { statut: 'EN_ESSAI', patientRattache: true, vers: 'RESERVE' },
+    { statut: 'RESERVE', patientRattache: true, vers: 'VENDU' },
+    { statut: 'VENDU', patientRattache: true, vers: 'RESERVE' },
   ] as const)('$statut → $vers passe par le dossier', ({ vers, ...etat }) => {
     expect(resume(verifierTransitionManuelle(etat, vers, true))).toBe('PILOTE_PAR_DOSSIER');
   });
@@ -172,7 +174,7 @@ describe('transitionsPossibles', () => {
       attendu: ['RESERVE', 'RETOUR_FABRICANT', 'SAV', 'PRET'],
     },
     { statut: 'RESERVE', patientRattache: true, attendu: ['EN_STOCK'] },
-    { statut: 'EN_ESSAI', patientRattache: true, attendu: ['EN_STOCK', 'VENDU', 'SAV'] },
+    { statut: 'EN_ESSAI', patientRattache: true, attendu: ['EN_STOCK', 'SAV'] },
     { statut: 'VENDU', patientRattache: true, attendu: ['SAV'] },
     { statut: 'PRET', patientRattache: true, attendu: ['EN_STOCK', 'SAV'] },
     { statut: 'SAV', patientRattache: false, attendu: ['EN_STOCK', 'RETOUR_FABRICANT'] },
