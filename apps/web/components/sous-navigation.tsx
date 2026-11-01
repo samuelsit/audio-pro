@@ -54,6 +54,10 @@ export const LIENS_TIERS_PAYANT: readonly LienSousNavigation[] = [
   { href: '/tiers-payant/complementaires', libelle: 'Complémentaires' },
 ];
 
+export const LIENS_COMMANDES: readonly LienSousNavigation[] = [
+  { href: '/commandes', libelle: 'Commandes' },
+];
+
 export const LIENS_PILOTAGE: readonly LienSousNavigation[] = [
   { href: '/tableau-de-bord', libelle: 'Tableau de bord' },
   { href: '/renouvellements', libelle: 'Renouvellements' },
@@ -66,7 +70,8 @@ export const LIENS_ADMINISTRATION: readonly LienSousNavigation[] = [
   { href: '/admin/fabricants', libelle: 'Fabricants' },
   { href: '/admin/fournisseurs', libelle: 'Fournisseurs' },
   { href: '/admin/centrales', libelle: 'Centrales d’achat' },
-  { href: '/admin/parametres-commande', libelle: 'Commandes' },
+  { href: '/admin/regles-commande', libelle: 'Règles de commande' },
+  { href: '/admin/parametres-commande', libelle: 'Paramètres de commande' },
   { href: '/admin/modeles', libelle: 'Modèles' },
   { href: '/admin/accessoires', libelle: 'Accessoires et piles' },
   { href: '/admin/formulaires', libelle: 'Formulaires cliniques' },

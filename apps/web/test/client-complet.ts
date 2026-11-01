@@ -13,6 +13,7 @@ import {
   enregistrerTonale,
 } from '@/server/services/audiologie';
 import { compterCaisse, ouvrirCaisse } from '@/server/services/caisse';
+import { ajouterLigne, creerCommande } from '@/server/services/commandes';
 import { depsCaisse } from '@/server/services/chaine-caisse';
 import { encaisserFacture } from '@/server/services/encaissements';
 import { enregistrerPec } from '@/server/services/factures';
@@ -26,6 +27,7 @@ import {
   enregistrerParametresCommande,
 } from '@/server/services/fournisseurs';
 import { preparerFse } from '@/server/services/fse';
+import { creerRegleCommande } from '@/server/services/regles-commande';
 import {
   classerEcartReglement,
   enregistrerRejet,
@@ -357,6 +359,23 @@ export async function creerClientComplet(suffixe: string) {
     tolerancePrix: '0',
   });
 
+  const regleCommandeId = await creerRegleCommande(d.acteurs.admin, {
+    libelle: 'Règle fictive',
+    priorite: '10',
+    decision: 'APPROBATION',
+    actif: true,
+  });
+  const commandeId = await creerCommande(d.acteurs.admin, {
+    centreId: d.centres.a.id,
+    fournisseurId: fournisseur.id,
+  });
+  await ajouterLigne(d.acteurs.admin, commandeId, {
+    produit: `modele:${catalogue.classeI}`,
+    quantite: '1',
+    enConsignation: false,
+    patientId,
+  });
+
   return {
     d,
     catalogue,
@@ -368,6 +387,8 @@ export async function creerClientComplet(suffixe: string) {
     fabricantId,
     centraleId,
     fournisseurId: fournisseur.id,
+    regleCommandeId,
+    commandeId,
     cabineId,
     venteId,
     complementaireId,

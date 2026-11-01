@@ -60,6 +60,10 @@ model Organisation {
   fournisseurContacts   FournisseurContact[]
   fournisseurComptes    FournisseurCompteCentre[]
   parametresCommande    ParametresCommande?
+  reglesCommande        RegleCommande[]
+  compteursCommande     CompteurCommande[]
+  commandes             Commande[]
+  lignesCommande        CommandeLigne[]
   modeles               ModeleAideAuditive[]
   accessoires           Accessoire[]
   prescripteurs         Prescripteur[]
@@ -188,6 +192,8 @@ model Centre {
   typesRdvEnLigne       TypeRdvEnLigne[]
   reservationsEnLigne   ReservationEnLigne[]
   comptesFournisseurs   FournisseurCompteCentre[]
+  reglesCommande        RegleCommande[]
+  commandes             Commande[]
 
   @@unique([organisationId, slug])
   @@unique([organisationId, nom])
@@ -263,6 +269,8 @@ model Utilisateur {
   otoscopies            Otoscopie[]
   modelesFormulaire     ModeleFormulaire[]
   reponsesFormulaire    ReponseFormulaire[]
+  commandesDemandees    Commande[]              @relation("CommandeDemandeur")
+  commandesApprouvees   Commande[]              @relation("CommandeApprobateur")
 
   @@index([organisationId])
   @@map("utilisateur")
@@ -400,6 +408,7 @@ model Patient {
   liensDocument         LienDocument[]
   rendezVous            RendezVous[]
   bilansAudiologiques   BilanAudiologique[]
+  lignesCommande        CommandeLigne[]
 
   @@index([organisationId, nomNaissanceRecherche])
   @@index([organisationId, nomUsageRecherche])
@@ -696,6 +705,7 @@ model ModeleAideAuditive {
   codesLpp              ModeleCodeLpp[]
   appareils             Appareil[]
   lignesDevis           DevisLigne[]
+  lignesCommande        CommandeLigne[]
 
   /// Cible de la clé composite d'`Appareil` : le fabricant d'un modèle en stock ne peut plus changer.
   @@unique([id, fabricantId])
@@ -745,6 +755,7 @@ model Accessoire {
   lignesDevis          DevisLigne[]
   lignesInventaire     InventaireLigne[]
   lignesFacture        LigneFacture[]
+  lignesCommande       CommandeLigne[]
 
   @@unique([organisationId, nom])
   @@index([codeLpp])
@@ -807,6 +818,8 @@ model Fournisseur {
   contacts          FournisseurContact[]
   comptes           FournisseurCompteCentre[]
   accessoires       Accessoire[]
+  reglesCommande    RegleCommande[]
+  commandes         Commande[]
 
   @@unique([organisationId, nom])
   @@index([centraleAchatId])
@@ -857,6 +870,142 @@ model ParametresCommande {
   organisation          Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
 
   @@map("parametres_commande")
+}
+
+// ---------------------------------------------------------------------------
+// Achats : commandes (ADR-031)
+// ---------------------------------------------------------------------------
+
+enum StatutCommande {
+  BROUILLON
+  A_APPROUVER
+  APPROUVEE
+  ENVOYEE
+  PARTIELLEMENT_RECUE
+  RECUE
+  FACTUREE
+  CLOSE
+  ANNULEE
+}
+
+enum TypeProduitCommande {
+  APPAREIL
+  ACCESSOIRE
+  PILE
+}
+
+enum DecisionRegleCommande {
+  ENVOI_DIRECT
+  APPROBATION
+}
+
+/// Décide si une commande part directement. La première règle active qui correspond s'applique, par `priorite`
+/// croissante. Un critère nul vaut pour tout. Sans règle, la commande va à l'approbation.
+model RegleCommande {
+  id                 String                @id @default(uuid(7))
+  organisationId     String                @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  libelle            String
+  priorite           Int
+  montantMaxCentimes Int?                  @map("montant_max_centimes")
+  typeProduit        TypeProduitCommande?  @map("type_produit")
+  fournisseurId      String?               @map("fournisseur_id")
+  centreId           String?               @map("centre_id")
+  decision           DecisionRegleCommande
+  actif              Boolean               @default(true)
+  createdAt          DateTime              @default(now()) @map("created_at")
+  updatedAt          DateTime              @updatedAt @map("updated_at")
+  organisation       Organisation          @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  fournisseur        Fournisseur?          @relation(fields: [fournisseurId], references: [id], onDelete: Restrict)
+  centre             Centre?               @relation(fields: [centreId], references: [id], onDelete: Restrict)
+  commandes          Commande[]
+
+  @@index([organisationId, priorite])
+  @@index([fournisseurId])
+  @@index([centreId])
+  @@map("regle_commande")
+}
+
+/// Numérotation par client et par année. Une commande n'est pas une pièce comptable : un trou est sans effet.
+model CompteurCommande {
+  organisationId String       @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  annee          Int
+  dernier        Int
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+
+  @@id([organisationId, annee])
+  @@map("compteur_commande")
+}
+
+/// Une demande est une commande en `BROUILLON`. Un fournisseur, un centre. Jamais supprimée.
+model Commande {
+  id                   String                @id @default(uuid(7))
+  organisationId       String                @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  centreId             String                @map("centre_id")
+  fournisseurId        String                @map("fournisseur_id")
+  numero               String
+  statut               StatutCommande        @default(BROUILLON)
+  demandeurId          String                @map("demandeur_id")
+  /// Règle qui a décidé de l'envoi direct, figée à la soumission.
+  regleId              String?               @map("regle_id")
+  approbateurId        String?               @map("approbateur_id")
+  approuveeLe          DateTime?             @map("approuvee_le") @db.Timestamptz(3)
+  /// Chiffré (contexte « commande.motif_refus »).
+  motifRefus           String?               @map("motif_refus")
+  /// Chiffré (contexte « commande.motif_annulation »).
+  motifAnnulation      String?               @map("motif_annulation")
+  createdAt            DateTime              @default(now()) @map("created_at")
+  updatedAt            DateTime              @updatedAt @map("updated_at")
+  organisation         Organisation          @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  centre               Centre                @relation(fields: [centreId], references: [id], onDelete: Restrict)
+  fournisseur          Fournisseur           @relation(fields: [fournisseurId], references: [id], onDelete: Restrict)
+  demandeur            Utilisateur           @relation("CommandeDemandeur", fields: [demandeurId], references: [id], onDelete: Restrict)
+  approbateur          Utilisateur?          @relation("CommandeApprobateur", fields: [approbateurId], references: [id], onDelete: Restrict)
+  regle                RegleCommande?        @relation(fields: [regleId], references: [id], onDelete: Restrict)
+  lignes               CommandeLigne[]
+  mouvementsAppareil   MouvementAppareil[]
+  mouvementsAccessoire MouvementAccessoire[]
+
+  @@unique([organisationId, numero])
+  @@index([centreId, statut])
+  @@index([fournisseurId])
+  @@index([organisationId, statut])
+  @@map("commande")
+}
+
+/// Figée par trigger dès l'approbation, hormis les quantités reçues, facturées et abandonnées.
+model CommandeLigne {
+  id                 String              @id @default(uuid(7))
+  organisationId     String              @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  commandeId         String              @map("commande_id")
+  /// Exactement un produit (contrainte CHECK).
+  modeleId           String?             @map("modele_id")
+  accessoireId       String?             @map("accessoire_id")
+  quantite           Int
+  /// Réservé aux rôles de gestion. Nul tant qu'il est inconnu : la commande va alors à l'approbation.
+  prixAchatCentimes  Int?                @map("prix_achat_centimes")
+  enConsignation     Boolean             @default(false) @map("en_consignation")
+  /// Cache des réceptions, écrit sous le verrou de la commande (ADR-031).
+  quantiteRecue      Int                 @default(0) @map("quantite_recue")
+  /// Cache des factures validées, écrit sous le verrou de la commande.
+  quantiteFacturee   Int                 @default(0) @map("quantite_facturee")
+  quantiteAbandonnee Int                 @default(0) @map("quantite_abandonnee")
+  /// Commande nominative : seul `referencePatient`, aléatoire, sort vers le fabricant.
+  patientId          String?             @map("patient_id")
+  referencePatient   String?             @map("reference_patient")
+  oreille            Oreille?
+  createdAt          DateTime            @default(now()) @map("created_at")
+  organisation       Organisation        @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  commande           Commande            @relation(fields: [commandeId], references: [id], onDelete: Restrict)
+  modele             ModeleAideAuditive? @relation(fields: [modeleId], references: [id], onDelete: Restrict)
+  accessoire         Accessoire?         @relation(fields: [accessoireId], references: [id], onDelete: Restrict)
+  patient            Patient?            @relation(fields: [patientId], references: [id], onDelete: Restrict)
+
+  @@unique([organisationId, referencePatient])
+  @@index([commandeId])
+  @@index([modeleId])
+  @@index([accessoireId])
+  @@index([patientId])
+  @@map("commande_ligne")
 }
 
 // ---------------------------------------------------------------------------
@@ -952,7 +1101,7 @@ model MouvementAppareil {
   patientId      String?               @map("patient_id")
   /// Dossier qui a provoqué le mouvement : essai, puis vente à l'étape 14.
   dossierId      String?               @map("dossier_id")
-  /// Commande fabricant à l'origine de la réception. Sans clé étrangère avant l'étape 17 (ADR-023).
+  /// Commande fabricant à l'origine de la réception.
   commandeId     String?               @map("commande_id")
   /// Chiffré (contexte « mouvement_appareil.motif ») : texte libre. Null pour la réception.
   motif          String?
@@ -963,6 +1112,7 @@ model MouvementAppareil {
   centreApres    Centre                @relation("MouvementCentreApres", fields: [centreApresId], references: [id], onDelete: Restrict)
   patient        Patient?              @relation(fields: [patientId], references: [id], onDelete: Restrict)
   dossier        Dossier?              @relation(fields: [dossierId], references: [id], onDelete: Restrict)
+  commande       Commande?             @relation(fields: [commandeId], references: [id], onDelete: Restrict)
 
   @@index([appareilId, horodatage])
   @@index([patientId])
@@ -1000,7 +1150,7 @@ model MouvementAccessoire {
   quantiteApres  Int                     @map("quantite_apres")
   horodatage     DateTime                @default(now())
   utilisateurId  String                  @map("utilisateur_id")
-  /// Commande fabricant à l'origine de l'entrée. Sans clé étrangère avant l'étape 17 (ADR-023).
+  /// Commande fabricant à l'origine de l'entrée.
   commandeId     String?                 @map("commande_id")
   /// Chiffré (contexte « mouvement_accessoire.motif »).
   motif          String
@@ -1008,6 +1158,7 @@ model MouvementAccessoire {
   centre         Centre                  @relation(fields: [centreId], references: [id], onDelete: Restrict)
   accessoire     Accessoire              @relation(fields: [accessoireId], references: [id], onDelete: Restrict)
   utilisateur    Utilisateur             @relation(fields: [utilisateurId], references: [id], onDelete: Restrict)
+  commande       Commande?               @relation(fields: [commandeId], references: [id], onDelete: Restrict)
 
   @@index([centreId, accessoireId, horodatage])
   @@index([commandeId])

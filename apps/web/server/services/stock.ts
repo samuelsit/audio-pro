@@ -173,7 +173,7 @@ export function evenementMouvement(
 }
 
 /** Patient d'une réservation, d'un essai ou d'un prêt : fiche active, accessible à l'utilisateur. */
-async function verifierPatient(
+export async function verifierPatient(
   tx: ClientTransaction,
   acteur: UtilisateurConnecte,
   patientId: string,

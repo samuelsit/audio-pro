@@ -47,11 +47,9 @@ import { preparerFse } from './services/fse';
 import { modifierPatient, obtenirPatient } from './services/patients';
 import { obtenirPraticien } from './services/praticiens';
 import { changerActivationPrescripteur, obtenirPrescripteur } from './services/prescripteurs';
-import {
-  modifierFournisseur,
-  obtenirCentrale,
-  obtenirFournisseur,
-} from './services/fournisseurs';
+import { obtenirCommande, produitsDuFournisseur, soumettreCommande } from './services/commandes';
+import { modifierFournisseur, obtenirCentrale, obtenirFournisseur } from './services/fournisseurs';
+import { obtenirRegleCommande } from './services/regles-commande';
 import { changerStatut, historiqueAccessoire, obtenirFicheAppareil } from './services/stock';
 import { obtenirUtilisateur } from './services/utilisateurs';
 
@@ -65,6 +63,9 @@ const TABLES_ISOLEES = [
   'cabine',
   'centrale_achat',
   'centre',
+  'commande',
+  'commande_ligne',
+  'compteur_commande',
   'compte',
   'compteur_devis',
   'couverture_amc',
@@ -86,6 +87,7 @@ const TABLES_ISOLEES = [
   'fournisseur_compte_centre',
   'fournisseur_contact',
   'parametres_commande',
+  'regle_commande',
   'archive_caisse',
   'chaine_caisse',
   'cloture_caisse',
@@ -537,6 +539,13 @@ describe('identifiant d’un autre client forcé dans l’URL', () => {
     { entite: 'fabricant', appel: (x, c) => obtenirFabricant(x, c.fabricantId) },
     { entite: 'fournisseur', appel: (x, c) => obtenirFournisseur(x, c.fournisseurId) },
     { entite: 'centrale d’achat', appel: (x, c) => obtenirCentrale(x, c.centraleId) },
+    { entite: 'commande', appel: (x, c) => obtenirCommande(x, c.commandeId) },
+    { entite: 'soumission de commande', appel: (x, c) => soumettreCommande(x, c.commandeId) },
+    { entite: 'règle de commande', appel: (x, c) => obtenirRegleCommande(x, c.regleCommandeId) },
+    {
+      entite: 'produits d’un fournisseur',
+      appel: (x, c) => produitsDuFournisseur(x, c.fournisseurId),
+    },
     {
       entite: 'modification d’un fournisseur',
       appel: (x, c) =>
