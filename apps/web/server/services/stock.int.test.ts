@@ -109,12 +109,13 @@ async function recevoirUn(numero = 'SN0001'): Promise<string> {
 async function amener(id: string, statuts: string[], patientId: string | null = patientA) {
   for (const statut of statuts) {
     const avant = await prisma().appareil.findUniqueOrThrow({ where: { id } });
-    if (statut === 'EN_ESSAI') {
-      // L'essai se pilote depuis le dossier : la fiche refuse ce changement.
+    const pilote = statut === 'EN_ESSAI' || (statut === 'VENDU' && avant.statut === 'EN_ESSAI');
+    if (pilote) {
+      // L'essai et la vente se pilotent depuis le dossier : la fiche refuse ces changements.
       const patientEssai = avant.patientId ?? patientId;
       await prisma().appareil.update({
         where: { id },
-        data: { statut: 'EN_ESSAI', patientId: patientEssai },
+        data: { statut, patientId: patientEssai },
       });
       await base({ organisationId: avant.organisationId }).mouvementAppareil.create({
         data: {
@@ -123,7 +124,7 @@ async function amener(id: string, statuts: string[], patientId: string | null = 
           type: 'CHANGEMENT_STATUT',
           utilisateurId: admin.id,
           statutAvant: avant.statut,
-          statutApres: 'EN_ESSAI',
+          statutApres: statut,
           centreAvantId: avant.centreId,
           centreApresId: avant.centreId,
           patientId: patientEssai,

@@ -37,7 +37,11 @@ import { lireParametresReservation } from './services/reservation-parametres';
 import { imprimerDevis, lireScanDevis, obtenirDevis } from './services/devis';
 import { lireScan, obtenirDossier } from './services/dossiers';
 import { compteRenduEssai, lireJustificatif, obtenirEssai } from './services/essais';
+import { emettreAvoir } from './services/avoirs';
+import { verifierChaineCaisse } from './services/chaine-caisse';
+import { obtenirFactureDetail, telechargerPdf, validerFacture } from './services/facturation';
 import { lireJustificatifPec, obtenirFacture } from './services/factures';
+import { preparerFse } from './services/fse';
 import { modifierPatient, obtenirPatient } from './services/patients';
 import { obtenirPraticien } from './services/praticiens';
 import { changerActivationPrescripteur, obtenirPrescripteur } from './services/prescripteurs';
@@ -69,7 +73,12 @@ const TABLES_ISOLEES = [
   'evenement_domaine',
   'exception_agenda',
   'fabricant',
-  'facture_preparee',
+  'facture',
+  'chaine_caisse',
+  'evenement_caisse',
+  'fse',
+  'ligne_facture',
+  'serie_facture',
   'inventaire',
   'inventaire_ligne',
   'journal_audit',
@@ -117,6 +126,7 @@ const TABLES_GLOBALES: Readonly<Record<string, 'LECTURE' | 'AUCUN'>> = {
   lpp_lien: 'LECTURE',
   lpp_tarif: 'LECTURE',
   lpp_version: 'LECTURE',
+  taux_tva: 'LECTURE',
 };
 
 const TABLES_IDENTITE: readonly string[] = ['compte', 'deux_facteurs', 'session'];
@@ -482,6 +492,18 @@ describe('identifiant d’un autre client forcé dans l’URL', () => {
     { entite: 'justificatif d’essai', appel: (x, c) => lireJustificatif(x, c.dossierId) },
     { entite: 'compte rendu', appel: (x, c) => compteRenduEssai(x, c.dossierId) },
     { entite: 'facture', appel: (x, c) => obtenirFacture(x, c.dossierId) },
+    { entite: 'pièce validée', appel: (x, c) => obtenirFactureDetail(x, c.venteId) },
+    { entite: 'PDF de facture', appel: (x, c) => telechargerPdf(x, c.venteId) },
+    { entite: 'validation de facture', appel: (x, c) => validerFacture(x, c.venteId) },
+    {
+      entite: 'avoir',
+      appel: (x, c) => emettreAvoir(x, c.venteId, { mode: 'TOTAL', motif: 'Test' }),
+    },
+    { entite: 'FSE', appel: (x, c) => preparerFse(x, c.venteId) },
+    {
+      entite: 'chaîne de caisse',
+      appel: (x, c) => verifierChaineCaisse(x, c.d.centres.a.id),
+    },
     { entite: 'justificatif de PEC', appel: (x, c) => lireJustificatifPec(x, c.dossierId) },
     { entite: 'appareil', appel: (x, c) => obtenirFicheAppareil(x, c.appareilId) },
     { entite: 'prescripteur', appel: (x, c) => obtenirPrescripteur(x, c.prescripteurId) },
@@ -575,6 +597,10 @@ describe('identifiant d’un autre client forcé dans l’URL', () => {
         'changement de statut d’appareil',
         'déplacement de rendez-vous',
         'annulation de rendez-vous',
+        // Déjà validée et déjà transmise : ces écritures ne se rejouent pas chez soi.
+        'validation de facture',
+        'avoir',
+        'FSE',
       ].includes(entite),
   );
 

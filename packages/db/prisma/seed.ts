@@ -12,12 +12,13 @@ import {
   seedCatalogueIndependant,
 } from './seed-catalogue';
 import { NOMBRE_DOSSIERS_DEMO, seedDossiers } from './seed-dossiers';
+import { seedFacturation } from './seed-facturation';
 import { NOMBRE_PATIENTS_DEMO, PATIENTS_INDEPENDANT, seedPatients } from './seed-patients';
 import { nombreAppareilsDemo, seedStock } from './seed-stock';
 
 // Seed idempotent de démonstration. Toutes les données sont fictives (domaine exemple.test,
 // RPPS et NIR inventés). Les patients de démonstration sont dans seed-patients.ts.
-const SCHEMA_VERSION = '8';
+const SCHEMA_VERSION = '9';
 
 // Deux clients fictifs : un réseau de 3 centres et un centre indépendant (ADR-016).
 const ORGANISATION_ID = '019a3000-0000-7000-8000-000000000001';
@@ -356,6 +357,7 @@ async function main(): Promise<void> {
     await seedCatalogue(db, ORGANISATION_ID);
     await seedStock(db, ORGANISATION_ID, [NORD, CENTRE, SUD], ADMIN_ID);
     await seedDossiers(db, ORGANISATION_ID, NORD, ADMIN_ID);
+    await seedFacturation(db, ORGANISATION_ID, NORD, ADMIN_ID);
     await seedAudiologie(db, ORGANISATION_ID, NORD, ADMIN_ID);
     await seedPatients(
       db,

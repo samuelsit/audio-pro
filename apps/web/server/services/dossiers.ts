@@ -671,7 +671,11 @@ async function preparerPrescription(
       select: { dateNaissance: true },
     }),
     client.delivrance.findMany({
-      where: { patientId: dossier.patientId, organisationId: acteur.organisationId },
+      where: {
+        patientId: dossier.patientId,
+        organisationId: acteur.organisationId,
+        annuleeLe: null,
+      },
       select: { oreille: true, dateDelivrance: true },
     }),
   ]);

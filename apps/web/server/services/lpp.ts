@@ -10,6 +10,8 @@ import {
   type TarifsAudio,
 } from '@ha/domain';
 
+import type { Client } from './patients';
+
 const horloge: Clock = new SystemClock();
 
 export interface TarifLppApplicable {
@@ -28,13 +30,23 @@ export interface CodeLppDecrit {
   tarif: TarifLppApplicable | null;
 }
 
+/** Référentiel commun. Une transaction passe son client : une seconde connexion saturerait le pool. */
+type ClientLpp = ReturnType<typeof referentielLpp>;
+
+/** Les clients étendus par le chiffrement exposent les mêmes tables LPP, non chiffrées. */
+export function versClientLpp(client: Client): ClientLpp {
+  return client as unknown as ClientLpp;
+}
+
 function dateIso(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
 /** Dernière version importée, ou `null` si la base LPP n'a jamais été importée. */
-export async function derniereVersionLpp(): Promise<number | null> {
-  const version = await referentielLpp().lppVersion.findFirst({
+export async function derniereVersionLpp(
+  client: ClientLpp = referentielLpp(),
+): Promise<number | null> {
+  const version = await client.lppVersion.findFirst({
     orderBy: { numero: 'desc' },
     select: { numero: true },
   });
@@ -47,19 +59,20 @@ export async function derniereVersionLpp(): Promise<number | null> {
  */
 export async function decrireCodesLpp(
   codes: readonly string[],
-  options: { date?: string; version?: number } = {},
+  options: { date?: string; version?: number; client?: ClientLpp } = {},
 ): Promise<CodeLppDecrit[]> {
   const date = options.date ?? horloge.now().slice(0, 10);
-  const version = options.version ?? (await derniereVersionLpp());
+  const client = options.client ?? referentielLpp();
+  const version = options.version ?? (await derniereVersionLpp(client));
   const [fiches, tarifs] =
     version === null
       ? [[], []]
       : await Promise.all([
-          referentielLpp().lppFiche.findMany({
+          client.lppFiche.findMany({
             where: { versionNumero: version, code: { in: [...codes] } },
             select: { code: true, libelle: true, dateFin: true, codeGenerique: true },
           }),
-          referentielLpp().lppTarif.findMany({
+          client.lppTarif.findMany({
             where: { versionNumero: version, code: { in: [...codes] } },
             select: {
               code: true,
@@ -95,8 +108,14 @@ export async function decrireCodesLpp(
  * Prix limites et bases de remboursement en vigueur à une date (date de délivrance) ; `null` si la
  * base importée ne les couvre pas à cette date.
  */
-export async function tarifsAudioEnVigueur(date: string): Promise<TarifsAudio | null> {
-  const decrits = await decrireCodesLpp(Object.values(CODES_LPP_TARIFS_AUDIO), { date });
+export async function tarifsAudioEnVigueur(
+  date: string,
+  client?: ClientLpp,
+): Promise<TarifsAudio | null> {
+  const decrits = await decrireCodesLpp(Object.values(CODES_LPP_TARIFS_AUDIO), {
+    date,
+    ...(client ? { client } : {}),
+  });
   return tarifsAudioDepuisLpp(new Map(decrits.map((d) => [d.code, d.tarif])));
 }
 

@@ -21,7 +21,7 @@ import { identifiants } from './compte';
 // Console éditeur. Le rôle plateforme ne lit que les clients et leurs comptes, aucune donnée patient.
 
 /** Un acteur de la console n'est jamais cru sur son type : le rôle est revérifié. */
-function verifierSuperadmin(acteur: SuperadminConnecte): void {
+export function verifierSuperadmin(acteur: SuperadminConnecte): void {
   if (acteur.role !== ROLE_SUPERADMIN) {
     throw new AccesRefuseError();
   }

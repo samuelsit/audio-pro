@@ -1,4 +1,5 @@
 import { chargerTrousseau, ChiffreurAesGcm } from '@ha/adapters';
+import { centimes, prixHT } from '@ha/domain';
 
 import type { PrismaClient } from '../src/generated/prisma/client';
 import { seedTypesRdv } from './seed-agenda';
@@ -36,8 +37,6 @@ const ESSAI_DEMO = '019a7000-0000-7000-8000-000000000006';
 const PATIENT_A_FACTURER = '019a3000-0000-7000-8000-000000000501';
 const PRIX_A_FACTURER = 95_000;
 const AMO_A_FACTURER = 24_000;
-const HT_A_FACTURER = 90_047;
-const TVA_AIDE = 550;
 
 const DOSSIER_A_FACTURER = '019a7000-0000-7000-8000-000000000007';
 const PRESCRIPTION_A_FACTURER = '019a7000-0000-7000-8000-000000000008';
@@ -253,7 +252,7 @@ async function seedAFacturer(
       modele: true,
     },
   });
-  const existante = await db.facturePreparee.findUnique({
+  const existante = await db.facture.findUnique({
     where: { id: FACTURE_A_FACTURER },
     select: { id: true },
   });
@@ -263,9 +262,14 @@ async function seedAFacturer(
   const { modele, fabricant } = appareil;
   const debut = ilYaJours(40);
   const achat = ilYaJours(3);
+  const { taux: tauxTva } = await db.tauxTva.findFirstOrThrow({
+    where: { type: 'AIDE_AUDITIVE' },
+    orderBy: { debut: 'desc' },
+  });
+  const ht = prixHT(centimes(PRIX_A_FACTURER), tauxTva);
   const poste = {
-    ht: HT_A_FACTURER,
-    htApresRemise: HT_A_FACTURER,
+    ht,
+    htApresRemise: ht,
     ttc: PRIX_A_FACTURER,
     amo: AMO_A_FACTURER,
     amc: null,
@@ -336,7 +340,7 @@ async function seedAFacturer(
       quantite: 1,
       prixUnitaireAvantRemiseCentimes: PRIX_A_FACTURER,
       prixUnitaireCentimes: PRIX_A_FACTURER,
-      tauxTva: TVA_AIDE,
+      tauxTva,
       designation: {
         fabricant: fabricant.nom,
         adresseFabricant: fabricant.adresse,
@@ -456,12 +460,13 @@ async function seedAFacturer(
       motif: chiffreur.chiffrer('Achat confirmé à l’issue de l’essai', CONTEXTE_MOTIF),
     },
   });
-  await db.facturePreparee.create({
+  await db.facture.create({
     data: {
       id: FACTURE_A_FACTURER,
       organisationId,
+      centreId,
+      patientId: PATIENT_A_FACTURER,
       dossierId: DOSSIER_A_FACTURER,
-      dateDelivrance: achat,
       createdById: utilisateurId,
     },
   });

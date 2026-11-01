@@ -82,7 +82,7 @@ export const selectionAppareil = {
 export type AppareilLu = Prisma.AppareilGetPayload<{ select: typeof selectionAppareil }>;
 
 /** Lit l'appareil dans la transaction et vérifie le droit sur son centre actuel. */
-async function lireAppareil(
+export async function lireAppareil(
   tx: ClientTransaction,
   acteur: UtilisateurConnecte,
   appareilId: string,
@@ -104,7 +104,7 @@ export interface Mouvement {
   readonly centreId: string;
   readonly patientId: string | null;
   readonly motif: string;
-  /** Dossier qui provoque le mouvement : essai, puis vente (étape 14). */
+  /** Dossier qui provoque le mouvement : essai, puis vente. */
   readonly dossierId?: string;
 }
 
@@ -321,6 +321,18 @@ export async function annulerVente(
       const appareil = await lireAppareil(tx, acteur, appareilId);
       if (!verifierAnnulationVente(appareil.statut)) {
         throw ErreurSaisie.surChamp('motif', 'Cet appareil n’est pas vendu.');
+      }
+      const facturee = await tx.delivrance.count({
+        where: {
+          annuleeLe: null,
+          facture: { lignes: { some: { appareilId } } },
+        },
+      });
+      if (facturee > 0) {
+        throw ErreurSaisie.surChamp(
+          'motif',
+          'Cette vente vient d’une facture : elle s’annule par un avoir.',
+        );
       }
       const mouvement: Mouvement = {
         type: 'ANNULATION_VENTE',

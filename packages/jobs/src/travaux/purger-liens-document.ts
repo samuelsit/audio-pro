@@ -23,7 +23,11 @@ export function travailPurgeLiensDocument(
     async executer({ client }) {
       const instant = maintenant();
       const lot = await client.lienDocument.findMany({
-        where: { cible: 'COMPTE_RENDU_ESSAI', expireLe: { lt: instant }, pdfPurgeLe: null },
+        where: {
+          pdfCle: { startsWith: 'liens-documents/' },
+          expireLe: { lt: instant },
+          pdfPurgeLe: null,
+        },
         select: { id: true, pdfCle: true },
         take: TAILLE_LOT,
       });

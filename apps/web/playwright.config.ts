@@ -33,6 +33,7 @@ export default defineConfig({
       BETTER_AUTH_URL: baseURL,
       VITALE_LECTEUR: 'simulation',
       NOTIFIER: 'simulation',
+      BILLING_ENGINE: 'simulation',
       E_SIGNATURE: 'simulation',
       NOTIFIER_SIMULATION_FICHIER: FICHIER_NOTIFICATIONS_E2E,
       CAPTCHA: 'simulation',

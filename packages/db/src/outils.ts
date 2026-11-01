@@ -91,7 +91,7 @@ export async function viderBaseJetable(url: string): Promise<void> {
   try {
     const tables = await db.$queryRaw<{ tablename: string }[]>`
       SELECT tablename FROM pg_tables
-      WHERE schemaname = 'public' AND tablename NOT IN ('_prisma_migrations', 'app_meta')`;
+      WHERE schemaname = 'public' AND tablename NOT IN ('_prisma_migrations', 'app_meta', 'taux_tva')`;
     if (tables.length > 0) {
       await db.$executeRawUnsafe(
         `TRUNCATE ${tables.map((t) => `"${t.tablename}"`).join(', ')} CASCADE`,

@@ -33,8 +33,8 @@ import {
   signatureDevisSaisieSchema,
   signatureEcranSaisieSchema,
   statutDossierApresEmission,
-  TAUX_TVA_AIDE_AUDITIVE,
-  TAUX_TVA_CONSOMMABLES,
+  tauxTvaEnVigueur,
+  type NatureLigneDevis,
   TYPES_DOCUMENT,
   verifierDocument,
   type CanalNotification,
@@ -90,6 +90,7 @@ import {
 } from './essais-socle';
 import { tarifsAudioEnVigueur, tarifsConsommablesEnVigueur } from './lpp';
 import { aujourdhui, lireFiche, type Client, type PatientDetail } from './patients';
+import { tauxTvaDates } from './taux-tva';
 
 /** Le devis reste en l'état : `controle` dit quoi corriger, oreille par oreille. */
 export class ErreurDevisBloque extends ErreurSaisie {
@@ -251,7 +252,7 @@ async function resoudreOffres(
   const aidesSaisies = donnees.offres.flatMap((offre) => [offre.aideDroite, offre.aideGauche]);
   const modeleIds = aidesSaisies.flatMap((aide) => (aide ? [aide.modeleId] : []));
   const accessoireIds = donnees.offres.flatMap((o) => o.consommables.map((c) => c.accessoireId));
-  const [modeles, accessoires] = await Promise.all([
+  const [modeles, accessoires, taux] = await Promise.all([
     client.modeleAideAuditive.findMany({
       where: { id: { in: modeleIds }, organisationId: acteur.organisationId },
       select: selectionModele,
@@ -260,7 +261,15 @@ async function resoudreOffres(
       where: { id: { in: accessoireIds }, organisationId: acteur.organisationId },
       select: selectionAccessoire,
     }),
+    tauxTvaDates(client),
   ]);
+  const tauxDuJour = (nature: NatureLigneDevis): number => {
+    const valeur = tauxTvaEnVigueur(taux, nature, aujourdhui());
+    if (valeur === null) {
+      throw ErreurSaisie.surChamp('offres', 'Aucun taux de TVA n’est paramétré pour cet article.');
+    }
+    return valeur;
+  };
 
   const ligneAide = (
     oreille: Oreille,
@@ -286,7 +295,7 @@ async function resoudreOffres(
         quantite: 1,
         prixAvantRemise: aide.prixAvantRemise,
         prix: aide.prix,
-        tauxTva: TAUX_TVA_AIDE_AUDITIVE.valeur,
+        tauxTva: tauxDuJour('AIDE_AUDITIVE'),
         codeLpp: null,
         designation: designationAideSchema.parse({
           fabricant: modele.fabricant.nom,
@@ -332,7 +341,7 @@ async function resoudreOffres(
           quantite: ligne.quantite,
           prixAvantRemise: ligne.prixAvantRemise,
           prix: ligne.prix,
-          tauxTva: TAUX_TVA_CONSOMMABLES.valeur,
+          tauxTva: tauxDuJour(accessoire.nature),
           codeLpp: accessoire.codeLpp,
           designation: designationConsommableSchema.parse({
             nom: accessoire.nom,
@@ -650,7 +659,11 @@ async function lireFaits(acteur: UtilisateurConnecte, dossier: DossierLu): Promi
       },
     }),
     client.delivrance.findMany({
-      where: { patientId: dossier.patientId, organisationId: acteur.organisationId },
+      where: {
+        patientId: dossier.patientId,
+        organisationId: acteur.organisationId,
+        annuleeLe: null,
+      },
       select: { oreille: true, dateDelivrance: true },
     }),
     lirePecAccordee(client, dossier.id),
@@ -1677,7 +1690,11 @@ export async function donneesFormulaireDevis(
       select: { c2s: true },
     }),
     client.delivrance.findMany({
-      where: { patientId: dossier.patientId, organisationId: acteur.organisationId },
+      where: {
+        patientId: dossier.patientId,
+        organisationId: acteur.organisationId,
+        annuleeLe: null,
+      },
       select: { oreille: true, dateDelivrance: true },
     }),
   ]);

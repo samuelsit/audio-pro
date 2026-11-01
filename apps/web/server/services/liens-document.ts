@@ -28,6 +28,14 @@ import { signatureLienDocument } from '../reservation-empreintes';
 import { lireDevis, type DocumentDevis } from './devis';
 import { depuisDate, lireDossier, type DossierLu } from './dossiers';
 import { rendreCompteRendu } from './essais';
+import {
+  adresseEnvoi,
+  deposerOriginal,
+  enregistrerSortie,
+  lireFacture,
+  numeroFacture,
+  rendreDuplicata,
+} from './facturation';
 
 const LIMITE_LIEN_DOCUMENT_IP: RegleLimitation = { max: 30, fenetreSecondes: 15 * 60 };
 const MS_PAR_JOUR = 86_400_000;
@@ -44,8 +52,16 @@ function exigerEnvoiPossible(): void {
   }
 }
 
+/** Rattachement d'un lien : un document de dossier, ou une facture, avec ou sans dossier. */
+interface RattachementLien {
+  readonly dossierId: string | null;
+  readonly patientId: string;
+  readonly centreId: string;
+  readonly factureId?: string;
+}
+
 interface LienACreer {
-  readonly dossier: DossierLu;
+  readonly rattachement: RattachementLien;
   readonly cible: CibleLienDocument;
   readonly destinataire: DestinataireLien;
   readonly pdfCle: string;
@@ -60,12 +76,16 @@ interface LienACreer {
 async function creerLien(
   tx: ClientTransaction,
   acteur: UtilisateurConnecte,
-  { dossier, cible, destinataire, pdfCle, canal, adresse }: LienACreer,
+  { rattachement, cible, destinataire, pdfCle, canal, adresse }: LienACreer,
 ): Promise<string> {
+  const { dossierId, patientId, centreId, factureId } = rattachement;
   const instant = new Date(horloge.now());
   const lien = await tx.lienDocument.create({
     data: {
-      dossierId: dossier.id,
+      organisationId: acteur.organisationId,
+      dossierId,
+      patientId,
+      factureId: factureId ?? null,
       cible,
       destinataire,
       pdfCle,
@@ -75,7 +95,7 @@ async function creerLien(
     select: { id: true },
   });
   const centre = await tx.centre.findUniqueOrThrow({
-    where: { id: dossier.centreId },
+    where: { id: centreId },
     select: { nom: true },
   });
   await tx.notification.create({
@@ -93,10 +113,14 @@ async function creerLien(
   return lien.id;
 }
 
+function rattachementDossier(dossier: DossierLu): RattachementLien {
+  return { dossierId: dossier.id, patientId: dossier.patientId, centreId: dossier.centreId };
+}
+
 function evenementEnvoi(
-  entiteType: 'DEVIS' | 'ESSAI',
+  entiteType: 'DEVIS' | 'ESSAI' | 'FACTURE',
   entiteId: string,
-  dossier: DossierLu,
+  dossier: Pick<DossierLu, 'patientId' | 'centreId'>,
   lienId: string,
   canal: CanalNotification,
   destinataire: DestinataireLien,
@@ -139,7 +163,7 @@ export async function envoyerDevisAuPatient(
         );
       }
       const lienId = await creerLien(tx, acteur, {
-        dossier,
+        rattachement: rattachementDossier(dossier),
         cible: 'DEVIS',
         destinataire: 'PATIENT',
         pdfCle,
@@ -180,7 +204,7 @@ export async function envoyerCompteRenduAuPrescripteur(
           throw new ErreurSaisie({}, 'Renseigner l’adresse du prescripteur avant l’envoi.');
         }
         const lienId = await creerLien(tx, acteur, {
-          dossier,
+          rattachement: rattachementDossier(dossier),
           cible: 'COMPTE_RENDU_ESSAI',
           destinataire: 'PRESCRIPTEUR',
           pdfCle,
@@ -197,6 +221,58 @@ export async function envoyerCompteRenduAuPrescripteur(
       .delete(pdfCle)
       .catch(() => undefined);
     throw erreur;
+  }
+}
+
+/**
+ * Envoie une facture ou un avoir au patient par lien sécurisé. L'original s'envoie s'il n'est jamais sorti ;
+ * sinon un duplicata, déposé pour ce lien et retiré à son expiration. Aucun message ne porte de montant.
+ */
+export async function envoyerFactureAuPatient(
+  acteur: UtilisateurConnecte,
+  factureId: string,
+  saisie: unknown,
+): Promise<void> {
+  exigerEnvoiPossible();
+  const client = base(acteur);
+  const facture = await lireFacture(client, acteur, factureId);
+  const { canal, adresse } = await adresseEnvoi(client, facture.patientId, saisie);
+  const original = await deposerOriginal(acteur, facture);
+  const duplicataCle = `liens-documents/${randomUUID()}`;
+  await documents().put(duplicataCle, await rendreDuplicata(client, factureId), 'application/pdf');
+  let duplicataUtilise = false;
+  try {
+    await withAudit(
+      acteur,
+      async (tx) => {
+        const numero = await numeroFacture(tx, factureId);
+        const { duplicata } = await enregistrerSortie(tx, acteur, facture, numero, [
+          'FACTURE_ENVOYEE',
+        ]);
+        duplicataUtilise = duplicata;
+        const lienId = await creerLien(tx, acteur, {
+          rattachement: {
+            dossierId: facture.dossierId,
+            patientId: facture.patientId,
+            centreId: facture.centreId,
+            factureId,
+          },
+          cible: 'FACTURE',
+          destinataire: 'PATIENT',
+          pdfCle: duplicata ? duplicataCle : original,
+          canal,
+          adresse,
+        });
+        return { lienId };
+      },
+      ({ lienId }) => evenementEnvoi('FACTURE', factureId, facture, lienId, canal, 'PATIENT'),
+    );
+  } finally {
+    if (!duplicataUtilise) {
+      await documents()
+        .delete(duplicataCle)
+        .catch(() => undefined);
+    }
   }
 }
 
@@ -251,7 +327,7 @@ export async function revoquerLien(acteur: UtilisateurConnecte, lienId: string):
         where: { id: lienId, organisationId: acteur.organisationId },
         select: { dossierId: true },
       });
-      if (!lien) {
+      if (!lien?.dossierId) {
         throw new AccesRefuseError();
       }
       const dossier = await lireDossier(tx, acteur, lien.dossierId);
@@ -322,6 +398,18 @@ export async function lienDocumentOuvrable(jeton: string, ip: string): Promise<b
   }
 }
 
+const ENTITES_CIBLE: Readonly<Record<CibleLienDocument, 'DEVIS' | 'ESSAI' | 'FACTURE'>> = {
+  DEVIS: 'DEVIS',
+  COMPTE_RENDU_ESSAI: 'ESSAI',
+  FACTURE: 'FACTURE',
+};
+
+const NOMS_FICHIER: Readonly<Record<CibleLienDocument, string>> = {
+  DEVIS: 'devis.pdf',
+  COMPTE_RENDU_ESSAI: 'compte-rendu.pdf',
+  FACTURE: 'facture.pdf',
+};
+
 type ResultatOuverture =
   | { readonly type: 'FERME' }
   | { readonly type: 'ERRONEE' }
@@ -343,13 +431,16 @@ export async function ouvrirDocument(
   const resultat = await enTransaction(cible, async (tx): Promise<ResultatOuverture> => {
     const lien = await tx.lienDocument.findUnique({
       where: { id: cible.lienId },
-      include: { dossier: { select: { id: true, patientId: true, centreId: true } } },
+      include: {
+        dossier: { select: { centreId: true } },
+        facture: { select: { centreId: true } },
+      },
     });
     if (!lien || !lienOuvert(versEtat(lien), instant.getTime())) {
       return { type: 'FERME' };
     }
     const patient = await tx.patient.findUniqueOrThrow({
-      where: { id: lien.dossier.patientId },
+      where: { id: lien.patientId },
       select: { dateNaissance: true },
     });
     if (depuisDate(patient.dateNaissance) !== dateNaissance) {
@@ -369,10 +460,10 @@ export async function ouvrirDocument(
     });
     await journaliser(tx, auteurLien(cible.organisationId), {
       action: 'READ',
-      entiteType: lien.cible === 'DEVIS' ? 'DEVIS' : 'ESSAI',
-      entiteId: lien.dossier.id,
-      patientId: lien.dossier.patientId,
-      centreId: lien.dossier.centreId,
+      entiteType: ENTITES_CIBLE[lien.cible],
+      entiteId: lien.factureId ?? lien.dossierId,
+      patientId: lien.patientId,
+      centreId: lien.facture?.centreId ?? lien.dossier?.centreId ?? null,
       details: { lienId: lien.id, destinataire: lien.destinataire },
     });
     return { type: 'OUVERT', pdfCle: lien.pdfCle, cible: lien.cible };
@@ -386,6 +477,6 @@ export async function ouvrirDocument(
   return {
     contenu: await documents().get(resultat.pdfCle),
     type: 'application/pdf',
-    nomFichier: resultat.cible === 'DEVIS' ? 'devis.pdf' : 'compte-rendu.pdf',
+    nomFichier: NOMS_FICHIER[resultat.cible],
   };
 }

@@ -2,8 +2,7 @@ import path from 'node:path';
 
 import type { FakeDocumentStore } from '@ha/adapters';
 import { prisma } from '@ha/db/admin';
-import { ajouterJours } from '@ha/domain';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   creerCatalogueDevis,
@@ -28,10 +27,12 @@ import {
   lireJustificatifPec,
   lirePecDossier,
   listerAFacturer,
-  modifierDateDelivrance,
   obtenirFacture,
 } from './factures';
 import { aujourdhui } from './patients';
+
+// Chaque test rejoue un parcours complet, du dossier à l'achat : long sous la charge de toute la suite.
+vi.setConfig({ testTimeout: 30_000 });
 
 const V908 = path.join(import.meta.dirname, '../../../../fixtures/lpp/908');
 const VIDE = new Uint8Array(0);
@@ -82,14 +83,14 @@ describe('préparation à l’achat', () => {
   it('ouvre la préparation sans vente, sans délivrance et sans numéro', async () => {
     const { dossierId, numeroSerie } = await dossierAFacturer();
 
-    const ligne = await prisma().facturePreparee.findUniqueOrThrow({ where: { dossierId } });
-    expect(ligne.dateDelivrance.toISOString().slice(0, 10)).toBe(aujourdhui());
-    expect(Object.keys(ligne).filter((c) => /numero|encaiss|paiement/i.test(c))).toEqual([]);
+    const ligne = await prisma().facture.findFirstOrThrow({ where: { dossierId } });
+    expect(ligne).toMatchObject({ statut: 'BROUILLON', numero: null, dateFacture: null });
+    expect(await prisma().ligneFacture.count({ where: { factureId: ligne.id } })).toBe(0);
     expect(await prisma().delivrance.count({ where: { dossierId } })).toBe(0);
     const appareil = await prisma().appareil.findFirstOrThrow({ where: { numeroSerie } });
     expect(appareil.statut).toBe('RESERVE');
     const journal = await prisma().journalAudit.count({
-      where: { entiteType: 'FACTURE_PREPAREE', action: 'CREATE', entiteId: ligne.id },
+      where: { entiteType: 'FACTURE', action: 'CREATE', entiteId: ligne.id },
     });
     expect(journal).toBe(1);
   });
@@ -185,7 +186,7 @@ describe('contrôles', () => {
     const facture = await detail(dossierId);
     expect(facture.etat).toBe('PRET');
     expect(facture.controle.erreurs).toEqual([]);
-    expect(facture.facture?.totaux).toEqual({
+    expect(facture.facture?.totaux).toMatchObject({
       prixTTC: 95_600,
       amo: 24_360,
       amc: 71_240,
@@ -253,10 +254,7 @@ describe('contrôles', () => {
 
   it('bloque si la base LPP ne couvre pas la date de délivrance', async () => {
     const { dossierId } = await dossierAFacturer();
-    await prisma().facturePreparee.update({
-      where: { dossierId },
-      data: { dateDelivrance: new Date('2020-01-01T00:00:00.000Z') },
-    });
+    await prisma().lppTarif.deleteMany();
     const facture = await detail(dossierId);
     expect(facture.facture).toBeNull();
     expect(codes(facture.controle.erreurs)).toEqual(['TARIF_LPP_INDISPONIBLE']);
@@ -264,18 +262,8 @@ describe('contrôles', () => {
 });
 
 describe('date de délivrance', () => {
-  it('reste entre la signature et aujourd’hui', async () => {
+  it('se calcule au jour courant : le brouillon ne la stocke pas', async () => {
     const { dossierId } = await dossierAFacturer();
-    await expect(
-      modifierDateDelivrance(audio, dossierId, {
-        dateDelivrance: ajouterJours(aujourdhui(), 1),
-      }),
-    ).rejects.toThrow('La date de délivrance ne peut pas être future.');
-    await expect(
-      modifierDateDelivrance(audio, dossierId, { dateDelivrance: '2020-01-01' }),
-    ).rejects.toThrow('La date de délivrance ne peut pas précéder la signature du devis.');
-
-    await modifierDateDelivrance(assistantA, dossierId, { dateDelivrance: aujourdhui() });
     expect((await detail(dossierId)).dateDelivrance).toBe(aujourdhui());
   });
 });
@@ -308,7 +296,7 @@ describe('prise en charge complémentaire', () => {
     const brut = await stockage().get(justificatifCle ?? '');
     expect(Buffer.from(brut).includes(SCAN)).toBe(false);
     const lectures = await prisma().journalAudit.count({
-      where: { entiteType: 'FACTURE_PREPAREE', action: 'READ' },
+      where: { entiteType: 'FACTURE', action: 'READ' },
     });
     expect(lectures).toBe(1);
 
@@ -393,9 +381,6 @@ describe('droits et file par centre', () => {
     await expect(confirmerCouvertureAmo(assistantB, dossierId)).rejects.toBeInstanceOf(
       AccesRefuseError,
     );
-    await expect(
-      modifierDateDelivrance(assistantB, dossierId, { dateDelivrance: aujourdhui() }),
-    ).rejects.toBeInstanceOf(AccesRefuseError);
     await expect(lireJustificatifPec(assistantB, dossierId)).rejects.toBeInstanceOf(
       AccesRefuseError,
     );

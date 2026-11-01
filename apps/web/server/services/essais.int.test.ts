@@ -872,7 +872,7 @@ describe('stock piloté par le dossier', () => {
         patientId,
         motif: 'x',
       }),
-    ).rejects.toThrow('L’essai se pilote depuis le dossier du patient.');
+    ).rejects.toThrow('L’essai et la vente se pilotent depuis le dossier du patient.');
     expect((await obtenirFicheAppareil(audio, id)).transitions.map((t) => t.statut)).not.toContain(
       'EN_ESSAI',
     );

@@ -6,7 +6,6 @@ import {
   calculerPagination,
   centimes,
   controlerFacture,
-  dateDelivranceSaisieSchema,
   designationAideSchema,
   designationConsommableSchema,
   devisCalculeSchema,
@@ -21,17 +20,19 @@ import {
   TYPES_DOCUMENT,
   verifierDocument,
   type Centimes,
+  type ClientFacture,
+  type ConsommableAPreparer,
   type Constat,
+  type ContenuFacture,
   type EtatFacture,
-  type FacturePreparee,
   type FaitsFacture,
   type Pagination,
   type Perimetre,
   type ResultatControleFacture,
   type RubriqueOffre,
   type StatutPec,
-  type TarifsAudio,
   type TypeDocument,
+  type VendeurFacture,
 } from '@ha/domain';
 import { z } from 'zod';
 
@@ -43,14 +44,15 @@ import { documents } from '../documents';
 import { ErreurSaisie, valider } from '../erreurs';
 import { centresDuPerimetre } from '../perimetre';
 import { constatSchema, depuisDate, lireDossier, versDate, type DossierLu } from './dossiers';
-import { decrireCodesLpp, tarifsAudioEnVigueur, type CodeLppDecrit } from './lpp';
+import { decrireCodesLpp, tarifsAudioEnVigueur, versClientLpp, type CodeLppDecrit } from './lpp';
 import { aujourdhui, type Client } from './patients';
+import { tauxTvaDates } from './taux-tva';
 
 export const LIGNES_PAR_PAGE_A_FACTURER = 50;
 
 const MESSAGE_HORS_FILE = 'Ce dossier n’est plus à facturer.';
 
-function evenementFacture(
+export function evenementFacture(
   action: EvenementAudit['action'],
   factureId: string,
   dossier: Pick<DossierLu, 'id' | 'patientId' | 'centreId'>,
@@ -58,7 +60,7 @@ function evenementFacture(
 ): EvenementAudit {
   return {
     action,
-    entiteType: 'FACTURE_PREPAREE',
+    entiteType: 'FACTURE',
     entiteId: factureId,
     patientId: dossier.patientId,
     centreId: dossier.centreId,
@@ -67,25 +69,93 @@ function evenementFacture(
 }
 
 /**
- * Ouvre la préparation à l'achat : le jour de l'achat vaut date de délivrance jusqu'à sa correction. Rien
- * d'autre n'est stocké : les lignes se calculent à la lecture (ADR-014).
+ * Ouvre le brouillon à l'achat, ou après un avoir total. Rien n'est calculé ici : les lignes du devis se
+ * recalculent à la lecture, au jour courant, et se figent à la validation (ADR-014, ADR-028).
  */
-export async function creerFacturePreparee(
+export async function creerBrouillonDossier(
   tx: ClientTransaction,
   acteur: UtilisateurConnecte,
-  dossier: DossierLu,
-  jour: string,
+  dossier: Pick<DossierLu, 'id' | 'patientId' | 'centreId'>,
 ): Promise<EvenementAudit> {
-  const { id } = await tx.facturePreparee.create({
+  const { id } = await tx.facture.create({
     data: {
       organisationId: acteur.organisationId,
+      centreId: dossier.centreId,
+      patientId: dossier.patientId,
       dossierId: dossier.id,
-      dateDelivrance: versDate(jour),
       createdById: acteur.id,
     },
     select: { id: true },
   });
   return evenementFacture('CREATE', id, dossier);
+}
+
+/** Brouillon en cours d'un dossier, à la place de l'ancienne ligne unique par dossier. */
+const BROUILLON_DOSSIER = { statut: 'BROUILLON', nature: 'FACTURE' } as const;
+
+// --- Instantanés ----------------------------------------------------------------------------------
+
+export const selectionVendeur = {
+  nom: true,
+  raisonSociale: true,
+  adresseLigne1: true,
+  adresseLigne2: true,
+  codePostal: true,
+  ville: true,
+  telephone: true,
+  email: true,
+  siret: true,
+  rcs: true,
+  finess: true,
+  tvaIntracommunautaire: true,
+} as const;
+
+type CentreVendeur = Prisma.CentreGetPayload<{ select: typeof selectionVendeur }>;
+
+export function versVendeur(centre: CentreVendeur): VendeurFacture {
+  return {
+    raisonSociale: centre.raisonSociale,
+    nomCentre: centre.nom,
+    adresse: [
+      centre.adresseLigne1,
+      ...(centre.adresseLigne2 === null ? [] : [centre.adresseLigne2]),
+      `${centre.codePostal} ${centre.ville}`,
+    ],
+    telephone: centre.telephone,
+    email: centre.email,
+    siret: centre.siret,
+    rcs: centre.rcs,
+    finess: centre.finess,
+    tvaIntracommunautaire: centre.tvaIntracommunautaire,
+  };
+}
+
+export const selectionClient = {
+  id: true,
+  dateNaissance: true,
+  nomNaissance: true,
+  nomUsage: true,
+  prenoms: true,
+  adresseLigne1: true,
+  adresseLigne2: true,
+  codePostal: true,
+  ville: true,
+} as const;
+
+type PatientClient = Prisma.PatientGetPayload<{ select: typeof selectionClient }>;
+
+export function versClient(patient: PatientClient): ClientFacture {
+  const { adresseLigne1, adresseLigne2, codePostal, ville } = patient;
+  return {
+    prenomNom: `${patient.prenoms} ${patient.nomUsage ?? patient.nomNaissance}`,
+    adresse: [
+      ...(adresseLigne1 === null ? [] : [adresseLigne1]),
+      ...(adresseLigne2 === null ? [] : [adresseLigne2]),
+      ...(codePostal === null && ville === null
+        ? []
+        : [[codePostal, ville].filter((v) => v !== null).join(' ')]),
+    ],
+  };
 }
 
 // --- Lecture groupée : la fiche et la file suivent le même chemin ----------------------------------
@@ -111,8 +181,10 @@ const selectionDevisSigne = {
           oreille: true,
           classe: true,
           modeleId: true,
+          accessoireId: true,
           quantite: true,
           prixUnitaireCentimes: true,
+          tauxTva: true,
           codeLpp: true,
           designation: true,
         },
@@ -160,6 +232,7 @@ function versDevisFacture(
       offre.amcGaucheCentimes,
       offre.amcConsommablesCentimes,
     ].some((montant) => montant !== null && montant > 0),
+    tauxTva: offre.lignes.map(({ nature, tauxTva }) => ({ nature, taux: tauxTva })),
   };
 }
 
@@ -168,10 +241,13 @@ function libelleAide(ligne: LigneLue): string {
   return `${fabricant} ${gamme} ${modele}`;
 }
 
-interface FactureEvaluee {
+export interface FactureEvaluee {
+  /** Jour d'évaluation : la validation d'aujourd'hui en ferait la date de délivrance. */
   dateDelivrance: string;
   /** `null` si la base LPP ne couvre pas la date de délivrance. */
-  facture: FacturePreparee | null;
+  facture: ContenuFacture | null;
+  /** Identifiant du brouillon. */
+  factureId: string;
   controle: ResultatControleFacture;
   etat: EtatFacture;
 }
@@ -181,96 +257,100 @@ const SANS_TARIF: ResultatControleFacture = {
   avertissements: [],
 };
 
-/** Tarifs d'une date, pour tous les codes de la page : les dates de délivrance sont peu nombreuses. */
-interface TarifsDuJour {
-  audio: TarifsAudio | null;
-  codes: Map<string, CodeLppDecrit>;
-}
-
-async function tarifsParDate(
-  dates: readonly string[],
-  codes: readonly string[],
-): Promise<Map<string, TarifsDuJour>> {
-  const entrees = await Promise.all(
-    [...new Set(dates)].map(async (date): Promise<[string, TarifsDuJour]> => {
-      const [audio, decrits] = await Promise.all([
-        tarifsAudioEnVigueur(date),
-        decrireCodesLpp(codes, { date }),
-      ]);
-      return [date, { audio, codes: new Map(decrits.map((d) => [d.code, d])) }];
-    }),
-  );
-  return new Map(entrees);
-}
-
-/** Évalue des dossiers à facturer en quelques requêtes groupées, sans rien écrire. Hors transaction. */
-async function evaluerFactures(
+/**
+ * Évalue les brouillons de dossiers au jour courant, en quelques requêtes groupées, sans rien écrire. Un
+ * client de transaction relit tout sous la validation : ses contrôles portent sur ce qu'elle fige.
+ */
+export async function evaluerFactures(
   acteur: UtilisateurConnecte,
   dossiers: readonly DossierLu[],
+  client: Client = base(acteur),
 ): Promise<Map<string, FactureEvaluee>> {
-  const client = base(acteur);
   const ids = dossiers.map((d) => d.id);
   const patientIds = dossiers.map((d) => d.patientId);
-  const [factures, chiffres, patients, amo, amc, prescriptions, devis, liens, delivrances, pecs] =
-    await Promise.all([
-      client.facturePreparee.findMany({ where: { dossierId: { in: ids } } }),
-      client.dossier.findMany({
-        where: { id: { in: ids } },
-        select: { id: true, surdicecite: true },
-      }),
-      client.patient.findMany({
-        where: { id: { in: patientIds } },
-        select: { id: true, dateNaissance: true },
-      }),
-      client.couvertureAmo.findMany({
-        where: { patientId: { in: patientIds } },
-        select: {
-          patientId: true,
-          c2s: true,
-          origine: true,
-          derniereLectureVitale: true,
-          updatedAt: true,
-          finDroits: true,
-        },
-      }),
-      client.couvertureAmc.findMany({
-        where: { patientId: { in: patientIds } },
-        select: { patientId: true },
-      }),
-      client.prescription.findMany({
-        where: { dossierId: { in: ids } },
-        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-        select: {
-          dossierId: true,
-          datePrescription: true,
-          oreilles: true,
-          controles: true,
-          prescripteur: { select: { specialite: true, formationOtologie: true, rpps: true } },
-        },
-      }),
-      lireDevisSignes(client, ids),
-      client.essaiAppareil.findMany({
-        where: { retireLe: null, essai: { dossierId: { in: ids } } },
-        select: {
-          oreille: true,
-          essai: { select: { dossierId: true } },
-          appareil: { select: { numeroSerie: true } },
-        },
-      }),
-      client.delivrance.findMany({
-        where: { patientId: { in: patientIds } },
-        select: { patientId: true, oreille: true, dateDelivrance: true },
-      }),
-      client.priseEnCharge.findMany({
-        where: { dossierId: { in: ids } },
-        select: {
-          dossierId: true,
-          statut: true,
-          montantAccordeCentimes: true,
-          justificatifCle: true,
-        },
-      }),
-    ]);
+  const centreIds = dossiers.map((d) => d.centreId);
+  const dateDelivrance = aujourdhui();
+  const [
+    factures,
+    chiffres,
+    patients,
+    amo,
+    amc,
+    prescriptions,
+    devis,
+    liens,
+    delivrances,
+    pecs,
+    centres,
+    tauxTva,
+  ] = await Promise.all([
+    client.facture.findMany({ where: { dossierId: { in: ids }, ...BROUILLON_DOSSIER } }),
+    client.dossier.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, surdicecite: true },
+    }),
+    client.patient.findMany({
+      where: { id: { in: patientIds } },
+      select: selectionClient,
+    }),
+    client.couvertureAmo.findMany({
+      where: { patientId: { in: patientIds } },
+      select: {
+        patientId: true,
+        c2s: true,
+        origine: true,
+        derniereLectureVitale: true,
+        updatedAt: true,
+        finDroits: true,
+      },
+    }),
+    client.couvertureAmc.findMany({
+      where: { patientId: { in: patientIds } },
+      select: { patientId: true },
+    }),
+    client.prescription.findMany({
+      where: { dossierId: { in: ids } },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      select: {
+        dossierId: true,
+        datePrescription: true,
+        oreilles: true,
+        controles: true,
+        prescripteur: { select: { specialite: true, formationOtologie: true, rpps: true } },
+      },
+    }),
+    lireDevisSignes(client, ids),
+    client.essaiAppareil.findMany({
+      where: { retireLe: null, essai: { dossierId: { in: ids } } },
+      select: {
+        oreille: true,
+        essai: { select: { dossierId: true } },
+        appareil: { select: { id: true, numeroSerie: true } },
+      },
+    }),
+    client.delivrance.findMany({
+      where: { patientId: { in: patientIds }, annuleeLe: null },
+      select: { patientId: true, oreille: true, dateDelivrance: true },
+    }),
+    client.priseEnCharge.findMany({
+      where: { dossierId: { in: ids } },
+      select: {
+        dossierId: true,
+        statut: true,
+        montantAccordeCentimes: true,
+        justificatifCle: true,
+      },
+    }),
+    client.centre.findMany({
+      where: { id: { in: centreIds } },
+      select: { id: true, ...selectionVendeur },
+    }),
+    tauxTvaDates(client),
+  ]);
+  const saisies = await client.ligneFacture.findMany({
+    where: { factureId: { in: factures.map((f) => f.id) } },
+    orderBy: { rang: 'asc' },
+  });
 
   const offres = new Map(devis.map((d) => [d.dossierId, offreRetenue(d)]));
   const lignes = [...offres.values()].flatMap((o) => o?.lignes ?? []);
@@ -283,33 +363,36 @@ async function evaluerFactures(
     ...new Set([
       ...codesModeles.map((c) => c.code),
       ...lignes.flatMap((l) => (l.codeLpp ? [l.codeLpp] : [])),
+      ...saisies.flatMap((l) => (l.codeLpp ? [l.codeLpp] : [])),
     ]),
   ];
-  const tarifs = await tarifsParDate(
-    factures.map((f) => depuisDate(f.dateDelivrance)),
-    codes,
-  );
+  const [audio, decrits] = await Promise.all([
+    tarifsAudioEnVigueur(dateDelivrance, versClientLpp(client)),
+    decrireCodesLpp(codes, { date: dateDelivrance, client: versClientLpp(client) }),
+  ]);
+  const tarifsCodes = new Map(decrits.map((d) => [d.code, d]));
+  const tarifLpp = (code: string | null) => (code ? tarifsCodes.get(code)?.tarif : null) ?? null;
 
   const resultat = new Map<string, FactureEvaluee>();
   for (const dossier of dossiers) {
     const ligneFacture = factures.find((f) => f.dossierId === dossier.id);
     const patient = patients.find((p) => p.id === dossier.patientId);
     const chiffre = chiffres.find((c) => c.id === dossier.id);
-    if (!ligneFacture || !patient || !chiffre) {
+    const centre = centres.find((c) => c.id === dossier.centreId);
+    if (!ligneFacture || !patient || !chiffre || !centre) {
       continue;
     }
-    const dateDelivrance = depuisDate(ligneFacture.dateDelivrance);
-    const duJour = tarifs.get(dateDelivrance);
-    if (!duJour?.audio) {
+    const factureId = ligneFacture.id;
+    if (!audio) {
       resultat.set(dossier.id, {
         dateDelivrance,
+        factureId,
         facture: null,
         controle: SANS_TARIF,
         etat: etatFacture(SANS_TARIF),
       });
       continue;
     }
-    const tarifLpp = (code: string | null) => (code ? duJour.codes.get(code)?.tarif : null) ?? null;
     const couverture = amo.find((a) => a.patientId === dossier.patientId);
     const c2s = couverture?.c2s ?? false;
     const surdicecite = chiffre.surdicecite === 'OUI';
@@ -325,7 +408,8 @@ async function evaluerFactures(
       c2s,
       surdicecite,
       tauxAMO: devis.find((d) => d.dossierId === dossier.id)?.tauxAmo ?? 0,
-      tarifs: duJour.audio,
+      tarifs: audio,
+      tauxTva,
       montantAccorde:
         pec?.statut === 'ACCORDEE' && pec.montantAccordeCentimes !== null
           ? centimes(pec.montantAccordeCentimes)
@@ -343,6 +427,7 @@ async function evaluerFactures(
             libelle: libelleAide(ligne),
             prixTTC: centimes(ligne.prixUnitaireCentimes),
             numeroSerie: lien?.appareil.numeroSerie ?? null,
+            appareilId: lien?.appareil.id ?? null,
             candidatsLpp: codesModeles
               .filter((c) => c.modeleId === modeleId)
               .flatMap(({ code }) => {
@@ -360,25 +445,29 @@ async function evaluerFactures(
           },
         ];
       }),
-      consommables: lignesOffre.flatMap((ligne) => {
-        if (ligne.nature === 'AIDE_AUDITIVE') {
-          return [];
-        }
-        const tarif = tarifLpp(ligne.codeLpp);
-        return [
-          {
-            nature: ligne.nature,
-            libelle: designationConsommableSchema.parse(ligne.designation).nom,
-            quantite: ligne.quantite,
-            prixUnitaire: centimes(ligne.prixUnitaireCentimes),
-            codeLpp: ligne.codeLpp,
-            tarif: tarif && {
-              baseRemboursement: centimes(tarif.baseRemboursementCentimes),
-              naturePrestation: tarif.naturePrestation,
-            },
-          },
-        ];
-      }),
+      consommables: [
+        ...lignesOffre.flatMap((ligne) => {
+          if (ligne.nature === 'AIDE_AUDITIVE') {
+            return [];
+          }
+          return [
+            versConsommable(
+              {
+                nature: ligne.nature,
+                libelle: designationConsommableSchema.parse(ligne.designation).nom,
+                quantite: ligne.quantite,
+                prixUnitaireCentimes: ligne.prixUnitaireCentimes,
+                codeLpp: ligne.codeLpp,
+                accessoireId: ligne.accessoireId,
+              },
+              tarifLpp,
+            ),
+          ];
+        }),
+        ...saisies
+          .filter((ligne) => ligne.factureId === factureId)
+          .map((ligne) => versConsommable(ligne, tarifLpp)),
+      ],
     });
 
     const controle = controlerFacture(facture, {
@@ -413,11 +502,50 @@ async function evaluerFactures(
         offre,
       ),
       pec: pec ? { statut: pec.statut, justificatif: pec.justificatifCle !== null } : null,
-      tarifs: duJour.audio,
+      tarifs: audio,
+      vendeur: versVendeur(centre),
+      client: versClient(patient),
     });
-    resultat.set(dossier.id, { dateDelivrance, facture, controle, etat: etatFacture(controle) });
+    resultat.set(dossier.id, {
+      dateDelivrance,
+      factureId,
+      facture,
+      controle,
+      etat: etatFacture(controle),
+    });
   }
   return resultat;
+}
+
+/** Article du devis ou ligne saisie, au tarif LPP du jour ; un tarif nul ou absent ne rembourse rien. */
+export function versConsommable(
+  ligne: {
+    nature: ConsommableAPreparer['nature'] | 'AIDE_AUDITIVE';
+    libelle: string;
+    quantite: number;
+    prixUnitaireCentimes: number;
+    codeLpp: string | null;
+    accessoireId: string | null;
+  },
+  tarifLpp: (code: string | null) => TarifLu | null,
+): ConsommableAPreparer {
+  const { nature, libelle, quantite, prixUnitaireCentimes, codeLpp, accessoireId } = ligne;
+  if (nature === 'AIDE_AUDITIVE') {
+    throw new ErreurSaisie({}, 'Une aide auditive ne se saisit pas au brouillon.');
+  }
+  const tarif = tarifLpp(codeLpp);
+  return {
+    nature,
+    libelle,
+    quantite,
+    prixUnitaire: centimes(prixUnitaireCentimes),
+    codeLpp,
+    accessoireId,
+    tarif: tarif && {
+      baseRemboursement: centimes(tarif.baseRemboursementCentimes),
+      naturePrestation: tarif.naturePrestation,
+    },
+  };
 }
 
 function jourParis(instant: Date): string {
@@ -432,60 +560,22 @@ function erreursForcees(controles: unknown): readonly Constat[] {
 
 // --- Écritures ------------------------------------------------------------------------------------
 
+type TarifLu = NonNullable<CodeLppDecrit['tarif']>;
+
 async function exigerAFacturer(
   client: Client,
   acteur: UtilisateurConnecte,
   dossierId: string,
 ): Promise<{ dossier: DossierLu; factureId: string }> {
   const dossier = await lireDossier(client, acteur, dossierId);
-  const facture = await client.facturePreparee.findUnique({
-    where: { dossierId },
+  const facture = await client.facture.findFirst({
+    where: { dossierId, ...BROUILLON_DOSSIER },
     select: { id: true },
   });
   if (dossier.statut !== 'A_FACTURER' || !facture) {
     throw new ErreurSaisie({}, MESSAGE_HORS_FILE);
   }
   return { dossier, factureId: facture.id };
-}
-
-/**
- * La date de délivrance se situe après la signature, donc après l'essai, et jamais dans le futur.
- * Source : convention-audioprothesistes.pdf, art. 27, p. 26 ; modele-devis-audio.pdf p. 2 § 5.
- */
-export async function modifierDateDelivrance(
-  acteur: UtilisateurConnecte,
-  dossierId: string,
-  saisie: unknown,
-): Promise<void> {
-  const { dateDelivrance } = valider(dateDelivranceSaisieSchema, saisie);
-  await withAudit(
-    acteur,
-    async (tx) => {
-      const { dossier, factureId } = await exigerAFacturer(tx, acteur, dossierId);
-      const signature = await tx.signatureDevis.findFirst({
-        where: { devis: { dossierId, statut: 'SIGNE' } },
-        select: { dateSignature: true },
-      });
-      if (dateDelivrance > aujourdhui()) {
-        throw ErreurSaisie.surChamp(
-          'dateDelivrance',
-          'La date de délivrance ne peut pas être future.',
-        );
-      }
-      if (signature && dateDelivrance < depuisDate(signature.dateSignature)) {
-        throw ErreurSaisie.surChamp(
-          'dateDelivrance',
-          'La date de délivrance ne peut pas précéder la signature du devis.',
-        );
-      }
-      await tx.facturePreparee.update({
-        where: { id: factureId },
-        data: { dateDelivrance: versDate(dateDelivrance) },
-      });
-      return { dossier, factureId };
-    },
-    ({ dossier, factureId }) => evenementFacture('UPDATE', factureId, dossier, { dateDelivrance }),
-  );
 }
 
 /** L'utilisateur atteste la couverture saisie ; toute modification ultérieure annule ce constat (R22). */
@@ -501,7 +591,7 @@ export async function confirmerCouvertureAmo(
       if (couverture === 0) {
         throw new ErreurSaisie({}, 'Renseigner d’abord la couverture AMO du patient.');
       }
-      await tx.facturePreparee.update({
+      await tx.facture.update({
         where: { id: factureId },
         data: { amoConfirmeeLe: new Date(), amoConfirmeeParId: acteur.id },
       });
@@ -514,7 +604,7 @@ export async function confirmerCouvertureAmo(
 
 const MESSAGE_PEC_HORS_DELAI = 'La prise en charge se saisit de la prescription à la facturation.';
 
-/** La facture préparée n'existe qu'une fois le dossier à facturer : la PEC peut la précéder. */
+/** Le brouillon n'existe qu'une fois le dossier à facturer : la PEC peut le précéder. */
 async function exigerPecPossible(
   client: Client,
   acteur: UtilisateurConnecte,
@@ -524,8 +614,8 @@ async function exigerPecPossible(
   if (!dossierAcceptePec(dossier.statut)) {
     throw new ErreurSaisie({}, MESSAGE_PEC_HORS_DELAI);
   }
-  const facture = await client.facturePreparee.findUnique({
-    where: { dossierId },
+  const facture = await client.facture.findFirst({
+    where: { dossierId, ...BROUILLON_DOSSIER },
     select: { id: true },
   });
   return { dossier, factureId: facture?.id ?? null };
@@ -639,8 +729,9 @@ export async function lireJustificatifPec(
       if (!pec?.justificatifCle || !pec.justificatifType) {
         throw new AccesRefuseError();
       }
-      const facture = await tx.facturePreparee.findUnique({
-        where: { dossierId },
+      const facture = await tx.facture.findFirst({
+        where: { dossierId, nature: 'FACTURE' },
+        orderBy: { id: 'desc' },
         select: { id: true },
       });
       return {
@@ -740,8 +831,8 @@ export async function obtenirFacture(
   }
   const [pec, facture, couverture] = await Promise.all([
     client.priseEnCharge.findUnique({ where: { dossierId } }),
-    client.facturePreparee.findUniqueOrThrow({
-      where: { dossierId },
+    client.facture.findFirstOrThrow({
+      where: { dossierId, ...BROUILLON_DOSSIER },
       select: { amoConfirmeeLe: true },
     }),
     client.couvertureAmo.findUnique({
@@ -775,7 +866,7 @@ export interface FileAFacturer {
 }
 
 /**
- * File « À facturer » du périmètre, les délivrances les plus anciennes d'abord. L'état se recalcule à
+ * File « À facturer » du périmètre, les achats les plus anciens d'abord. L'état se recalcule à
  * chaque affichage : la file est courte, et un état stocké vieillirait avec les droits et les lectures.
  * Une liste n'ouvre aucun dossier : pas de READ (ADR-006).
  */
@@ -787,9 +878,10 @@ export async function listerAFacturer(
   verifierPerimetre(acteur, perimetre);
   const { page, etat } = valider(filtreAFacturerSchema, saisie);
   const centres = centresDuPerimetre(acteur, perimetre);
-  const lignes = await base(acteur).facturePreparee.findMany({
+  const lignes = await base(acteur).facture.findMany({
     where: {
       organisationId: acteur.organisationId,
+      ...BROUILLON_DOSSIER,
       dossier: {
         statut: 'A_FACTURER',
         ...(centres === null ? {} : { centreId: { in: [...centres] } }),
@@ -811,13 +903,11 @@ export async function listerAFacturer(
         },
       },
     },
-    orderBy: [{ dateDelivrance: 'asc' }, { id: 'asc' }],
+    orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
   });
-  const evaluees = await evaluerFactures(
-    acteur,
-    lignes.map((l) => l.dossier),
-  );
-  const toutes = lignes.flatMap(({ dossier }) => {
+  const dossiers = lignes.flatMap((l) => (l.dossier ? [l.dossier] : []));
+  const evaluees = await evaluerFactures(acteur, dossiers);
+  const toutes = dossiers.flatMap((dossier) => {
     const evaluee = evaluees.get(dossier.id);
     return evaluee ? [{ dossier, evaluee }] : [];
   });

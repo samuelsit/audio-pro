@@ -255,9 +255,10 @@ async function creerLien(cible: 'DEVIS' | 'COMPTE_RENDU_ESSAI', expireLe: Date) 
     data: {
       organisationId,
       dossierId: dossier.id,
+      patientId: patient.id,
       cible,
       destinataire: 'PATIENT',
-      pdfCle: `document-${cible}`,
+      pdfCle: cible === 'DEVIS' ? 'devis/document' : 'liens-documents/document',
       expireLe,
       createdById: utilisateurId,
     },
@@ -297,19 +298,19 @@ describe('travailPurgeLiensDocument', () => {
     );
   }
 
-  it('retire le compte rendu d’un lien expiré, une seule fois, et garde le reste', async () => {
+  it('retire un document déposé pour un lien expiré, une seule fois, et garde le reste', async () => {
     const expire = await creerLien('COMPTE_RENDU_ESSAI', new Date('2030-05-01T00:00:00.000Z'));
     await creerLien('DEVIS', new Date('2030-05-01T00:00:00.000Z'));
     const stockage = new FakeDocumentStore();
-    await stockage.put('document-COMPTE_RENDU_ESSAI', new Uint8Array([1]));
-    await stockage.put('document-DEVIS', new Uint8Array([1]));
+    await stockage.put('liens-documents/document', new Uint8Array([1]));
+    await stockage.put('devis/document', new Uint8Array([1]));
     const supprimer = vi.spyOn(stockage, 'delete');
 
     await purgerLiens(stockage);
     await purgerLiens(stockage);
 
     expect(supprimer).toHaveBeenCalledTimes(1);
-    expect(stockage.objets.has('document-DEVIS')).toBe(true);
+    expect(stockage.objets.has('devis/document')).toBe(true);
     await expect(
       prisma().lienDocument.findUniqueOrThrow({ where: { id: expire.id } }),
     ).resolves.toMatchObject({ pdfPurgeLe: INSTANT });

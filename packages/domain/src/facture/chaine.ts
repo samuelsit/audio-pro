@@ -104,7 +104,7 @@ export interface PieceAChainer {
     readonly numeroSerie: string | null;
     readonly quantite: number;
     readonly prixTTC: Centimes;
-    readonly tauxTva: number;
+    readonly tauxTva: number | null;
     readonly montantHT: Centimes;
     readonly montantTva: Centimes;
     readonly amo: Centimes;

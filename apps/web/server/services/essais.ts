@@ -55,7 +55,7 @@ import {
   type EssaiLu,
 } from './essais-socle';
 import { creerRdv } from './agenda';
-import { creerFacturePreparee } from './factures';
+import { creerBrouillonDossier } from './factures';
 import { aujourdhui, type Client } from './patients';
 
 export const LIGNES_PAR_PAGE_ESSAIS = 50;
@@ -342,8 +342,8 @@ export async function changerAppareilEssai(
 
 /**
  * Conclut l'essai par l'achat, une fois le devis signé (modele-devis-audio.pdf p. 2 § 5) : appareils
- * réservés au patient, dossier à facturer et préparation ouverte. Aucune délivrance n'est écrite : sa date
- * sera celle de la facture (étape 14, ADR-015).
+ * réservés au patient, dossier à facturer et brouillon ouvert. Aucune délivrance n'est écrite : sa date
+ * sera celle de la validation de la facture (ADR-028).
  */
 export async function confirmerAchat(
   acteur: UtilisateurConnecte,
@@ -366,7 +366,7 @@ export async function confirmerAchat(
       const essai = await exigerEssaiOuvert(tx, dossierId);
       const evenements = await conclureParAchat(tx, acteur, dossier, essai.id, jour);
       await appliquerTransition(tx, acteur, dossier, 'A_FACTURER');
-      evenements.push(await creerFacturePreparee(tx, acteur, dossier, jour));
+      evenements.push(await creerBrouillonDossier(tx, acteur, dossier));
       return { dossier, essaiId: essai.id, evenements };
     },
     ({ dossier, essaiId, evenements }): EvenementAudit[] => [

@@ -12,8 +12,12 @@ import {
 import { enregistrerPec } from '@/server/services/factures';
 import { aujourdhui } from '@/server/services/patients';
 
+import { confirmerCouvertureVente, validerFacture } from '@/server/services/facturation';
+import { preparerFse } from '@/server/services/fse';
+
 import { creerCatalogueDevis, dossierJusquAchat, identifierCentreA, SCAN } from './devis';
 import { creerJeuDeDonnees } from './donnees';
+import { venteDirecte } from './facturation';
 
 const PHOTO_PNG = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00]);
 
@@ -223,6 +227,7 @@ export async function creerClientComplet(suffixe: string) {
     data: {
       organisationId,
       dossierId: parcours.dossierId,
+      patientId,
       cible: 'DEVIS',
       destinataire: 'PATIENT',
       pdfCle: `document${suffixe}`,
@@ -230,6 +235,18 @@ export async function creerClientComplet(suffixe: string) {
       createdById: utilisateurId,
     },
   });
+  await prisma().stockAccessoire.update({
+    where: { centreId_accessoireId: { centreId: d.centres.a.id, accessoireId: catalogue.piles } },
+    data: { quantite: 5 },
+  });
+  await prisma().prescripteur.update({
+    where: { id: prescripteurId },
+    data: { rpps: `1000000001${suffixe === '' ? '7' : '8'}` },
+  });
+  const venteId = await venteDirecte(d, audio, patientId, catalogue.piles, prescriptionId);
+  await confirmerCouvertureVente(audio, venteId);
+  await validerFacture(audio, venteId);
+  await preparerFse(audio, venteId);
   const inventaire = await prisma().inventaire.create({
     data: { organisationId, centreId: d.centres.a.id, ouvertParId: utilisateurId },
   });
@@ -253,6 +270,7 @@ export async function creerClientComplet(suffixe: string) {
     prescripteurId,
     fabricantId,
     cabineId,
+    venteId,
     typeRdvId: typeRdv.id,
     rdvId,
     reservationId: reservation.id,

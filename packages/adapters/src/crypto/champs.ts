@@ -11,6 +11,8 @@ export const CHAMPS_CHIFFRES: ConfigurationChampsChiffres = {
   MouvementAccessoire: { motif: 'mouvement_accessoire.motif' },
   InventaireLigne: { justification: 'inventaire_ligne.justification' },
   Dossier: { surdicecite: 'dossier.surdicecite' },
+  Facture: { motif: 'facture.motif' },
+  Fse: { contenu: 'fse.contenu' },
   TransitionDossier: { motif: 'transition_dossier.motif' },
   Prescription: { motifForcage: 'prescription.motif_forcage' },
   EssaiAppareil: { motifRetrait: 'essai_appareil.motif_retrait' },
