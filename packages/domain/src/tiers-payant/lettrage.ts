@@ -75,6 +75,7 @@ export function verifierLettrage(
   }
   const lignes = [];
   const totaux = { AMO: 0, AMC: 0 };
+  const parCreance = new Map<string, number>();
   for (const demande of demandes) {
     const creance = creances.find(({ id }) => id === demande.creanceId);
     if (!creance) {
@@ -83,9 +84,12 @@ export function verifierLettrage(
     if (creance.centreId !== reglement.centreId) {
       return { accepte: false, code: 'AUTRE_CENTRE' };
     }
-    if (demande.montantCentimes > creance.soldeCentimes) {
+    // Une même créance peut revenir deux fois dans la saisie : c'est leur somme qui compte.
+    const cumul = (parCreance.get(creance.id) ?? 0) + demande.montantCentimes;
+    if (cumul > creance.soldeCentimes) {
       return { accepte: false, code: 'DEPASSE_SOLDE' };
     }
+    parCreance.set(creance.id, cumul);
     totaux[creance.type] += demande.montantCentimes;
     lignes.push({ ...demande, type: creance.type });
   }

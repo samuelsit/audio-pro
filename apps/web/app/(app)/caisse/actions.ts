@@ -186,6 +186,7 @@ export async function modifierParametresAction(
       compteTva: texte(formData, 'compteTva'),
       compteEcartNegatif: texte(formData, 'compteEcartNegatif'),
       compteEcartPositif: texte(formData, 'compteEcartPositif'),
+      compteCreancesIrrecouvrables: texte(formData, 'compteCreancesIrrecouvrables'),
       ventes: Object.fromEntries(
         NATURES_LIGNE_FACTURE.map((n) => [n, texte(formData, `vente-${n}`)]),
       ),

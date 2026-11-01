@@ -75,8 +75,11 @@ describe('pecSaisieSchema', () => {
     });
   });
 
-  it('à demander : la date peut attendre', () => {
-    const saisie = { statut: 'A_DEMANDER', organisme: 'Mutuelle', datePec: '' };
+  it.each([
+    ['sans date', ''],
+    ['une date saisie est ignorée', '2026-10-20'],
+  ])('à demander : %s', (_, datePec) => {
+    const saisie = { statut: 'A_DEMANDER', organisme: 'Mutuelle', datePec };
     expect(pecSaisieSchema.parse(saisie)).toMatchObject({ statut: 'A_DEMANDER', datePec: null });
   });
 

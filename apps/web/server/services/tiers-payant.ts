@@ -63,6 +63,7 @@ import { ErreurSaisie, valider } from '../erreurs';
 import { centresDuPerimetre } from '../perimetre';
 import { ajouterMaillon, hacheur, txCaisse } from './chaine-caisse';
 import { depuisDate, versDate } from './dossiers';
+import { lireFacture } from './facturation';
 import { aujourdhui } from './patients';
 
 export const LIGNES_PAR_PAGE_TIERS_PAYANT = 50;
@@ -1193,6 +1194,81 @@ export async function obtenirReglement(
   };
 }
 
+export interface CreanceDetail extends CreanceListee {
+  lettrages: { id: string; reference: string; montant: Centimes; creeLe: Date }[];
+  regularisations: {
+    id: string;
+    nature: NatureRegularisation;
+    montant: Centimes;
+    motif: string;
+    creeLe: Date;
+  }[];
+  rejets: {
+    id: string;
+    dateRejet: string;
+    code: string | null;
+    motif: string;
+    resolution: ResolutionRejet | null;
+  }[];
+  regulariser: boolean;
+}
+
+/** Détail d'une créance : il nomme le patient et les motifs, sa lecture est journalisée. */
+export async function obtenirCreance(
+  acteur: UtilisateurConnecte,
+  creanceId: string,
+): Promise<CreanceDetail> {
+  const { brute, lettrages, regularisations, rejets } = await withAudit(
+    acteur,
+    async (tx) => {
+      const { centreId, patientId, id } = await lireCreance(tx, acteur, creanceId);
+      exigerSuivi(acteur, centreId);
+      const [brute, lettrages, regularisations, rejets] = await Promise.all([
+        tx.creance.findUniqueOrThrow({ where: { id }, select: selectionCreance }),
+        tx.lettrage.findMany({
+          where: { creanceId },
+          orderBy: { id: 'asc' },
+          select: {
+            id: true,
+            montantCentimes: true,
+            createdAt: true,
+            reglement: { select: { reference: true } },
+          },
+        }),
+        tx.regularisationCreance.findMany({ where: { creanceId }, orderBy: { rang: 'asc' } }),
+        tx.rejetCreance.findMany({ where: { creanceId }, orderBy: { id: 'asc' } }),
+      ]);
+      return { brute, lettrages, regularisations, rejets, centreId, patientId, id };
+    },
+    ({ centreId, patientId, id }) =>
+      evenementCreance('READ', { id, centreId, patientId }, { lecture: 'CREANCE' }),
+  );
+  return {
+    ...versCreanceListee(brute, aujourdhui()),
+    lettrages: lettrages.map((l) => ({
+      id: l.id,
+      reference: l.reglement.reference,
+      montant: centimes(l.montantCentimes),
+      creeLe: l.createdAt,
+    })),
+    regularisations: regularisations.map((r) => ({
+      id: r.id,
+      nature: r.nature,
+      montant: centimes(r.montantCentimes),
+      motif: r.motif,
+      creeLe: r.createdAt,
+    })),
+    rejets: rejets.map((r) => ({
+      id: r.id,
+      dateRejet: depuisDate(r.dateRejet),
+      code: r.code,
+      motif: r.motif,
+      resolution: r.resolution,
+    })),
+    regulariser: peutRegulariserTiersPayant(acteur.role),
+  };
+}
+
 export interface CreanceDeFacture {
   id: string;
   type: TypeCreance;
@@ -1208,7 +1284,9 @@ export async function creancesDeLaFacture(
   acteur: UtilisateurConnecte,
   factureId: string,
 ): Promise<CreanceDeFacture[]> {
-  const lignes = await base(acteur).creance.findMany({
+  const client = base(acteur);
+  await lireFacture(client, acteur, factureId);
+  const lignes = await client.creance.findMany({
     where: { factureId, organisationId: acteur.organisationId },
     orderBy: { type: 'asc' },
     select: {

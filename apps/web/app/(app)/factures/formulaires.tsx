@@ -9,6 +9,7 @@ import { useActionState } from 'react';
 
 import {
   BoutonEnvoi,
+  CaseACocher,
   ChampTexte,
   ListeDeroulante,
   MessageFormulaire,
@@ -26,6 +27,7 @@ import {
   creerVenteDirecteAction,
   emettreAvoirAction,
   envoyerFactureAction,
+  modifierTiersPayantAction,
   preparerFseAction,
   validerAction,
 } from './actions';
@@ -134,6 +136,36 @@ function BoutonAction({
 
 export function BoutonValider({ factureId }: { factureId: string }) {
   return <BoutonAction action={validerAction.bind(null, factureId)} libelle="Valider la facture" />;
+}
+
+/** Décoché, le patient avance la part AMO : aucune créance sur la caisse à la validation. */
+export function FormulaireTiersPayant({
+  factureId,
+  dossierId,
+  tiersPayantAmo,
+}: {
+  factureId: string;
+  dossierId: string | null;
+  tiersPayantAmo: boolean;
+}) {
+  const [etat, envoyer] = useActionState(
+    modifierTiersPayantAction.bind(null, factureId, dossierId),
+    ETAT_INITIAL,
+  );
+  return (
+    <form action={envoyer} className="grid gap-2">
+      <MessageFormulaire etat={etat} />
+      <CaseACocher
+        etat={etat}
+        nom="tiersPayantAmo"
+        libelle="Tiers payant AMO (le patient n’avance pas la part de la caisse)"
+        defaut={tiersPayantAmo}
+      />
+      <div>
+        <BoutonEnvoi variant="outline">Enregistrer le tiers payant</BoutonEnvoi>
+      </div>
+    </form>
+  );
 }
 
 export function BoutonConfirmerCouverture({ factureId }: { factureId: string }) {

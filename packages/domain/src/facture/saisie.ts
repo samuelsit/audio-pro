@@ -135,7 +135,8 @@ export const pecSaisieSchema = z
       numeroAdherent: saisie.numeroAdherent,
       numeroAccord,
       montantAccordeCentimes: montant ?? null,
-      datePec,
+      // Rien n'est encore parti : une date d'envoi n'aurait pas de sens (contrainte CHECK).
+      datePec: statut === 'A_DEMANDER' ? null : datePec,
       validiteFin,
       complementaireId: saisie.complementaireId,
       devisId: saisie.devisId,

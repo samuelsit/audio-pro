@@ -3,6 +3,7 @@ import {
   fseAEnvoyer,
   LIBELLES_NATURES_PIECE,
   LIBELLES_OREILLES,
+  LIBELLES_STATUTS_CREANCE,
   LIBELLES_STATUTS_FACTURE,
   LIBELLES_STATUTS_FSE,
   peutEmettreAvoir,
@@ -27,6 +28,7 @@ import { formaterDate } from '@/lib/format';
 import { ouIntrouvable, requireSession } from '@/server/auth/gardes';
 import { listerAccessoires } from '@/server/services/catalogue';
 import { obtenirFactureDetail, type FactureDetaillee } from '@/server/services/facturation';
+import { creancesDeLaFacture, type CreanceDeFacture } from '@/server/services/tiers-payant';
 
 import { BlocEncaissements } from '../../caisse/bloc-encaissements';
 import { ListeConstats } from '../../dossiers/[id]/liste-constats';
@@ -39,6 +41,7 @@ import {
   FormulaireAvoir,
   FormulaireEnvoi,
   FormulaireLigne,
+  FormulaireTiersPayant,
 } from '../formulaires';
 
 export const metadata: Metadata = { title: 'Facture – HA-Gestion' };
@@ -122,6 +125,11 @@ function BlocBrouillon({
         <BoutonConfirmerCouverture factureId={detail.id} />
       ) : null}
       <FormulaireLigne factureId={detail.id} accessoires={accessoires} />
+      <FormulaireTiersPayant
+        factureId={detail.id}
+        dossierId={null}
+        tiersPayantAmo={detail.tiersPayantAmo}
+      />
       <div className="flex flex-wrap gap-2">
         {validable && evaluation?.etat === 'PRET' ? <BoutonValider factureId={detail.id} /> : null}
         {detail.dossierId === null ? (
@@ -133,6 +141,24 @@ function BlocBrouillon({
         ) : null}
       </div>
     </div>
+  );
+}
+
+function BlocCreances({ creances }: { creances: readonly CreanceDeFacture[] }) {
+  return (
+    <section className="grid gap-2">
+      <h2 className="text-lg font-medium">Tiers payant</h2>
+      <ul className="grid gap-1 text-sm">
+        {creances.map((c) => (
+          <li key={c.id}>
+            <Link href={`/tiers-payant/creances/${c.id}`} className="underline underline-offset-2">
+              {c.type} : {c.organisme}
+            </Link>
+            {`, ${formatEuros(c.montant)}, solde ${formatEuros(c.solde)}, ${LIBELLES_STATUTS_CREANCE[c.statut].toLowerCase()}, échéance ${formaterDate(c.echeanceAttendue)}`}
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
@@ -168,6 +194,7 @@ export default async function PageFacture({ params }: PageProps<'/factures/[id]'
   const facture = detail.nature === 'FACTURE';
   const lignesCreditables = detail.lignes.filter((l) => l.resteACrediter > 0);
   const accessoires = brouillon ? await listerAccessoires(acteur) : [];
+  const creances = validee && facture ? await creancesDeLaFacture(acteur, id) : [];
   const titre = `${LIBELLES_NATURES_PIECE[detail.nature]} ${detail.numero ?? '(brouillon)'}`;
   return (
     <div className="grid gap-6">
@@ -222,6 +249,8 @@ export default async function PageFacture({ params }: PageProps<'/factures/[id]'
           <dd className="text-right">{formatEuros(detail.totaux.resteACharge)}</dd>
         </dl>
       ) : null}
+
+      {creances.length > 0 ? <BlocCreances creances={creances} /> : null}
 
       {validee && facture ? <BlocEncaissements factureId={id} /> : null}
 

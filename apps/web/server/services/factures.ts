@@ -690,6 +690,21 @@ function evenementPec(
   };
 }
 
+/** La demande reprend un devis de ce dossier, jamais celui d'un autre. */
+async function exigerDevisDuDossier(
+  client: Client,
+  devisId: string | null,
+  dossierId: string,
+): Promise<void> {
+  if (devisId === null) {
+    return;
+  }
+  const devis = await client.devis.count({ where: { id: devisId, dossierId } });
+  if (devis === 0) {
+    throw new AccesRefuseError();
+  }
+}
+
 /** Le référentiel fixe l'organisme et, à défaut de saisie, la plateforme. */
 async function organismeDeLaPec(
   client: Client,
@@ -728,6 +743,7 @@ export async function enregistrerPec(
     throw ErreurSaisie.surChamp('justificatif', verification.message);
   }
   await exigerPecPossible(base(acteur), acteur, dossierId);
+  await exigerDevisDuDossier(base(acteur), donnees.devisId, dossierId);
   const nouveau = verification?.valide
     ? { cle: `prises-en-charge/${randomUUID()}`, type: verification.type }
     : null;
@@ -938,6 +954,7 @@ export interface PecAffichee {
   validiteFin: string | null;
   complementaireId: string | null;
   referencePlateforme: string | null;
+  offre: string | null;
   demande: readonly LigneDemandePec[];
   justificatif: boolean;
 }
@@ -955,6 +972,7 @@ function versPecAffichee(pec: Prisma.PriseEnChargeGetPayload<object>): PecAffich
     validiteFin: pec.validiteFin && depuisDate(pec.validiteFin),
     complementaireId: pec.complementaireId,
     referencePlateforme: pec.referencePlateforme,
+    offre: pec.offre,
     demande: z.array(ligneDemandePecSchema).parse(pec.demande ?? []),
     justificatif: pec.justificatifCle !== null,
   };
@@ -988,6 +1006,7 @@ export interface FactureDetail extends FactureEvaluee {
   /** La couverture est prise en charge d'office : pas de PEC à saisir. */
   c2s: boolean;
   amoConfirmeeLe: string | null;
+  tiersPayantAmo: boolean;
 }
 
 /** Facture du dossier, `null` hors de la file. Le dossier est déjà ouvert et journalisé par l'appelant. */
@@ -1008,7 +1027,7 @@ export async function obtenirFacture(
     client.priseEnCharge.findUnique({ where: { dossierId } }),
     client.facture.findFirstOrThrow({
       where: { dossierId, ...BROUILLON_DOSSIER },
-      select: { amoConfirmeeLe: true },
+      select: { amoConfirmeeLe: true, tiersPayantAmo: true },
     }),
     client.couvertureAmo.findUnique({
       where: { patientId: dossier.patientId },
@@ -1017,6 +1036,7 @@ export async function obtenirFacture(
   ]);
   return {
     ...evaluee,
+    tiersPayantAmo: facture.tiersPayantAmo,
     c2s: couverture?.c2s ?? false,
     amoConfirmeeLe: facture.amoConfirmeeLe?.toISOString() ?? null,
     pec: pec && versPecAffichee(pec),

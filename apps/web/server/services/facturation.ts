@@ -1022,6 +1022,7 @@ export interface FactureDetaillee {
   lignes: LigneDetail[];
   /** Vente directe en brouillon : recalculée à chaque lecture. */
   evaluation: FactureEvaluee | null;
+  tiersPayantAmo: boolean;
   origine: { id: string; numero: string | null } | null;
   avoirs: { id: string; numero: string | null; totalTTC: Centimes }[];
   fse: { statut: StatutFse; motif: string | null; reference: string | null } | null;
@@ -1118,6 +1119,7 @@ export async function obtenirFactureDetail(
           totalTTC: centimes(a.totalTtcCentimes),
         })),
         fse: piece.fse,
+        tiersPayantAmo: piece.tiersPayantAmo,
         empreinte: piece.empreinte,
         canaux: canauxDisponibles(piece.patient),
       };

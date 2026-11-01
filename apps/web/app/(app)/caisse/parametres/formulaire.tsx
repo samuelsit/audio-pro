@@ -137,6 +137,13 @@ export function FormulaireParametres({
         defaut={comptes.compteEcartPositif}
         requis
       />
+      <ChampTexte
+        etat={etat}
+        nom="compteCreancesIrrecouvrables"
+        libelle="Créances d’organismes abandonnées"
+        defaut={comptes.compteCreancesIrrecouvrables}
+        requis
+      />
       {NATURES_LIGNE_FACTURE.map((nature) => (
         <ChampTexte
           key={nature}

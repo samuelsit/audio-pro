@@ -44,6 +44,7 @@ import {
   listerRejets,
   listerReglements,
   marquerRelancee,
+  obtenirCreance,
   obtenirReglement,
   resoudreRejet,
   syntheseParOrganisme,
@@ -533,6 +534,53 @@ describe('avoir sur une créance', () => {
     expect((await creancesDeLaFacture(audio, factureId)).at(-1)).toMatchObject({ solde: 0 });
     expect(dossierId).toBeTruthy();
     expect((await obtenirReglement(admin, reglementId)).reste).toBe(30_000);
+  });
+});
+
+describe('droits et lecture', () => {
+  it('ouvrir une créance écrit une ligne READ', async () => {
+    const { amc } = await factureValidee();
+    const detail = await obtenirCreance(audio, amc.id);
+    expect(detail).toMatchObject({ organisme: 'Mutuelle Démo', regulariser: false });
+    const lectures = await prisma().journalAudit.count({
+      where: { action: 'READ', entiteType: 'CREANCE', entiteId: amc.id },
+    });
+    expect(lectures).toBe(1);
+  });
+
+  it('refuse les créances d’une facture d’un autre centre', async () => {
+    const { factureId, amc } = await factureValidee();
+    const autreCentre = d.acteurs.assistantB;
+    await expect(creancesDeLaFacture(autreCentre, factureId)).rejects.toBeInstanceOf(
+      AccesRefuseError,
+    );
+    await expect(obtenirCreance(autreCentre, amc.id)).rejects.toBeInstanceOf(AccesRefuseError);
+  });
+
+  it('refuse le devis d’un autre dossier dans une demande', async () => {
+    const premier = await dossierJusquAchat(d, audio, catalogue);
+    const second = await dossierJusquAchat(d, audio, catalogue);
+    await expect(
+      enregistrerPec(
+        audio,
+        premier.dossierId,
+        { statut: 'A_DEMANDER', organisme: 'Mutuelle Démo', devisId: second.devisId },
+        VIDE,
+      ),
+    ).rejects.toBeInstanceOf(AccesRefuseError);
+  });
+
+  it('une PEC à demander datée s’enregistre sans sa date', async () => {
+    const { dossierId } = await dossierJusquAchat(d, audio, catalogue);
+    await enregistrerPec(
+      audio,
+      dossierId,
+      { statut: 'A_DEMANDER', organisme: 'Mutuelle Démo', datePec: aujourdhui() },
+      VIDE,
+    );
+    await expect(
+      prisma().priseEnCharge.findUniqueOrThrow({ where: { dossierId } }),
+    ).resolves.toMatchObject({ datePec: null });
   });
 });
 

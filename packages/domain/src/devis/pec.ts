@@ -1,6 +1,7 @@
 import type { StatutDossier } from '../dossier/etats';
 import { repartirAmc } from '../facture/preparation';
 import { centimes, type Centimes } from '../money';
+import type { LigneDemandePec } from '../ports/pec-gateway';
 import type { OffreCalculee } from './calcul';
 
 const STATUTS_PEC_POSSIBLE: readonly StatutDossier[] = [
@@ -37,6 +38,32 @@ export function amcDepuisPec(montant: Centimes, offre: OffreCalculee): AmcPoste 
   const partDu = (rang: number): Centimes | null =>
     postes[rang] ? (parts[rang] as Centimes) : null;
   return { amcDroite: partDu(0), amcGauche: partDu(1), amcConsommables: partDu(2) };
+}
+
+/**
+ * Lignes d'une demande de PEC, préremplies depuis les postes d'une offre : on demande la part estimée, sinon tout ce
+ * qui reste après l'AMO.
+ * À VÉRIFIER : la demande ne suit pas un format fournisseur, docs/vendor/pec n'existe pas (R23).
+ */
+export function lignesDemandeDepuisOffre(offre: OffreCalculee): LigneDemandePec[] {
+  const postes = [
+    { libelle: 'Oreille droite', poste: offre.droite },
+    { libelle: 'Oreille gauche', poste: offre.gauche },
+    { libelle: 'Consommables, piles et accessoires', poste: offre.consommables },
+  ];
+  return postes.flatMap(({ libelle, poste }) =>
+    poste
+      ? [
+          {
+            libelle,
+            codeLpp: null,
+            prixTtcCentimes: poste.ttc,
+            amoCentimes: poste.amo,
+            montantDemandeCentimes: poste.amc ?? poste.resteApresAMO,
+          },
+        ]
+      : [],
+  );
 }
 
 /** Le devis figé ne porte plus la PEC : plafonnée au reste, elle diffère de sa part AMC. Un refus vaut 0. */

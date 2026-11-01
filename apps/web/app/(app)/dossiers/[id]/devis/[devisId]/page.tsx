@@ -4,6 +4,7 @@ import {
   formatEuros,
   LIBELLES_RUBRIQUES_OFFRE,
   LIBELLES_STATUTS_DEVIS,
+  lignesDemandeDepuisOffre,
   type Centimes,
 } from '@ha/domain';
 import type { Metadata } from 'next';
@@ -26,11 +27,15 @@ import {
 import { formaterDate } from '@/lib/format';
 import type { UtilisateurConnecte } from '@/server/auth/acces';
 import { ouIntrouvable, requireSession } from '@/server/auth/gardes';
+import { pecGatewayDisponible } from '@/server/pec-gateway';
 import { lignesCatalogueDevis, obtenirDevis } from '@/server/services/devis';
+import { listerComplementaires } from '@/server/services/complementaires';
 import { appareilsProposables } from '@/server/services/essais';
+import { lirePecDossier } from '@/server/services/factures';
 import { aujourdhui } from '@/server/services/patients';
 
 import { BlocAcomptes } from '../../../../caisse/bloc-encaissements';
+import { BoutonsPlateformePec, FormulairePec } from '../../facture/formulaires-facture';
 import { ListeConstats } from '../../liste-constats';
 import {
   BoutonEmettre,
@@ -81,6 +86,15 @@ export default async function PageDevis({ params }: PageProps<'/dossiers/[id]/de
   const identifiants = { dossierId: id, devisId, statut: devis.statut };
   const rubriques = devis.offres.map((o) => o.rubrique);
   const proposables = actions.demarrerEssai ? await appareilsDuDevis(acteur, id, devisId) : [];
+  const [pecDossier, complementaires] = await Promise.all([
+    lirePecDossier(acteur, id),
+    listerComplementaires(acteur),
+  ]);
+  const offresDemandees = (calcul?.offres ?? []).map((offre) => ({
+    rubrique: offre.rubrique,
+    libelle: LIBELLES_RUBRIQUES_OFFRE[offre.rubrique],
+    lignes: lignesDemandeDepuisOffre(offre),
+  }));
 
   return (
     <div className="grid gap-6">
@@ -278,6 +292,21 @@ export default async function PageDevis({ params }: PageProps<'/dossiers/[id]/de
           ) : null}
         </dl>
       </Bloc>
+
+      {pecDossier.saisissable ? (
+        <Bloc titre="Prise en charge complémentaire">
+          <FormulairePec
+            dossierId={id}
+            pec={pecDossier.pec}
+            complementaires={complementaires}
+            devisId={devisId}
+            offres={offresDemandees}
+          />
+          {pecGatewayDisponible() && pecDossier.pec ? (
+            <BoutonsPlateformePec dossierId={id} reference={pecDossier.pec.referencePlateforme} />
+          ) : null}
+        </Bloc>
+      ) : null}
 
       {devis.pecDifferente ? (
         <Alert>

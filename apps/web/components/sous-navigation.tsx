@@ -46,6 +46,14 @@ export const LIENS_GESTION_CAISSE: readonly LienSousNavigation[] = [
   { href: '/caisse/parametres', libelle: 'Paramètres' },
 ];
 
+export const LIENS_TIERS_PAYANT: readonly LienSousNavigation[] = [
+  { href: '/tiers-payant', libelle: 'Créances' },
+  { href: '/tiers-payant/reglements', libelle: 'Règlements' },
+  { href: '/tiers-payant/rejets', libelle: 'Rejets à traiter' },
+  { href: '/tiers-payant/impayes', libelle: 'Impayés à relancer' },
+  { href: '/tiers-payant/complementaires', libelle: 'Complémentaires' },
+];
+
 export const LIENS_PILOTAGE: readonly LienSousNavigation[] = [
   { href: '/tableau-de-bord', libelle: 'Tableau de bord' },
   { href: '/renouvellements', libelle: 'Renouvellements' },

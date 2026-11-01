@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
-import { texte, type EtatFormulaire } from '@/lib/formulaire';
+import { coche, texte, type EtatFormulaire } from '@/lib/formulaire';
 import { executer } from '@/server/actions';
 import { requireSession } from '@/server/auth/gardes';
 import { notifier } from '@/server/notifications';
@@ -13,6 +13,7 @@ import {
   ajouterLigneBrouillon,
   confirmerCouvertureVente,
   creerVenteDirecte,
+  modifierTiersPayantAmo,
   retirerLigneBrouillon,
   validerFacture,
 } from '@/server/services/facturation';
@@ -78,6 +79,24 @@ export async function confirmerCouvertureAction(factureId: string): Promise<Etat
   const acteur = await requireSession();
   const erreur = await executer(() => confirmerCouvertureVente(acteur, factureId));
   return erreur ?? terminer(factureId, 'Couverture AMO confirmée.');
+}
+
+export async function modifierTiersPayantAction(
+  factureId: string,
+  dossierId: string | null,
+  _: EtatFormulaire,
+  formData: FormData,
+): Promise<EtatFormulaire> {
+  const acteur = await requireSession();
+  const saisie = { tiersPayantAmo: coche(formData, 'tiersPayantAmo') };
+  const erreur = await executer(() => modifierTiersPayantAmo(acteur, factureId, saisie));
+  if (erreur) {
+    return erreur;
+  }
+  if (dossierId) {
+    revalidatePath(`/dossiers/${dossierId}`);
+  }
+  return terminer(factureId, 'Tiers payant enregistré.');
 }
 
 export async function abandonnerAction(factureId: string): Promise<void> {

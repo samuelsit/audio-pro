@@ -22,6 +22,7 @@ import { ouIntrouvable, requireSession } from '@/server/auth/gardes';
 import { listerDevisDuDossier } from '@/server/services/devis';
 import { appareilsProposables, obtenirEssai } from '@/server/services/essais';
 import { obtenirDossier, type PrescriptionAffichee } from '@/server/services/dossiers';
+import { listerComplementaires } from '@/server/services/complementaires';
 import { lirePecDossier, obtenirFacture } from '@/server/services/factures';
 import { piecesDuDossier } from '@/server/services/facturation';
 import { listerLiensDocument } from '@/server/services/liens-document';
@@ -158,7 +159,10 @@ export default async function PageDossier({ params }: PageProps<'/dossiers/[id]'
   );
 
   const bilanReference = dossier.bilans.find((b) => b.id === dossier.bilanReferenceId);
-  const pecDossier = await lirePecDossier(acteur, dossier.id);
+  const [pecDossier, complementaires] = await Promise.all([
+    lirePecDossier(acteur, dossier.id),
+    listerComplementaires(acteur),
+  ]);
   const liens = await listerLiensDocument(acteur, dossier.id);
 
   return (
@@ -235,7 +239,11 @@ export default async function PageDossier({ params }: PageProps<'/dossiers/[id]'
 
       {pecDossier.saisissable ? (
         <Bloc titre="Prise en charge complémentaire">
-          <FormulairePec dossierId={dossier.id} pec={pecDossier.pec} />
+          <FormulairePec
+            dossierId={dossier.id}
+            pec={pecDossier.pec}
+            complementaires={complementaires}
+          />
         </Bloc>
       ) : null}
 
@@ -260,6 +268,7 @@ export default async function PageDossier({ params }: PageProps<'/dossiers/[id]'
             dossierId={dossier.id}
             detail={facture}
             validable={peutValiderFacture(acteur.role)}
+            complementaires={complementaires}
           />
         </Bloc>
       ) : null}

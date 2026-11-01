@@ -60,6 +60,11 @@ describe('verifierLettrage', () => {
     ['autre centre', [demande('ailleurs', 100)], 'AUTRE_CENTRE'],
     ['plus que le solde', [demande('amo1', 60_001)], 'DEPASSE_SOLDE'],
     [
+      'la même créance deux fois, au-delà du solde',
+      [demande('amo1', 40_000), demande('amo1', 20_001)],
+      'DEPASSE_SOLDE',
+    ],
+    [
       'plus que la part AMO du règlement',
       [demande('amo1', 60_000), demande('amo2', 40_001)],
       'DEPASSE_REGLEMENT',

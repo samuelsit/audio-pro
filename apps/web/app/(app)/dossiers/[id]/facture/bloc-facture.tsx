@@ -19,8 +19,10 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { formaterDate, formaterJour } from '@/lib/format';
+import type { ComplementaireVue } from '@/server/services/complementaires';
 import type { FactureDetail } from '@/server/services/factures';
 
+import { FormulaireTiersPayant } from '../../../factures/formulaires';
 import { ListeConstats } from '../liste-constats';
 import { BoutonConfirmationAmo, BoutonValidation, FormulairePec } from './formulaires-facture';
 
@@ -113,10 +115,12 @@ export function BlocFacture({
   dossierId,
   detail,
   validable,
+  complementaires,
 }: {
   dossierId: string;
   detail: FactureDetail;
   validable: boolean;
+  complementaires: readonly ComplementaireVue[];
 }) {
   const { etat, controle, facture, dateDelivrance, pec, c2s, amoConfirmeeLe, factureId } = detail;
   const aConfirmer = controle.erreurs.some((c) => c.code === 'COUVERTURE_AMO_A_CONFIRMER');
@@ -161,6 +165,14 @@ export function BlocFacture({
         </section>
       ) : null}
       <section className="grid gap-2">
+        <h3 className="text-sm font-medium">Tiers payant</h3>
+        <FormulaireTiersPayant
+          factureId={factureId}
+          dossierId={dossierId}
+          tiersPayantAmo={detail.tiersPayantAmo}
+        />
+      </section>
+      <section className="grid gap-2">
         <h3 className="text-sm font-medium">Prise en charge complémentaire</h3>
         {c2s ? (
           <p className="text-sm text-muted-foreground">
@@ -175,7 +187,7 @@ export function BlocFacture({
                 Saisir la prise en charge
               </summary>
               <div className="mt-3">
-                <FormulairePec dossierId={dossierId} pec={pec} />
+                <FormulairePec dossierId={dossierId} pec={pec} complementaires={complementaires} />
               </div>
             </details>
           </>

@@ -3,7 +3,12 @@ import { describe, expect, it } from 'vitest';
 import { STATUTS_DOSSIER } from '../dossier/etats';
 import { centimes } from '../money';
 import type { OffreCalculee, PosteCalcule } from './calcul';
-import { amcDepuisPec, dossierAcceptePec, pecDiffereDuDevis } from './pec';
+import {
+  amcDepuisPec,
+  dossierAcceptePec,
+  lignesDemandeDepuisOffre,
+  pecDiffereDuDevis,
+} from './pec';
 
 function poste(resteApresAMO: number, amc: number | null = null): PosteCalcule {
   return {
@@ -86,5 +91,28 @@ describe('pecDiffereDuDevis', () => {
     },
   ])('$cas', ({ offres, attendu }) => {
     expect(pecDiffereDuDevis(centimes(30000), offres)).toBe(attendu);
+  });
+});
+
+describe('lignesDemandeDepuisOffre', () => {
+  it('reprend les postes présents, part estimée d’abord', () => {
+    const base = offre(50_000, null, 2_000);
+    const avecEstimation = { ...base, consommables: poste(2_000, 500) };
+    expect(lignesDemandeDepuisOffre(avecEstimation as OffreCalculee)).toEqual([
+      {
+        libelle: 'Oreille droite',
+        codeLpp: null,
+        prixTtcCentimes: 50_000,
+        amoCentimes: 0,
+        montantDemandeCentimes: 50_000,
+      },
+      {
+        libelle: 'Consommables, piles et accessoires',
+        codeLpp: null,
+        prixTtcCentimes: 2_000,
+        amoCentimes: 0,
+        montantDemandeCentimes: 500,
+      },
+    ]);
   });
 });

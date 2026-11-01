@@ -145,6 +145,8 @@ describe('recapitulatifTva', () => {
     ['avec tiers payant', { tiersPayantAmo: true }, false],
     ['facture antérieure', {}, false],
   ])('net à régler : %s', (_, surcharge, attendu) => {
-    expect(rendreFactureHtml({ ...VUE, ...surcharge }, { duplicata: false }).includes('Net à régler')).toBe(attendu);
+    expect(
+      rendreFactureHtml({ ...VUE, ...surcharge }, { duplicata: false }).includes('Net à régler'),
+    ).toBe(attendu);
   });
 });
