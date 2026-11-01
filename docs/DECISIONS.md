@@ -849,3 +849,42 @@ L'ADR-013 traçait les rendez-vous d'essai sans agenda, Doctolib le restant. L'a
 - Sans type d'essai actif, le bloc Essai renvoie au paramétrage : les types par défaut en fournissent trois.
 - Une cabine étant requise par ces types, un centre sans cabine doit les paramétrer.
 - Un RDV saisi par erreur, puis complété d'un compte rendu, reste définitif (déjà noté dans l'ADR-013).
+
+---
+
+## ADR-028 – Facturation : Facture issue de FacturePreparee, avoirs, chaîne et préparation de la FSE
+
+- **Date** : 2026-11-01
+- **Statut** : acceptée. Complète l'ADR-014 et l'ADR-015 ; remplace dans l'ADR-014 l'interdiction de numéroter et la date de délivrance saisie, et dans R18 les constantes de TVA.
+
+### Contexte
+
+`FacturePreparee` ne portait ni numéro ni ligne : elle attendait un export Cosium abandonné. L'étape 14 en fait la facture réelle, sans second modèle. Aucun service n'écrivait `Delivrance`, donc le délai de 4 ans ne voyait aucune vente. `docs/vendor/areafse` est vide et le texte sur les logiciels de caisse n'est pas dans docs/ref.
+
+### Décision
+
+- **Une table** : `facture_preparee` est renommée `facture`, et les lignes existantes sont reprises : brouillon si le dossier est `A_FACTURER`, `ABANDONNEE` sans numéro sinon. Facture et avoir partagent table, lignes, série, chaîne et PDF (`nature`, `facture_origine_id`). `dossier_id` devient nullable pour la vente directe ; un index partiel garde un seul brouillon par dossier.
+- **Lignes** : les lignes issues du devis restent calculées à la lecture (motif de l'ADR-014) ; les lignes saisies sont stockées dès le brouillon. Toutes se figent à la validation, qui relit et recontrôle dans sa transaction.
+- **Date** : date de facture = date de délivrance = jour de validation, non antidatable (décision du 2026-11-01). La saisie disparaît, et un brouillon se calcule au jour courant.
+- **Numérotation** : ligne `serie_facture` verrouillée par `INSERT … ON CONFLICT DO UPDATE`, ce qui couvre le premier numéro. Le rollback rend le numéro. L'attribution de la date sous ce verrou garde la série chronologique.
+- **Chaîne** : une par centre, dans `evenement_caisse`, journal et chaîne à la fois. L'étape 15 y ajoutera ses types. `verifierChaineCaisse` recalcule aussi chaque pièce depuis ses lignes, pour détecter une ligne modifiée à journal intact, et compare la tête pour détecter un dernier maillon retiré. Le hachage passe par le port `Hacheur`, `node:*` étant interdit au domaine.
+- **Ordre des verrous** : série, puis tête de chaîne, puis lignes métier.
+- **Gel** : triggers `facture_figee`, `ligne_facture_figee`, `evenement_caisse_ajout_seul`, et `DELETE` retiré à `ha_app` sur `facture`. Seul `pdf_cle` se pose après la validation, une fois.
+- **PDF** : rendu après le commit, le numéro n'existant qu'à ce moment. Un échec ne remet pas la facture en cause : le prochain téléchargement rend à nouveau depuis le contenu figé. La première sortie est l'original, toute autre un duplicata marqué, journalisé et chaîné. Un duplicata envoyé par lien est déposé sous `liens-documents/` et purgé à l'expiration.
+- **TVA** : table globale `taux_tva`, lue aussi par le devis ; `viderBaseJetable` la conserve, car la migration la remplit.
+- **Vente** : à la validation, `Delivrance` par oreille, appareils `RESERVE → VENDU`, lien d'essai fermé, sortie de stock, dossier `FACTURE`. `VENDU` n'est plus accessible par la fiche, et `annulerVente` refuse un appareil facturé.
+- **Avoir** : une action, sans brouillon. Le cumul se lit sous le verrou de la série. S'il solde une facture de dossier, la vente est annulée (R29).
+- **Lien sécurisé** : `lien_document` porte `patient_id`, second facteur compris, et `facture_id` : une vente directe n'a pas de dossier.
+- **FSE** : action explicite, port provisoire, contenu chiffré. Le dépôt se fait hors transaction ; une FSE sans référence peut repartir.
+- **LPP dans la transaction** : `decrireCodesLpp` accepte le client de la transaction. Sinon chaque validation demanderait une seconde connexion au même pool, et dix validations simultanées se bloqueraient.
+- **Journal d'audit** : `FACTURE_PREPAREE` reste dans `TYPES_ENTITE`, le journal ne se réécrivant pas ; les nouvelles lignes portent `FACTURE`.
+- **Droits** : valider comme confirmer l'achat ; avoir comme annuler une vente ; préfixe pour l'ADMIN_CLIENT ; TVA pour le SUPERADMIN.
+
+### Conséquences
+
+- Un centre sans stock suffisant de piles ou d'accessoires ne peut pas valider : la facture attend une entrée de stock.
+- Un stock d'accessoires n'est pas recrédité par un avoir (à arbitrer).
+- La confirmation de couverture se refait après un avoir total : elle portait sur la facture annulée.
+- Un avoir sur une FSE déjà partie n'est qu'une alerte jusqu'à l'étape 26.
+- Le seed construit sa vente directe et son avoir par les règles du domaine, sans PDF : leur téléchargement les rend à la demande.
+- Une facture de dossier ne peut pas être abandonnée : seul un avoir la défait, une fois validée.

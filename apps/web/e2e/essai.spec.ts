@@ -177,4 +177,13 @@ test('un essai va de la pose à l’achat, avec une prolongation et un changemen
   await page.getByRole('link', { name: /^Bloqués/ }).click();
   await expect(page.getByRole('row').filter({ hasText: 'Durand Claire' })).toBeVisible();
   await expect(page.getByRole('row').filter({ hasText: 'Mercier Sylvie' })).toHaveCount(0);
+
+  // Validation : numéro, dossier facturé, appareil vendu, lien vers la pièce.
+  await page.goto(dossier);
+  await page.waitForLoadState('networkidle');
+  await page.getByRole('button', { name: 'Valider la facture' }).click();
+  await expect(etapeCourante(page)).toContainText('Facturé');
+  await page.getByRole('link', { name: /^Facture FA-\d{6}$/ }).click();
+  await expect(page.getByRole('heading', { name: /^Facture FA-\d{6}$/ })).toBeVisible();
+  await expect(page.getByRole('cell', { name: 'E2E-ESSAI-2' })).toBeVisible();
 });

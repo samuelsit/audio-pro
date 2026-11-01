@@ -56,6 +56,7 @@ export function FormulaireVenteDirecte({
         nom="prescriptionId"
         libelle="Prescription (ouvre le remboursement des lignes LPP)"
         vide="Sans prescription : tout en reste à charge"
+        requis={false}
         options={prescriptions.map((p) => ({ valeur: p.id, libelle: p.libelle }))}
       />
       <div>
@@ -98,6 +99,7 @@ export function FormulaireLigne({
         nom="accessoireId"
         libelle="Article (piles, accessoires)"
         vide="Aucun (entretien)"
+        requis={false}
         options={accessoires.map((a) => ({ valeur: a.id, libelle: a.nom }))}
       />
       <ChampTexte etat={etat} nom="libelle" libelle="Libellé" requis />

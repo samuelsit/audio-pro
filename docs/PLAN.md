@@ -62,14 +62,14 @@ Numérotation du plan SaaS (ADR-015). Les références aux étapes dans `docs/DE
 - [x] **10** – Stock (ADR-023)
   - reporté à l'étape 17 : clés étrangères de `commande_id`, avec leur trigger ; appel de `receptionnerDansTransaction`
   - à arbitrer : statut de sortie pour un appareil perdu (reste `EN_STOCK`, ressort manquant à chaque inventaire)
-  - reporté à l'étape 14 : vente pilotée par le dossier
+  - [x] vente pilotée par le dossier (étape 14)
   - reporté à l'étape 29 : reprise des appareils de Cosium, sans passer par la machine à états
   - à planifier : recherche des détenteurs par modèle ou par lot pour la matériovigilance (art. 21), numéro de lot à décider
 - [x] **11** – Dossier d'appareillage et prescription (ADR-024)
   - [x] Statuts alignés sur le prompt 11 : `EXPORTE` et `FACTURE_EXTERNE` remplacés par `FACTURE` (ADR-015)
   - À VÉRIFIER : date de comparaison des 4 ans, exigence du RPPS du prescripteur, effet de la mention de renouvellement (voir `docs/REGLES_AUDIO.md`)
   - à arbitrer : retour arrière après un devis refusé
-  - reporté à l'étape 14 : écriture de `Delivrance`
+  - [x] écriture de `Delivrance` (étape 14)
   - reporté à l'étape 29 : reprise des délivrances Cosium ; d'ici là, un patient sans ligne ressort éligible
   - reporté à l'étape 20 : liste `/dossiers` du menu
   - à planifier : avertissement si deux dossiers ouverts portent sur la même oreille, service S3 en CI
@@ -83,15 +83,19 @@ Numérotation du plan SaaS (ADR-015). Les références aux étapes dans `docs/DE
 - [x] **13** – Essai (ADR-026, ADR-027)
   - À VÉRIFIER : heure conventionnelle des rendez-vous d'essai repris par la migration ; canal MSSanté vers le prescripteur
   - À VÉRIFIER : autre modèle en cours d'essai, nombre de prolongations et demande après l'échéance, contenu du compte rendu (voir `docs/REGLES_AUDIO.md`)
-  - reporté à l'étape 14 : `RESERVE` → `VENDU`, fermeture du lien à la vente, retrait du `VENDU` manuel, écriture de `Delivrance`
+  - [x] `RESERVE` → `VENDU`, fermeture du lien à la vente, retrait du `VENDU` manuel, écriture de `Delivrance` (étape 14)
   - à arbitrer : embouts sur mesure facturés à l'abandon, nouvelle période d'essai après un échec (un dossier n'a qu'un essai), correction d'un rendez-vous saisi par erreur
 
 ## Phase F – Facturation, caisse et tiers payant
 
-- [ ] **14** – Facturation — à faire évoluer depuis FacturePreparee
-  - À VÉRIFIER : sens de `RJT`, délai de lecture Vitale, confirmation manuelle, procédure de PEC et répartition, part AMC C2S sur les consommables, logiciels de caisse (voir `docs/REGLES_AUDIO.md`)
-  - à reprendre : vente, `Delivrance`, sortie de stock des piles et accessoires (reportés depuis l'ancienne étape 12)
-  - à planifier : codes `7xxxxxx` reliés au catalogue, port `BillingEngine`
+- [x] **14** – Facturation (ADR-028)
+  - fait : `FacturePreparee` devenue `Facture`, données reprises ; vente directe ; TVA datée ; numérotation ; avoirs ; mentions ; PDF, duplicata et lien sécurisé ; vente, `Delivrance` et sortie de stock à la validation ; chaîne et journal de caisse ; `BillingEngine` et `FakeBillingEngine`
+  - À VÉRIFIER : mentions obligatoires, TVA dont l'entretien, format et série de numérotation, avoir partiel, prescription et taux AMO d'une vente directe, sens de `RJT`, délai de lecture Vitale, confirmation manuelle, procédure de PEC, part AMC C2S sur les consommables, logiciels de caisse (voir `docs/REGLES_AUDIO.md`)
+  - à arbitrer : retour en stock des piles et accessoires après un avoir, abandon d'un dossier revenu en `A_FACTURER`, retour physique d'un appareil
+  - reporté à l'étape 15 : encaissements et clôtures dans la chaîne, écran de vérification de la chaîne
+  - reporté à l'étape 26 : format réel de la FSE, correction d'une FSE après un avoir, suivi automatique des statuts
+  - à planifier : codes `7xxxxxx` reliés au catalogue
+  - à surveiller : deux tests de `facturation.int.test.ts` ont échoué une fois dans la suite complète, sur une machine chargée, sans message conservé ; non reproduit en 5 passages
 - [ ] **15** – Encaissement et caisse
 - [ ] **16** – Tiers payant et PEC
 
