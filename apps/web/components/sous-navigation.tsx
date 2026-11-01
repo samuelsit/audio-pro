@@ -59,6 +59,7 @@ export const LIENS_COMMANDES: readonly LienSousNavigation[] = [
   { href: '/commandes/factures', libelle: 'Factures' },
   { href: '/commandes/ecarts', libelle: 'Écarts' },
   { href: '/commandes/releves', libelle: 'Relevés' },
+  { href: '/commandes/reappro', libelle: 'Réapprovisionnement' },
 ];
 
 export const LIENS_PILOTAGE: readonly LienSousNavigation[] = [

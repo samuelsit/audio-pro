@@ -39,6 +39,7 @@ import {
   enregistrerParametresCommande,
 } from '@/server/services/fournisseurs';
 import { preparerFse } from '@/server/services/fse';
+import { enregistrerSeuil } from '@/server/services/reappro';
 import { creerRegleCommande } from '@/server/services/regles-commande';
 import { importerReleve } from '@/server/services/releves-centrale';
 import {
@@ -434,6 +435,12 @@ export async function creerClientComplet(suffixe: string) {
     },
     null,
   );
+  await enregistrerSeuil(d.acteurs.admin, {
+    centreId: d.centres.a.id,
+    produit: `modele:${catalogue.classeI}`,
+    minimum: '1',
+    cible: '2',
+  });
 
   return {
     d,

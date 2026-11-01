@@ -135,6 +135,7 @@ model Organisation {
   lignesFactureFournisseur FactureFournisseurLigne[]
   relevesCentrale          ReleveCentrale[]
   lignesReleveCentrale     ReleveCentraleLigne[]
+  seuilsStock              SeuilStock[]
 
   @@map("organisation")
 }
@@ -205,6 +206,7 @@ model Centre {
   receptions            Reception[]
   ecartsAchat           EcartAchat[]
   facturesFournisseurs  FactureFournisseur[]
+  seuilsStock           SeuilStock[]
 
   @@unique([organisationId, slug])
   @@unique([organisationId, nom])
@@ -721,6 +723,7 @@ model ModeleAideAuditive {
   appareils             Appareil[]
   lignesDevis           DevisLigne[]
   lignesCommande        CommandeLigne[]
+  seuilsStock           SeuilStock[]
 
   /// Cible de la clé composite d'`Appareil` : le fabricant d'un modèle en stock ne peut plus changer.
   @@unique([id, fabricantId])
@@ -771,6 +774,7 @@ model Accessoire {
   lignesInventaire     InventaireLigne[]
   lignesFacture        LigneFacture[]
   lignesCommande       CommandeLigne[]
+  seuilsStock          SeuilStock[]
 
   @@unique([organisationId, nom])
   @@index([codeLpp])
@@ -1242,6 +1246,28 @@ model ReleveCentraleLigne {
   @@unique([releveId, rang])
   @@index([factureFournisseurId])
   @@map("releve_centrale_ligne")
+}
+
+/// Seuil de réapprovisionnement d'un produit dans un centre. Sous `minimum`, on propose de remonter à `cible`.
+model SeuilStock {
+  id             String              @id @default(uuid(7))
+  organisationId String              @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  centreId       String              @map("centre_id")
+  /// Exactement un produit (contrainte CHECK), une fois par centre (index partiels).
+  modeleId       String?             @map("modele_id")
+  accessoireId   String?             @map("accessoire_id")
+  minimum        Int
+  cible          Int
+  updatedAt      DateTime            @updatedAt @map("updated_at")
+  organisation   Organisation        @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  centre         Centre              @relation(fields: [centreId], references: [id], onDelete: Restrict)
+  modele         ModeleAideAuditive? @relation(fields: [modeleId], references: [id], onDelete: Restrict)
+  accessoire     Accessoire?         @relation(fields: [accessoireId], references: [id], onDelete: Restrict)
+
+  @@index([centreId])
+  @@index([modeleId])
+  @@index([accessoireId])
+  @@map("seuil_stock")
 }
 
 /// Écart à traiter, relevé à la réception ou au rapprochement d'une facture.

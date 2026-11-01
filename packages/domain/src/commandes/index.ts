@@ -4,6 +4,7 @@ export * from './droits';
 export * from './etats';
 export * from './fournisseur';
 export * from './parametres';
+export * from './reappro';
 export * from './reception';
 export * from './relance';
 export * from './releve';

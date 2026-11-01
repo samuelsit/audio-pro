@@ -55,6 +55,7 @@ import {
   telechargerFactureFournisseur,
 } from './services/factures-fournisseurs';
 import { traiterEcart } from './services/ecarts-achat';
+import { proposerReappro } from './services/reappro';
 import { obtenirRegleCommande } from './services/regles-commande';
 import { obtenirReleve, repointerReleve } from './services/releves-centrale';
 import { changerStatut, historiqueAccessoire, obtenirFicheAppareil } from './services/stock';
@@ -145,6 +146,7 @@ const TABLES_ISOLEES = [
   'rendez_vous',
   'reponse_formulaire',
   'reservation_en_ligne',
+  'seuil_stock',
   'session',
   'signature_devis',
   'stock_accessoire',
@@ -567,6 +569,7 @@ describe('identifiant d’un autre client forcé dans l’URL', () => {
     },
     { entite: 'relevé de centrale', appel: (x, c) => obtenirReleve(x, c.releveId) },
     { entite: 'pointage d’un relevé', appel: (x, c) => repointerReleve(x, c.releveId) },
+    { entite: 'réapprovisionnement', appel: (x, c) => proposerReappro(x, c.d.centres.a.id) },
     {
       entite: 'traitement d’un écart',
       appel: (x, c) => traiterEcart(x, c.ecartId, { statut: 'RESOLU', commentaire: 'Forcé' }),
