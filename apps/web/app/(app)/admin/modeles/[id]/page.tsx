@@ -11,7 +11,11 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { ouIntrouvable, requireRole } from '@/server/auth/gardes';
-import { listerFabricants, obtenirModele } from '@/server/services/catalogue';
+import {
+  listerFabricants,
+  obtenirModele,
+  obtenirPrixAchatModele,
+} from '@/server/services/catalogue';
 import { decrireCodesLpp } from '@/server/services/lpp';
 
 import { modifierModeleAction } from '../actions';
@@ -25,9 +29,10 @@ const montant = (valeur: number | null | undefined) =>
 export default async function PageModele({ params }: PageProps<'/admin/modeles/[id]'>) {
   const { id } = await params;
   const acteur = await requireRole('ADMIN_CLIENT');
-  const [modele, fabricants] = await Promise.all([
+  const [modele, fabricants, prixAchatCentimes] = await Promise.all([
     ouIntrouvable(obtenirModele(acteur, id)),
     listerFabricants(acteur),
+    obtenirPrixAchatModele(acteur, id),
   ]);
   const codes = await decrireCodesLpp(modele.codesLpp);
   return (
@@ -37,6 +42,7 @@ export default async function PageModele({ params }: PageProps<'/admin/modeles/[
         action={modifierModeleAction.bind(null, id)}
         fabricants={fabricants}
         modele={modele}
+        prixAchatCentimes={prixAchatCentimes}
       />
       {codes.length > 0 ? (
         <section className="grid gap-2">

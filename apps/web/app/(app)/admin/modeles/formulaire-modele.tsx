@@ -39,10 +39,12 @@ export function FormulaireModele({
   action,
   fabricants,
   modele,
+  prixAchatCentimes,
 }: {
   action: (etat: EtatFormulaire, formData: FormData) => Promise<EtatFormulaire>;
   fabricants: readonly FabricantResume[];
   modele?: ModeleResume;
+  prixAchatCentimes?: number | null;
 }) {
   const [etat, envoyer] = useActionState(action, ETAT_INITIAL);
   return (
@@ -93,6 +95,15 @@ export function FormulaireModele({
         libelle="Prix de vente conseillé (€)"
         defaut={modele ? (modele.prixConseilleCentimes / 100).toFixed(2).replace('.', ',') : ''}
         requis
+      />
+      <ChampTexte
+        etat={etat}
+        nom="prixAchatCentimes"
+        libelle="Prix d’achat (€)"
+        defaut={
+          prixAchatCentimes == null ? '' : (prixAchatCentimes / 100).toFixed(2).replace('.', ',')
+        }
+        aide="Proposé sur les commandes."
       />
       <fieldset className="grid gap-4 rounded-md border p-4">
         <legend className="px-1 text-sm font-medium">Mentions du devis normalisé</legend>

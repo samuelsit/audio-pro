@@ -72,6 +72,7 @@ export interface AccessoireResume {
 export interface AccessoireDetail extends AccessoireResume {
   /** Toujours null pour un rôle qui n'y a pas droit. */
   prixAchatCentimes: number | null;
+  fournisseurId: string | null;
 }
 
 /** Bilan d'un import CSV réussi. Si une ligne est refusée, rien n'est écrit. */
@@ -257,6 +258,21 @@ export async function obtenirModele(
   return versModele(m);
 }
 
+/** À part de `ModeleResume`, qui part vers des écrans ouverts à tous. Null pour un rôle qui n'y a pas droit. */
+export async function obtenirPrixAchatModele(
+  acteur: UtilisateurConnecte,
+  modeleId: string,
+): Promise<number | null> {
+  if (!peutVoirPrixAchat(acteur.role)) {
+    return null;
+  }
+  const m = await base(acteur).modeleAideAuditive.findFirst({
+    where: { id: modeleId, organisationId: acteur.organisationId },
+    select: { prixAchatCentimes: true },
+  });
+  return m?.prixAchatCentimes ?? null;
+}
+
 async function validerModele(acteur: UtilisateurConnecte, saisie: unknown): Promise<ModeleSaisie> {
   const donnees = valider(modeleSaisieSchema, saisie);
   const fabricant = await base(acteur).fabricant.findFirst({
@@ -402,7 +418,7 @@ export async function obtenirAccessoire(
 ): Promise<AccessoireDetail> {
   const a = await base(acteur).accessoire.findFirst({
     where: { id: accessoireId, organisationId: acteur.organisationId },
-    select: { ...selectionAccessoire, prixAchatCentimes: true },
+    select: { ...selectionAccessoire, prixAchatCentimes: true, fournisseurId: true },
   });
   if (!a) {
     throw new AccesRefuseError();
@@ -410,8 +426,20 @@ export async function obtenirAccessoire(
   return { ...a, prixAchatCentimes: peutVoirPrixAchat(acteur.role) ? a.prixAchatCentimes : null };
 }
 
-async function validerAccessoire(saisie: unknown): Promise<AccessoireSaisie> {
+async function validerAccessoire(
+  acteur: UtilisateurConnecte,
+  saisie: unknown,
+): Promise<AccessoireSaisie> {
   const donnees = valider(accessoireSaisieSchema, saisie);
+  if (donnees.fournisseurId !== null) {
+    const fournisseur = await base(acteur).fournisseur.findFirst({
+      where: { id: donnees.fournisseurId, organisationId: acteur.organisationId },
+      select: { id: true },
+    });
+    if (!fournisseur) {
+      throw ErreurSaisie.surChamp('fournisseurId', 'Fournisseur inconnu.');
+    }
+  }
   await verifierCodes(donnees.codeLpp === null ? [] : [donnees.codeLpp], 'codeLpp');
   return donnees;
 }
@@ -421,7 +449,7 @@ export async function creerAccessoire(
   saisie: unknown,
 ): Promise<string> {
   verifierRole(acteur, 'ADMIN_CLIENT');
-  const donnees = await validerAccessoire(saisie);
+  const donnees = await validerAccessoire(acteur, saisie);
   try {
     const a = await withAudit(
       acteur,
@@ -450,7 +478,7 @@ export async function modifierAccessoire(
 ): Promise<void> {
   verifierRole(acteur, 'ADMIN_CLIENT');
   const actuel = await obtenirAccessoire(acteur, accessoireId);
-  const donnees = await validerAccessoire(saisie);
+  const donnees = await validerAccessoire(acteur, saisie);
   try {
     await withAudit(
       acteur,
@@ -467,6 +495,7 @@ export async function modifierAccessoire(
             codeLpp: actuel.codeLpp,
             prixCentimes: actuel.prixCentimes,
             prixAchatCentimes: actuel.prixAchatCentimes,
+            fournisseurId: actuel.fournisseurId,
             marque: actuel.marque,
             referenceCommerciale: actuel.referenceCommerciale,
             actif: actuel.actif,

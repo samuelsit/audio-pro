@@ -47,6 +47,11 @@ import { preparerFse } from './services/fse';
 import { modifierPatient, obtenirPatient } from './services/patients';
 import { obtenirPraticien } from './services/praticiens';
 import { changerActivationPrescripteur, obtenirPrescripteur } from './services/prescripteurs';
+import {
+  modifierFournisseur,
+  obtenirCentrale,
+  obtenirFournisseur,
+} from './services/fournisseurs';
 import { changerStatut, historiqueAccessoire, obtenirFicheAppareil } from './services/stock';
 import { obtenirUtilisateur } from './services/utilisateurs';
 
@@ -58,6 +63,7 @@ const TABLES_ISOLEES = [
   'appareil',
   'bilan_audiologique',
   'cabine',
+  'centrale_achat',
   'centre',
   'compte',
   'compteur_devis',
@@ -76,6 +82,10 @@ const TABLES_ISOLEES = [
   'exception_agenda',
   'fabricant',
   'facture',
+  'fournisseur',
+  'fournisseur_compte_centre',
+  'fournisseur_contact',
+  'parametres_commande',
   'archive_caisse',
   'chaine_caisse',
   'cloture_caisse',
@@ -525,6 +535,13 @@ describe('identifiant d’un autre client forcé dans l’URL', () => {
     { entite: 'utilisateur', appel: (x, c) => obtenirUtilisateur(x, c.d.utilisateurs.audioAB.id) },
     { entite: 'praticien', appel: (x, c) => obtenirPraticien(x, c.d.praticiens.praticienAB.id) },
     { entite: 'fabricant', appel: (x, c) => obtenirFabricant(x, c.fabricantId) },
+    { entite: 'fournisseur', appel: (x, c) => obtenirFournisseur(x, c.fournisseurId) },
+    { entite: 'centrale d’achat', appel: (x, c) => obtenirCentrale(x, c.centraleId) },
+    {
+      entite: 'modification d’un fournisseur',
+      appel: (x, c) =>
+        modifierFournisseur(x, c.fournisseurId, { type: 'FOURNISSEUR', nom: 'Forcé', actif: true }),
+    },
     { entite: 'règlement d’organisme', appel: (x, c) => obtenirReglement(x, c.reglementId) },
     { entite: 'relance d’une créance', appel: (x, c) => marquerRelancee(x, c.creanceId) },
     {

@@ -19,6 +19,12 @@ import { enregistrerPec } from '@/server/services/factures';
 import { aujourdhui } from '@/server/services/patients';
 
 import { confirmerCouvertureVente, validerFacture } from '@/server/services/facturation';
+import {
+  ajouterContact,
+  creerCentrale,
+  enregistrerComptes,
+  enregistrerParametresCommande,
+} from '@/server/services/fournisseurs';
 import { preparerFse } from '@/server/services/fse';
 import {
   classerEcartReglement,
@@ -27,6 +33,7 @@ import {
   lettrer,
 } from '@/server/services/tiers-payant';
 
+import { creerFournisseurDe } from './achats';
 import { creerCatalogueDevis, dossierJusquAchat, identifierCentreA, SCAN } from './devis';
 import { creerJeuDeDonnees } from './donnees';
 import { venteDirecte } from './facturation';
@@ -334,6 +341,22 @@ export async function creerClientComplet(suffixe: string) {
     data: { secret: 'fictif', backupCodes: 'fictif', userId: utilisateurId },
   });
 
+  const centraleId = await creerCentrale(d.acteurs.admin, { nom: 'Centrale fictive', actif: true });
+  const fournisseur = await creerFournisseurDe(organisationId, fabricantId);
+  await prisma().fournisseur.update({
+    where: { id: fournisseur.id },
+    data: { centraleAchatId: centraleId },
+  });
+  await ajouterContact(d.acteurs.admin, fournisseur.id, { nom: 'Contact fictif' });
+  await enregistrerComptes(d.acteurs.admin, fournisseur.id, [
+    { centreId: d.centres.a.id, numeroClient: 'CLIENT-A' },
+  ]);
+  await enregistrerParametresCommande(d.acteurs.admin, {
+    delaiRelanceJours: '3',
+    relancesMax: '2',
+    tolerancePrix: '0',
+  });
+
   return {
     d,
     catalogue,
@@ -343,6 +366,8 @@ export async function creerClientComplet(suffixe: string) {
     prescriptionId,
     prescripteurId,
     fabricantId,
+    centraleId,
+    fournisseurId: fournisseur.id,
     cabineId,
     venteId,
     complementaireId,

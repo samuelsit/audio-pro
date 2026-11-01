@@ -7,6 +7,7 @@ export * from './caisse';
 export * from './catalogue';
 export * from './centre/centre';
 export * from './centre/horaires';
+export * from './commandes';
 export * from './commun/csv';
 export * from './commun/date';
 export * from './commun/fuseau';

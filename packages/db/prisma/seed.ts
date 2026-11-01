@@ -13,6 +13,7 @@ import {
 } from './seed-catalogue';
 import { NOMBRE_DOSSIERS_DEMO, seedDossiers } from './seed-dossiers';
 import { seedFacturation } from './seed-facturation';
+import { seedAchats } from './seed-achats';
 import { NOMBRE_COMPLEMENTAIRES_DEMO, seedComplementaires } from './seed-complementaires';
 import { NOMBRE_PATIENTS_DEMO, PATIENTS_INDEPENDANT, seedPatients } from './seed-patients';
 import { nombreAppareilsDemo, seedStock } from './seed-stock';
@@ -360,6 +361,7 @@ async function main(): Promise<void> {
     await seedDossiers(db, ORGANISATION_ID, NORD, ADMIN_ID);
     await seedFacturation(db, ORGANISATION_ID, NORD, ADMIN_ID);
     await seedComplementaires(db, ORGANISATION_ID);
+    await seedAchats(db, ORGANISATION_ID);
     await seedAudiologie(db, ORGANISATION_ID, NORD, ADMIN_ID);
     await seedPatients(
       db,

@@ -119,6 +119,7 @@ export const CHAMPS_VISIBLES_AUDIT: Readonly<Record<TypeEntite, readonly string[
     'nature',
     'codeLpp',
     'prixCentimes',
+    'fournisseurId',
     'marque',
     'referenceCommerciale',
     'actif',
@@ -180,6 +181,16 @@ export const CHAMPS_VISIBLES_AUDIT: Readonly<Record<TypeEntite, readonly string[
   EXCEPTION_AGENDA: ['type', 'praticienId', 'cabineId', 'centreId', 'debut', 'fin'],
   STOCK_ACCESSOIRE: [],
   INVENTAIRE: [],
+  FOURNISSEUR: [],
+  CENTRALE_ACHAT: [],
+  PARAMETRES_COMMANDE: [],
+  REGLE_COMMANDE: [],
+  COMMANDE: [],
+  RECEPTION_COMMANDE: [],
+  ECART_ACHAT: [],
+  FACTURE_FOURNISSEUR: [],
+  RELEVE_CENTRALE: [],
+  SEUIL_STOCK: [],
 };
 
 export interface ChampModifie {

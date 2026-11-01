@@ -22,6 +22,7 @@ function saisie(formData: FormData) {
     codeLpp: texte(formData, 'codeLpp'),
     prixCentimes: texte(formData, 'prixCentimes'),
     prixAchatCentimes: texte(formData, 'prixAchatCentimes'),
+    fournisseurId: texte(formData, 'fournisseurId'),
     marque: texte(formData, 'marque'),
     referenceCommerciale: texte(formData, 'referenceCommerciale'),
     actif: coche(formData, 'actif'),

@@ -20,6 +20,7 @@ function saisie(formData: FormData) {
     classe: texte(formData, 'classe'),
     codesLpp: texte(formData, 'codesLpp'),
     prixConseilleCentimes: texte(formData, 'prixConseilleCentimes'),
+    prixAchatCentimes: texte(formData, 'prixAchatCentimes'),
     marque: texte(formData, 'marque'),
     referenceCommerciale: texte(formData, 'referenceCommerciale'),
     lieuFabrication: texte(formData, 'lieuFabrication'),

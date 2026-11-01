@@ -36,25 +36,30 @@ enum StatutOrganisation {
 
 /// Un client : réseau de centres ou centre indépendant. Chaque donnée métier lui est rattachée (ADR-016).
 model Organisation {
-  id                    String                  @id @default(uuid(7))
-  raisonSociale         String                  @map("raison_sociale")
+  id                    String                    @id @default(uuid(7))
+  raisonSociale         String                    @map("raison_sociale")
   /// Vide pour une organisation antérieure au SaaS ; exigé à la création depuis la console.
-  siren                 String?                 @unique @db.Char(9)
+  siren                 String?                   @unique @db.Char(9)
   /// Segment client de l'URL publique de réservation (`/rdv/<slug>/<centre>`).
-  slug                  String                  @unique @default(dbgenerated("slug_provisoire()"))
-  adresseLigne1         String?                 @map("adresse_ligne1")
-  adresseLigne2         String?                 @map("adresse_ligne2")
-  codePostal            String?                 @map("code_postal")
+  slug                  String                    @unique @default(dbgenerated("slug_provisoire()"))
+  adresseLigne1         String?                   @map("adresse_ligne1")
+  adresseLigne2         String?                   @map("adresse_ligne2")
+  codePostal            String?                   @map("code_postal")
   ville                 String?
-  statut                StatutOrganisation      @default(ESSAI)
-  parametres            Json                    @default("{}")
-  createdAt             DateTime                @default(now()) @map("created_at")
-  updatedAt             DateTime                @updatedAt @map("updated_at")
+  statut                StatutOrganisation        @default(ESSAI)
+  parametres            Json                      @default("{}")
+  createdAt             DateTime                  @default(now()) @map("created_at")
+  updatedAt             DateTime                  @updatedAt @map("updated_at")
   centres               Centre[]
   utilisateurs          Utilisateur[]
   patients              Patient[]
   lecturesVitale        LectureVitale[]
   fabricants            Fabricant[]
+  centralesAchat        CentraleAchat[]
+  fournisseurs          Fournisseur[]
+  fournisseurContacts   FournisseurContact[]
+  fournisseurComptes    FournisseurCompteCentre[]
+  parametresCommande    ParametresCommande?
   modeles               ModeleAideAuditive[]
   accessoires           Accessoire[]
   prescripteurs         Prescripteur[]
@@ -124,38 +129,38 @@ model Organisation {
 
 /// Centre (établissement). On ne supprime pas un centre : on le désactive.
 model Centre {
-  id                    String                  @id @default(uuid(7))
-  organisationId        String                  @map("organisation_id")
+  id                    String                    @id @default(uuid(7))
+  organisationId        String                    @map("organisation_id")
   nom                   String
   /// Segment centre de l'URL publique de réservation, unique dans le client.
-  slug                  String                  @default(dbgenerated("slug_provisoire()"))
-  adresseLigne1         String                  @map("adresse_ligne1")
-  adresseLigne2         String?                 @map("adresse_ligne2")
-  codePostal            String                  @map("code_postal")
+  slug                  String                    @default(dbgenerated("slug_provisoire()"))
+  adresseLigne1         String                    @map("adresse_ligne1")
+  adresseLigne2         String?                   @map("adresse_ligne2")
+  codePostal            String                    @map("code_postal")
   ville                 String
   finess                String?
   /// Identifiant de facturation Assurance Maladie, attribué par établissement.
-  numeroFacturationAm   String?                 @map("numero_facturation_am")
+  numeroFacturationAm   String?                   @map("numero_facturation_am")
   /// Identification de l'entreprise, au pied du devis normalisé (p. 2).
-  raisonSociale         String?                 @map("raison_sociale")
+  raisonSociale         String?                   @map("raison_sociale")
   siret                 String?
   rcs                   String?
-  tvaIntracommunautaire String?                 @map("tva_intracommunautaire")
+  tvaIntracommunautaire String?                   @map("tva_intracommunautaire")
   email                 String
   telephone             String
   /// Plages par jour, validées par `horairesOuvertureSchema`.
-  horairesOuverture     Json?                   @map("horaires_ouverture")
-  actif                 Boolean                 @default(true)
-  createdAt             DateTime                @default(now()) @map("created_at")
-  updatedAt             DateTime                @updatedAt @map("updated_at")
-  organisation          Organisation            @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  horairesOuverture     Json?                     @map("horaires_ouverture")
+  actif                 Boolean                   @default(true)
+  createdAt             DateTime                  @default(now()) @map("created_at")
+  updatedAt             DateTime                  @updatedAt @map("updated_at")
+  organisation          Organisation              @relation(fields: [organisationId], references: [id], onDelete: Restrict)
   utilisateurs          UtilisateurCentre[]
   praticiens            PraticienCentre[]
   patients              Patient[]
   lecturesVitale        LectureVitale[]
   appareils             Appareil[]
-  mouvementsDepart      MouvementAppareil[]     @relation("MouvementCentreAvant")
-  mouvementsArrivee     MouvementAppareil[]     @relation("MouvementCentreApres")
+  mouvementsDepart      MouvementAppareil[]       @relation("MouvementCentreAvant")
+  mouvementsArrivee     MouvementAppareil[]       @relation("MouvementCentreApres")
   stockAccessoires      StockAccessoire[]
   mouvementsAccessoire  MouvementAccessoire[]
   cabines               Cabine[]
@@ -182,6 +187,7 @@ model Centre {
   parametresReservation ParametresReservation?
   typesRdvEnLigne       TypeRdvEnLigne[]
   reservationsEnLigne   ReservationEnLigne[]
+  comptesFournisseurs   FournisseurCompteCentre[]
 
   @@unique([organisationId, slug])
   @@unique([organisationId, nom])
@@ -654,6 +660,7 @@ model Fabricant {
   organisation   Organisation         @relation(fields: [organisationId], references: [id], onDelete: Restrict)
   modeles        ModeleAideAuditive[]
   appareils      Appareil[]
+  fournisseur    Fournisseur?
 
   @@unique([organisationId, nom])
   @@map("fabricant")
@@ -668,6 +675,8 @@ model ModeleAideAuditive {
   type                  TypeAideAuditive
   classe                ClasseLpp
   prixConseilleCentimes Int                  @map("prix_conseille_centimes")
+  /// Réservé aux rôles de gestion. Prix proposé sur une commande (ADR-031).
+  prixAchatCentimes     Int?                 @map("prix_achat_centimes")
   /// Mentions du devis normalisé : nullables pour les fiches anciennes, le manque bloque l'émission.
   marque                String?
   referenceCommerciale  String?              @map("reference_commerciale")
@@ -720,6 +729,8 @@ model Accessoire {
   prixCentimes         Int                   @map("prix_centimes")
   /// Réservé aux rôles de gestion, comme celui d'un appareil. Base de la valeur du stock (ADR-023).
   prixAchatCentimes    Int?                  @map("prix_achat_centimes")
+  /// Un accessoire n'a pas de fabricant : ce lien dit à qui le commander (ADR-031).
+  fournisseurId        String?               @map("fournisseur_id")
   /// Mentions du devis normalisé : nullables pour les fiches anciennes, le manque bloque l'émission.
   marque               String?
   referenceCommerciale String?               @map("reference_commerciale")
@@ -728,6 +739,7 @@ model Accessoire {
   updatedAt            DateTime              @updatedAt @map("updated_at")
   organisation         Organisation          @relation(fields: [organisationId], references: [id], onDelete: Restrict)
   lppCode              LppCode?              @relation(fields: [codeLpp], references: [code], onDelete: Restrict)
+  fournisseur          Fournisseur?          @relation(fields: [fournisseurId], references: [id], onDelete: Restrict)
   stocks               StockAccessoire[]
   mouvements           MouvementAccessoire[]
   lignesDevis          DevisLigne[]
@@ -736,7 +748,115 @@ model Accessoire {
 
   @@unique([organisationId, nom])
   @@index([codeLpp])
+  @@index([fournisseurId])
   @@map("accessoire")
+}
+
+// ---------------------------------------------------------------------------
+// Achats : fournisseurs (ADR-031)
+// ---------------------------------------------------------------------------
+
+enum TypeFournisseur {
+  FABRICANT
+  FOURNISSEUR
+}
+
+/// Regroupe la facturation de fournisseurs dans un relevé mensuel. Ne reçoit jamais les commandes.
+model CentraleAchat {
+  id             String        @id @default(uuid(7))
+  organisationId String        @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  nom            String
+  email          String?
+  telephone      String?
+  adresse        String?
+  actif          Boolean       @default(true)
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+  organisation   Organisation  @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  fournisseurs   Fournisseur[]
+
+  @@unique([organisationId, nom])
+  @@map("centrale_achat")
+}
+
+/// Fiche d'achat. `Fabricant` reste la fiche de catalogue du devis : un fabricant commandé a une fiche ici (CHECK).
+model Fournisseur {
+  id                String                    @id @default(uuid(7))
+  organisationId    String                    @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  type              TypeFournisseur
+  nom               String
+  fabricantId       String?                   @unique @map("fabricant_id")
+  centraleAchatId   String?                   @map("centrale_achat_id")
+  /// Sans elle, une commande ne peut pas partir.
+  emailCommande     String?                   @map("email_commande")
+  /// Reconnaît l'expéditeur d'une facture reçue.
+  emailFacturation  String?                   @map("email_facturation")
+  telephone         String?
+  adresse           String?
+  /// Reconnaît le fournisseur sur une facture reçue.
+  siret             String?
+  conditions        String?
+  /// Remplace le délai de relance du client pour ce fournisseur.
+  delaiRelanceJours Int?                      @map("delai_relance_jours")
+  actif             Boolean                   @default(true)
+  createdAt         DateTime                  @default(now()) @map("created_at")
+  updatedAt         DateTime                  @updatedAt @map("updated_at")
+  organisation      Organisation              @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  fabricant         Fabricant?                @relation(fields: [fabricantId], references: [id], onDelete: Restrict)
+  centraleAchat     CentraleAchat?            @relation(fields: [centraleAchatId], references: [id], onDelete: Restrict)
+  contacts          FournisseurContact[]
+  comptes           FournisseurCompteCentre[]
+  accessoires       Accessoire[]
+
+  @@unique([organisationId, nom])
+  @@index([centraleAchatId])
+  @@map("fournisseur")
+}
+
+model FournisseurContact {
+  id             String       @id @default(uuid(7))
+  organisationId String       @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  fournisseurId  String       @map("fournisseur_id")
+  nom            String
+  fonction       String?
+  email          String?
+  telephone      String?
+  createdAt      DateTime     @default(now()) @map("created_at")
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  fournisseur    Fournisseur  @relation(fields: [fournisseurId], references: [id], onDelete: Cascade)
+
+  @@index([fournisseurId])
+  @@map("fournisseur_contact")
+}
+
+/// Numéro de client d'un centre chez un fournisseur : repère le centre sur une facture reçue.
+model FournisseurCompteCentre {
+  organisationId String       @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  fournisseurId  String       @map("fournisseur_id")
+  centreId       String       @map("centre_id")
+  numeroClient   String       @map("numero_client")
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  fournisseur    Fournisseur  @relation(fields: [fournisseurId], references: [id], onDelete: Cascade)
+  centre         Centre       @relation(fields: [centreId], references: [id], onDelete: Restrict)
+
+  @@id([fournisseurId, centreId])
+  @@unique([fournisseurId, numeroClient])
+  @@index([centreId])
+  @@map("fournisseur_compte_centre")
+}
+
+/// Sans ligne, `PARAMETRES_COMMANDE_DEFAUT` s'applique.
+model ParametresCommande {
+  organisationId        String       @id @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  delaiRelanceJours     Int          @map("delai_relance_jours")
+  relancesMax           Int          @map("relances_max")
+  tolerancePrixCentimes Int          @map("tolerance_prix_centimes")
+  /// Adresse unique du client pour ses factures reçues, le centre se lit sur la facture.
+  adresseBoiteFactures  String?      @map("adresse_boite_factures")
+  updatedAt             DateTime     @updatedAt @map("updated_at")
+  organisation          Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+
+  @@map("parametres_commande")
 }
 
 // ---------------------------------------------------------------------------

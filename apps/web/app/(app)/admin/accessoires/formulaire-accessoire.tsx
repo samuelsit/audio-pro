@@ -16,9 +16,11 @@ import type { AccessoireDetail } from '@/server/services/catalogue';
 export function FormulaireAccessoire({
   action,
   accessoire,
+  fournisseurs,
 }: {
   action: (etat: EtatFormulaire, formData: FormData) => Promise<EtatFormulaire>;
   accessoire?: AccessoireDetail;
+  fournisseurs: readonly { id: string; nom: string }[];
 }) {
   const [etat, envoyer] = useActionState(action, ETAT_INITIAL);
   return (
@@ -61,6 +63,15 @@ export function FormulaireAccessoire({
             ? ''
             : (accessoire.prixAchatCentimes / 100).toFixed(2).replace('.', ',')
         }
+      />
+      <ListeDeroulante
+        etat={etat}
+        nom="fournisseurId"
+        libelle="Fournisseur"
+        options={fournisseurs.map((f) => ({ valeur: f.id, libelle: f.nom }))}
+        defaut={accessoire?.fournisseurId ?? ''}
+        vide="Aucun"
+        requis={false}
       />
       <div className="grid gap-4 sm:grid-cols-2">
         <ChampTexte etat={etat} nom="marque" libelle="Marque" defaut={accessoire?.marque} />
