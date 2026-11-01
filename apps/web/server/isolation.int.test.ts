@@ -56,6 +56,7 @@ import {
 } from './services/factures-fournisseurs';
 import { traiterEcart } from './services/ecarts-achat';
 import { obtenirRegleCommande } from './services/regles-commande';
+import { obtenirReleve, repointerReleve } from './services/releves-centrale';
 import { changerStatut, historiqueAccessoire, obtenirFicheAppareil } from './services/stock';
 import { obtenirUtilisateur } from './services/utilisateurs';
 
@@ -100,6 +101,8 @@ const TABLES_ISOLEES = [
   'reception_ligne',
   'reception_ligne_appareil',
   'regle_commande',
+  'releve_centrale',
+  'releve_centrale_ligne',
   'archive_caisse',
   'chaine_caisse',
   'cloture_caisse',
@@ -562,6 +565,8 @@ describe('identifiant d’un autre client forcé dans l’URL', () => {
       entite: 'PDF d’une facture fournisseur',
       appel: (x, c) => telechargerFactureFournisseur(x, c.factureFournisseurId),
     },
+    { entite: 'relevé de centrale', appel: (x, c) => obtenirReleve(x, c.releveId) },
+    { entite: 'pointage d’un relevé', appel: (x, c) => repointerReleve(x, c.releveId) },
     {
       entite: 'traitement d’un écart',
       appel: (x, c) => traiterEcart(x, c.ecartId, { statut: 'RESOLU', commentaire: 'Forcé' }),

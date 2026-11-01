@@ -133,6 +133,8 @@ model Organisation {
   ecartAchats              EcartAchat[]
   facturesFournisseurs     FactureFournisseur[]
   lignesFactureFournisseur FactureFournisseurLigne[]
+  relevesCentrale          ReleveCentrale[]
+  lignesReleveCentrale     ReleveCentraleLigne[]
 
   @@map("organisation")
 }
@@ -283,6 +285,7 @@ model Utilisateur {
   receptions                   Reception[]
   ecartsTraites                EcartAchat[]
   facturesFournisseursValidees FactureFournisseur[]
+  relevesImportes              ReleveCentrale[]
 
   @@index([organisationId])
   @@map("utilisateur")
@@ -786,17 +789,18 @@ enum TypeFournisseur {
 
 /// Regroupe la facturation de fournisseurs dans un relevé mensuel. Ne reçoit jamais les commandes.
 model CentraleAchat {
-  id             String        @id @default(uuid(7))
-  organisationId String        @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  id             String           @id @default(uuid(7))
+  organisationId String           @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
   nom            String
   email          String?
   telephone      String?
   adresse        String?
-  actif          Boolean       @default(true)
-  createdAt      DateTime      @default(now()) @map("created_at")
-  updatedAt      DateTime      @updatedAt @map("updated_at")
-  organisation   Organisation  @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  actif          Boolean          @default(true)
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+  organisation   Organisation     @relation(fields: [organisationId], references: [id], onDelete: Restrict)
   fournisseurs   Fournisseur[]
+  releves        ReleveCentrale[]
 
   @@unique([organisationId, nom])
   @@map("centrale_achat")
@@ -1161,6 +1165,7 @@ model FactureFournisseur {
   validateur         Utilisateur?              @relation(fields: [validateurId], references: [id], onDelete: Restrict)
   lignes             FactureFournisseurLigne[]
   ecarts             EcartAchat[]
+  lignesReleve       ReleveCentraleLigne[]
 
   @@index([organisationId, statut])
   @@index([centreId, statut])
@@ -1189,6 +1194,54 @@ model FactureFournisseurLigne {
   @@unique([factureId, rang])
   @@index([commandeLigneId])
   @@map("facture_fournisseur_ligne")
+}
+
+enum EtatPointageReleve {
+  POINTEE
+  MANQUANTE
+  MONTANT_DIFFERENT
+}
+
+/// Relevé mensuel d'une centrale : il regroupe des factures, qui restent celles des fabricants (ADR-031).
+model ReleveCentrale {
+  id              String                @id @default(uuid(7))
+  organisationId  String                @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  centraleAchatId String                @map("centrale_achat_id")
+  /// AAAA-MM.
+  mois            String
+  /// PDF source, s'il a été joint, dans le stockage chiffré.
+  documentCle     String?               @map("document_cle")
+  importeParId    String                @map("importe_par_id")
+  createdAt       DateTime              @default(now()) @map("created_at")
+  organisation    Organisation          @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  centraleAchat   CentraleAchat         @relation(fields: [centraleAchatId], references: [id], onDelete: Restrict)
+  importePar      Utilisateur           @relation(fields: [importeParId], references: [id], onDelete: Restrict)
+  lignes          ReleveCentraleLigne[]
+
+  @@unique([centraleAchatId, mois])
+  @@index([organisationId])
+  @@map("releve_centrale")
+}
+
+/// `etat` et `factureFournisseurId` se recalculent : une facture peut arriver après le relevé.
+model ReleveCentraleLigne {
+  id                   String              @id @default(uuid(7))
+  organisationId       String              @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  releveId             String              @map("releve_id")
+  rang                 Int
+  numeroFacture        String              @map("numero_facture")
+  fournisseur          String
+  dateFacture          DateTime            @map("date_facture") @db.Date
+  montantTtcCentimes   Int                 @map("montant_ttc_centimes")
+  etat                 EtatPointageReleve
+  factureFournisseurId String?             @map("facture_fournisseur_id")
+  organisation         Organisation        @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  releve               ReleveCentrale      @relation(fields: [releveId], references: [id], onDelete: Restrict)
+  facture              FactureFournisseur? @relation(fields: [factureFournisseurId], references: [id], onDelete: Restrict)
+
+  @@unique([releveId, rang])
+  @@index([factureFournisseurId])
+  @@map("releve_centrale_ligne")
 }
 
 /// Écart à traiter, relevé à la réception ou au rapprochement d'une facture.

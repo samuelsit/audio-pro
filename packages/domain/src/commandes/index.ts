@@ -6,4 +6,5 @@ export * from './fournisseur';
 export * from './parametres';
 export * from './reception';
 export * from './relance';
+export * from './releve';
 export * from './saisie';

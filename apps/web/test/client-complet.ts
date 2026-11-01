@@ -40,6 +40,7 @@ import {
 } from '@/server/services/fournisseurs';
 import { preparerFse } from '@/server/services/fse';
 import { creerRegleCommande } from '@/server/services/regles-commande';
+import { importerReleve } from '@/server/services/releves-centrale';
 import {
   classerEcartReglement,
   enregistrerRejet,
@@ -424,6 +425,15 @@ export async function creerClientComplet(suffixe: string) {
   await modifierFactureFournisseur(d.acteurs.admin, factureFournisseurId, {
     lignes: [{ designation: 'Ligne fictive', quantite: '1', prixUnitaireCentimes: '10,00' }],
   });
+  const releveId = await importerReleve(
+    d.acteurs.admin,
+    {
+      centraleAchatId: centraleId,
+      mois: '2030-01',
+      csv: 'numero_facture;fournisseur;date;montant_ttc\nFA-FICTIVE;Fictif;2030-01-07;10,00',
+    },
+    null,
+  );
 
   return {
     d,
@@ -441,6 +451,7 @@ export async function creerClientComplet(suffixe: string) {
     commandeRecueId,
     ecartId,
     factureFournisseurId,
+    releveId,
     cabineId,
     venteId,
     complementaireId,
