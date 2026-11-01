@@ -8,6 +8,7 @@ export * from './catalogue';
 export * from './centre/centre';
 export * from './centre/horaires';
 export * from './commandes';
+export * from './communication';
 export * from './commun/csv';
 export * from './commun/date';
 export * from './commun/fuseau';

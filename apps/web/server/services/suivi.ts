@@ -2,12 +2,12 @@ import {
   calculerPagination,
   clefCreneau,
   controlesAPlanifier,
+  controlesTraites,
   ignoranceControleSchema,
   lireCreneau,
   pageSchema,
   planificationControleSchema,
   peutSuivreSav,
-  STATUTS_RDV_PROPOSABLES,
   type ControleAPlanifier,
   type ControleTraite,
   type Pagination,
@@ -33,8 +33,8 @@ import { LIGNES_PAR_PAGE_SAV } from './tickets-sav';
 
 type Client = ReturnType<typeof base>;
 
-/** Un rendez-vous annulé ou manqué repropose son contrôle ; tout autre statut le traite. */
-function controlesTraites(
+/** Les décisions enregistrées, sous la forme que le domaine attend. */
+function decisionsDuDomaine(
   lignes: readonly {
     dateReference: Date;
     rang: number;
@@ -42,13 +42,9 @@ function controlesTraites(
     rendezVous: { statut: string } | null;
   }[],
 ): ControleTraite[] {
-  return lignes
-    .filter(
-      ({ statut, rendezVous }) =>
-        statut === 'IGNORE' ||
-        !STATUTS_RDV_PROPOSABLES.some((proposable) => proposable === rendezVous?.statut),
-    )
-    .map(({ dateReference, rang }) => ({ dateReference: depuisDate(dateReference), rang }));
+  return controlesTraites(
+    lignes.map((l) => ({ ...l, dateReference: depuisDate(l.dateReference) })),
+  );
 }
 
 const selectionDecision = {
@@ -75,7 +71,7 @@ async function controlesDe(
   return controlesAPlanifier(
     delivrances.map((d) => ({ ...d, dateDelivrance: depuisDate(d.dateDelivrance) })),
     parametres,
-    controlesTraites(decisions),
+    decisionsDuDomaine(decisions),
     jour,
   );
 }
@@ -145,7 +141,7 @@ export async function listerControles(
       controlesAPlanifier(
         p.delivrances.map((d) => ({ ...d, dateDelivrance: depuisDate(d.dateDelivrance) })),
         reglages,
-        controlesTraites(decisions.filter((c) => c.patientId === p.id)),
+        decisionsDuDomaine(decisions.filter((c) => c.patientId === p.id)),
         jour,
       ).map((controle) => ({
         ...controle,

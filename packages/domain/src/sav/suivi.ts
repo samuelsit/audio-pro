@@ -92,6 +92,24 @@ export function controlesAPlanifier(
 
 export const STATUTS_RDV_PROPOSABLES = ['ABSENT', 'ANNULE'] as const;
 
+export interface DecisionControle {
+  readonly dateReference: string;
+  readonly rang: number;
+  readonly statut: 'PLANIFIE' | 'IGNORE';
+  readonly rendezVous: { readonly statut: string } | null;
+}
+
+/** Un rendez-vous annulé ou manqué repropose son contrôle ; tout autre statut le traite. */
+export function controlesTraites(lignes: readonly DecisionControle[]): ControleTraite[] {
+  return lignes
+    .filter(
+      ({ statut, rendezVous }) =>
+        statut === 'IGNORE' ||
+        !STATUTS_RDV_PROPOSABLES.some((proposable) => proposable === rendezVous?.statut),
+    )
+    .map(({ dateReference, rang }) => ({ dateReference, rang }));
+}
+
 const controleRefSchema = z.object({
   patientId: z.uuid('Patient inconnu.'),
   dateReference: dateCalendaireSchema,

@@ -4,6 +4,7 @@ import { PARAMETRES_SAV_DEFAUT } from './parametres';
 import {
   clefCreneau,
   controlesAPlanifier,
+  controlesTraites,
   ignoranceControleSchema,
   lireCreneau,
   moisDesControles,
@@ -136,5 +137,18 @@ describe('créneau et saisies', () => {
   it('exige un motif pour ignorer', () => {
     const saisie = { patientId: UUID, dateReference: '2026-01-15', rang: '1', motif: ' ' };
     expect(ignoranceControleSchema.safeParse(saisie).success).toBe(false);
+  });
+});
+
+describe('controlesTraites', () => {
+  const ligne = { dateReference: '2026-01-15', rang: 1 };
+
+  it.each([
+    ['ignoré', { statut: 'IGNORE', rendezVous: null }, 1],
+    ['rendez-vous pris', { statut: 'PLANIFIE', rendezVous: { statut: 'VU' } }, 1],
+    ['rendez-vous annulé', { statut: 'PLANIFIE', rendezVous: { statut: 'ANNULE' } }, 0],
+    ['rendez-vous manqué', { statut: 'PLANIFIE', rendezVous: { statut: 'ABSENT' } }, 0],
+  ] as const)('%s', (_, decision, attendu) => {
+    expect(controlesTraites([{ ...ligne, ...decision }])).toHaveLength(attendu);
   });
 });

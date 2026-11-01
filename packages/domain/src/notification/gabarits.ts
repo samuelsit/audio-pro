@@ -46,7 +46,8 @@ const formatDate = new Intl.DateTimeFormat('fr-FR', {
   month: 'long',
 });
 
-function dateLongue(date: string): string {
+/** « mardi 3 novembre » : date d'un message au patient. */
+export function dateLongue(date: string): string {
   return formatDate.format(Date.parse(`${date}T12:00:00Z`));
 }
 
