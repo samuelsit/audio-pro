@@ -1,3 +1,3 @@
 # Adaptateurs billing
 
-Port : `BillingEngine`. Implémentation (réelle + Fake) prévue à l'étape 26 (AreaFSE), `FakeBillingEngine` à l'étape 14 : la facture préparée ne facture pas (ADR-015), voir docs/PLAN.md.
+Port : `BillingEngine` (`packages/domain/src/ports/billing-engine.ts`). `FakeBillingEngine` simule les statuts `EN_ATTENTE`, `TRANSMISE`, `ACCEPTEE` et `REJETEE` avec motif (étape 14, ADR-028). L'implémentation réelle arrive à l'étape 26 (AreaFSE), et alignera le port sur `docs/vendor/areafse`.
