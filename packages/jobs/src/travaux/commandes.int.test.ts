@@ -1,7 +1,9 @@
 import {
+  EmpreinteAdresse,
   FakeDocumentStore,
   FakeNotifier,
   SignatureLienCommande,
+  SignatureLienDesinscription,
   SignatureLienDocument,
   SignatureLienRdv,
 } from '@ha/adapters';
@@ -14,6 +16,8 @@ import { travailRelanceCommandes } from './relancer-commandes';
 
 const CLE = Buffer.alloc(32, 3);
 const signatureCommande = new SignatureLienCommande(CLE);
+const signatureDesinscription = new SignatureLienDesinscription(CLE);
+const empreinte = new EmpreinteAdresse(CLE);
 const JOUR = 86_400_000;
 const INSTANT = new Date('2030-01-07T09:00:00.000Z');
 
@@ -32,6 +36,8 @@ function envoyer(store: FakeDocumentStore | null, maintenant = () => INSTANT) {
     signature: new SignatureLienRdv(CLE),
     signatureDocument: new SignatureLienDocument(CLE),
     signatureCommande,
+    signatureDesinscription,
+    empreinte,
     documents: store,
     urlPublique: 'https://exemple.test',
     maintenant,

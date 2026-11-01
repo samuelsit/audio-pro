@@ -1,30 +1,43 @@
 import path from 'node:path';
 
 import {
+  chargerCleEmpreinte,
   chargerCleLienRdv,
   chargerConfigurationS3,
   chargerSignatureCaisse,
   chargerTrousseau,
   ChiffreurAesGcm,
+  creerNotifierDepuisEnv,
+  creerRenduPdfDepuisEnv,
   DocumentStoreChiffre,
+  EmpreinteAdresse,
   FakeBoiteFactures,
-  FakeNotifier,
   HacheurSha256,
+  notifierActif,
   PdfTexteExtracteurFacture,
   S3DocumentStore,
   SignatureLienCommande,
+  SignatureLienDesinscription,
   SignatureLienDocument,
   SignatureLienRdv,
   SystemClock,
 } from '@ha/adapters';
 import { config } from 'dotenv';
 
-import { ABONNES } from './abonnes';
+import { creerAbonnes } from './abonnes';
 import { FileTravaux } from './file';
 import { repartirCaisse, travailCaisseNuit } from './travaux/caisse-nuit';
 import { travailDiagnostic } from './travaux/diagnostic';
 import { repartirDiffusion, travailDiffusion } from './travaux/diffuser-evenements';
 import { repartirEnvois, travailEnvoi } from './travaux/envoyer-notifications';
+import { repartirScenarios, travailScenarios } from './travaux/declencher-scenarios';
+import { repartirCourriers, travailCourriers } from './travaux/generer-courriers';
+import { repartirCampagnes, travailCampagnes } from './travaux/lancer-campagnes';
+import {
+  releverOppositions,
+  repartirReleveEnvois,
+  travailReleveEnvois,
+} from './travaux/relever-envois';
 import { repartirPurgeLiens, travailPurgeLiensDocument } from './travaux/purger-liens-document';
 import { repartirRelances, travailRelanceCommandes } from './travaux/relancer-commandes';
 import { repartirReleve, travailReleveFactures } from './travaux/relever-factures';
@@ -45,13 +58,22 @@ if (!url || !process.env.DATABASE_URL || !process.env.DATABASE_URL_PLATEFORME) {
   );
 }
 chargerTrousseau(process.env);
+// Les messages aux patients se comparent aux oppositions par cette empreinte : sans clé, rien ne peut partir.
+const empreinteAdresse = new EmpreinteAdresse(chargerCleEmpreinte(process.env));
 
 const file = new FileTravaux(url);
 await file.demarrer();
 await file.declarer(travailDiagnostic);
 await file.ecouter(travailDiagnostic);
 
-const diffusion = travailDiffusion(ABONNES);
+const urlPublique = process.env.URL_PUBLIQUE;
+const communication = notifierActif(process.env) && urlPublique ? { urlPublique } : null;
+const dependancesMessages = communication && {
+  empreinte: empreinteAdresse,
+  urlPublique: communication.urlPublique,
+};
+
+const diffusion = travailDiffusion(creerAbonnes(dependancesMessages));
 await file.declarer(diffusion);
 await file.ecouter(diffusion);
 await file.planifierTransverse('repartir-evenements', '* * * * *', () =>
@@ -75,23 +97,62 @@ const documentsChiffres =
       )
     : null;
 
-// À VÉRIFIER : aucun fournisseur de SMS ni d'e-mail n'est retenu (ADR-021). Sans lui, les autres travaux tournent
-// quand même : la réservation en ligne, elle, ne peut pas s'ouvrir, faute de pouvoir envoyer le code.
-const urlPublique = process.env.URL_PUBLIQUE;
-if (process.env.NOTIFIER === 'simulation' && process.env.NODE_ENV !== 'production' && urlPublique) {
+// Sans fournisseur, les autres travaux tournent quand même : aucun message au patient ne part.
+if (dependancesMessages) {
+  const notifier = creerNotifierDepuisEnv(process.env);
   const envoi = travailEnvoi({
-    notifier: new FakeNotifier(process.env.NOTIFIER_SIMULATION_FICHIER),
+    notifier,
     signature: new SignatureLienRdv(chargerCleLienRdv(process.env)),
     signatureDocument: new SignatureLienDocument(chargerCleLienRdv(process.env)),
     signatureCommande: new SignatureLienCommande(chargerCleLienRdv(process.env)),
+    signatureDesinscription: new SignatureLienDesinscription(chargerCleLienRdv(process.env)),
+    empreinte: empreinteAdresse,
     documents: documentsChiffres,
-    urlPublique,
+    urlPublique: dependancesMessages.urlPublique,
   });
   await file.declarer(envoi, { expireInSeconds: 120 });
   await file.ecouter(envoi);
   await file.planifierTransverse('repartir-notifications', '* * * * *', () =>
     repartirEnvois(file, envoi),
   );
+
+  const scenarios = travailScenarios(dependancesMessages);
+  await file.declarer(scenarios, { expireInSeconds: 900 });
+  await file.ecouter(scenarios);
+  await file.planifierTransverse('repartir-scenarios', '11 * * * *', () =>
+    repartirScenarios(file, scenarios),
+  );
+
+  const campagnes = travailCampagnes(dependancesMessages);
+  await file.declarer(campagnes, { expireInSeconds: 900 });
+  await file.ecouter(campagnes);
+  await file.planifierTransverse('repartir-campagnes', '* * * * *', () =>
+    repartirCampagnes(file, campagnes),
+  );
+
+  const releveEnvois = travailReleveEnvois({ notifier });
+  await file.declarer(releveEnvois);
+  await file.ecouter(releveEnvois);
+  await file.planifierTransverse('repartir-releve-envois', '*/10 * * * *', () =>
+    repartirReleveEnvois(file, releveEnvois),
+  );
+  await file.planifierTransverse('relever-oppositions', '*/5 * * * *', () =>
+    releverOppositions({ notifier, empreinte: empreinteAdresse }),
+  );
+
+  // Les lettres passent par le vrai stockage : le PDF se télécharge depuis l'application.
+  if (documentsChiffres) {
+    const courriers = travailCourriers({
+      notifier,
+      documents: documentsChiffres,
+      pdf: creerRenduPdfDepuisEnv(process.env),
+    });
+    await file.declarer(courriers, { expireInSeconds: 1800 });
+    await file.ecouter(courriers);
+    await file.planifierTransverse('repartir-courriers', '13 * * * *', () =>
+      repartirCourriers(file, courriers),
+    );
+  }
 } else {
   console.warn('Notifications en ligne désactivées : aucun fournisseur configuré.');
 }

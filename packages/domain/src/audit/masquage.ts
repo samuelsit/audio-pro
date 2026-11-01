@@ -198,6 +198,24 @@ export const CHAMPS_VISIBLES_AUDIT: Readonly<Record<TypeEntite, readonly string[
   PRET_APPAREIL: [],
   QUOTA_PILES: [],
   CONTROLE_SUIVI: [],
+  MESSAGE_PATIENT: [],
+  MODELE_MESSAGE: ['nom', 'scenario'],
+  PARAMETRES_COMMUNICATION: [
+    'heureDebut',
+    'heureFin',
+    'jours',
+    'feries',
+    'tarifSmsMillimes',
+    'devisDelaiJours',
+    'devisRelancesMax',
+    'finEssaiAvanceJours',
+    'controleAvanceJours',
+    'garantieAvanceJours',
+    'renouvellementFenetreJours',
+  ],
+  REGLAGE_SCENARIO: ['scenario', 'actif', 'canaux'],
+  CAMPAGNE: ['nom', 'canal', 'statut'],
+  LOT_COURRIER: ['statut', 'lettres'],
 };
 
 export interface ChampModifie {

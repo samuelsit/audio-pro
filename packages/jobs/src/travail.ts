@@ -4,7 +4,7 @@ import {
   ChiffreurAesGcm,
   extensionChampsChiffres,
 } from '@ha/adapters';
-import { clientApplication, clientOrganisation, poserContexte } from '@ha/db';
+import { clientApplication, clientOrganisation, poserContexte, type Prisma } from '@ha/db';
 import type { TxCaisse } from '@ha/caisse';
 import { z } from 'zod';
 
@@ -57,6 +57,14 @@ export function enTransaction<T>(
     await poserContexte(tx, organisationId);
     return operation(tx as unknown as TxCaisse);
   });
+}
+
+/** Transaction interactive chiffrée, contexte client posé, pour écrire plusieurs lignes d'un seul tenant. */
+export function enTransactionChiffree<T>(
+  organisationId: string,
+  operation: (tx: Prisma.TransactionClient) => Promise<T>,
+): Promise<T> {
+  return enTransaction(organisationId, (tx) => operation(tx));
 }
 
 export interface ContexteTravail {

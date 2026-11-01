@@ -50,6 +50,9 @@ importers:
       '@ha/caisse':
         specifier: workspace:*
         version: link:../../packages/caisse
+      '@ha/communication':
+        specifier: workspace:*
+        version: link:../../packages/communication
       '@ha/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -180,6 +183,22 @@ importers:
         specifier: ^24.19.2
         version: 24.19.2
 
+  packages/communication:
+    dependencies:
+      '@ha/adapters':
+        specifier: workspace:*
+        version: link:../adapters
+      '@ha/db':
+        specifier: workspace:*
+        version: link:../db
+      '@ha/domain':
+        specifier: workspace:*
+        version: link:../domain
+    devDependencies:
+      '@types/node':
+        specifier: ^24.19.2
+        version: 24.19.2
+
   packages/db:
     dependencies:
       '@prisma/adapter-pg':
@@ -225,6 +244,9 @@ importers:
       '@ha/caisse':
         specifier: workspace:*
         version: link:../caisse
+      '@ha/communication':
+        specifier: workspace:*
+        version: link:../communication
       '@ha/db':
         specifier: workspace:*
         version: link:../db

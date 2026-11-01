@@ -1,14 +1,30 @@
-import type { SignatureLienCommande, SignatureLienDocument, SignatureLienRdv } from '@ha/adapters';
+import type {
+  EmpreinteAdresse,
+  SignatureLienCommande,
+  SignatureLienDesinscription,
+  SignatureLienDocument,
+  SignatureLienRdv,
+} from '@ha/adapters';
+import {
+  journaliserSysteme,
+  lireParametresCommunication,
+  type TxCommunication,
+} from '@ha/communication';
 import { clientPlateforme } from '@ha/db';
 import {
+  adresseCanonique,
+  coutSmsMillimes,
   DUREE_LIEN_DOCUMENT_JOURS,
   gabaritAvecPieceJointe,
   parametresCommandeMessageSchema,
   parametresDocumentSchema,
   parametresGabaritSchema,
+  piedEmail,
   rendreMessage,
   rendreMessageCommande,
   rendreMessageDocument,
+  telephoneCanonique,
+  type CanalNotification,
   type DocumentStore,
   type GabaritCommande,
   type GabaritNotification,
@@ -20,6 +36,7 @@ import { z } from 'zod';
 
 import type { FileTravaux } from '../file';
 import { definirTravail, type ContexteTravail, type Travail } from '../travail';
+import { gardeEnvoi, type MessageARelire } from './garde-envoi';
 
 const TAILLE_LOT = 50;
 const TENTATIVES_MAX = 5;
@@ -32,6 +49,8 @@ export interface DependancesEnvoi {
   readonly signature: SignatureLienRdv;
   readonly signatureDocument: SignatureLienDocument;
   readonly signatureCommande: SignatureLienCommande;
+  readonly signatureDesinscription: SignatureLienDesinscription;
+  readonly empreinte: EmpreinteAdresse;
   /** Bons de commande. Sans stockage réel, leurs messages attendent : ils ne partent pas sans pièce jointe. */
   readonly documents: DocumentStore | null;
   readonly urlPublique: string;
@@ -64,6 +83,8 @@ export function travailEnvoi(dependances: DependancesEnvoi): Travail<ChargeEnvoi
     signature,
     signatureDocument,
     signatureCommande,
+    signatureDesinscription,
+    empreinte,
     documents,
     urlPublique,
     maintenant = () => new Date(),
@@ -133,18 +154,93 @@ export function travailEnvoi(dependances: DependancesEnvoi): Travail<ChargeEnvoi
     });
   }
 
+  /** Sur l'empreinte du destinataire : un STOP coupe aussi une ligne déjà en file, quelle que soit sa source. */
+  async function sousOpposition(
+    client: ContexteTravail['client'],
+    organisationId: string,
+    canal: CanalNotification,
+    destinataire: string,
+  ): Promise<boolean> {
+    const adresse =
+      canal === 'SMS'
+        ? (telephoneCanonique(destinataire) ?? destinataire)
+        : adresseCanonique('EMAIL', destinataire);
+    const opposition = await client.oppositionAdresse.findUnique({
+      where: {
+        organisationId_canal_empreinte: {
+          organisationId,
+          canal,
+          empreinte: empreinte.calculer(canal, adresse),
+        },
+      },
+      select: { id: true },
+    });
+    return opposition !== null;
+  }
+
+  async function envoyerMessagePatient(
+    client: ContexteTravail['client'],
+    organisationId: string,
+    ligne: { canal: CanalNotification; destinataire: string },
+    message: MessageARelire,
+    tarifSmsMillimes: number,
+  ): Promise<void> {
+    const { sujet, corps, centre } = message;
+    const texte = z.string().parse(corps);
+    let recu;
+    if (ligne.canal === 'SMS') {
+      recu = await notifier.envoyerSms({ destinataire: ligne.destinataire, texte });
+    } else {
+      const jeton = signatureDesinscription.signer({ organisationId, messageId: message.id });
+      const lienDesinscription = `${urlPublique}/desinscription/${jeton}`;
+      recu = await notifier.envoyerEmail({
+        destinataire: ligne.destinataire,
+        sujet: z.string().parse(sujet),
+        texte: piedEmail(texte, centre.nom, lienDesinscription),
+        repondreA: centre.email,
+        lienDesinscription,
+      });
+    }
+    const envoyeLe = maintenant();
+    await client.messagePatient.update({
+      where: { id: message.id },
+      data: {
+        statut: 'ENVOYE',
+        envoyeLe,
+        idFournisseur: recu.idFournisseur,
+        segments: recu.credits,
+        coutMillimes:
+          recu.credits === null ? null : coutSmsMillimes(recu.credits, tarifSmsMillimes),
+      },
+    });
+    await journaliserSysteme(client as unknown as TxCommunication, organisationId, [
+      {
+        action: 'SEND',
+        entiteType: 'MESSAGE_PATIENT',
+        entiteId: message.id,
+        patientId: message.patientId,
+        centreId: message.centreId,
+        details: { canal: ligne.canal, scenario: message.scenario },
+      },
+    ]);
+  }
+
   return definirTravail({
     nom: 'envoyer-notifications',
     charge: chargeEnvoi,
     async executer({ client, organisationId }) {
       const instant = maintenant();
+      const parametres = await lireParametresCommunication(
+        client as unknown as TxCommunication,
+        organisationId,
+      );
       const lot = await client.notification.findMany({
         where: {
           statut: 'A_ENVOYER',
           prochainEssaiLe: { lte: instant },
           ...(documents === null ? { commandeId: null } : {}),
         },
-        orderBy: { id: 'asc' },
+        orderBy: [{ priorite: 'asc' }, { id: 'asc' }],
         take: TAILLE_LOT,
       });
       for (const ligne of lot) {
@@ -172,6 +268,48 @@ export function travailEnvoi(dependances: DependancesEnvoi): Travail<ChargeEnvoi
             });
             continue;
           }
+          if (ligne.commandeId === null) {
+            const verdict = await gardeEnvoi({
+              client,
+              messagePatientId: ligne.messagePatientId,
+              opposition: await sousOpposition(
+                client,
+                organisationId,
+                ligne.canal,
+                ligne.destinataire,
+              ),
+              parametres,
+              instant,
+            });
+            if (verdict.issue === 'ABANDON') {
+              await client.notification.update({
+                where: { id: ligne.id },
+                data: { statut: 'ABANDONNEE' },
+              });
+              continue;
+            }
+            if (verdict.issue === 'REPORT') {
+              await client.notification.update({
+                where: { id: ligne.id },
+                data: { tentatives: ligne.tentatives, prochainEssaiLe: verdict.creneau },
+              });
+              continue;
+            }
+            if (ligne.gabarit === 'MESSAGE_PATIENT') {
+              await envoyerMessagePatient(
+                client,
+                organisationId,
+                ligne,
+                z.custom<MessageARelire>((m) => m !== null).parse(verdict.message),
+                parametres.tarifSmsMillimes,
+              );
+              await client.notification.update({
+                where: { id: ligne.id },
+                data: { statut: 'ENVOYEE', envoyeeLe: maintenant() },
+              });
+              continue;
+            }
+          }
           const { sujet, corps } = message(organisationId, ligne);
           if (ligne.canal === 'SMS') {
             await notifier.envoyerSms({ destinataire: ligne.destinataire, texte: corps });
@@ -194,6 +332,12 @@ export function travailEnvoi(dependances: DependancesEnvoi): Travail<ChargeEnvoi
               where: { id: ligne.id },
               data: { statut: 'ABANDONNEE' },
             });
+            if (ligne.messagePatientId !== null) {
+              await client.messagePatient.update({
+                where: { id: ligne.messagePatientId },
+                data: { statut: 'ECHEC', echecLe: maintenant(), motif: 'ENVOI' },
+              });
+            }
           }
         }
       }

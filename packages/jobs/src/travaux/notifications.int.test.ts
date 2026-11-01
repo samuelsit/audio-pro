@@ -1,7 +1,9 @@
 import {
+  EmpreinteAdresse,
   FakeDocumentStore,
   FakeNotifier,
   SignatureLienCommande,
+  SignatureLienDesinscription,
   SignatureLienDocument,
   SignatureLienRdv,
 } from '@ha/adapters';
@@ -19,6 +21,8 @@ const file = new FileTravaux(process.env.DATABASE_URL_JOBS ?? '');
 const signature = new SignatureLienRdv(Buffer.alloc(32, 3));
 const signatureDocument = new SignatureLienDocument(Buffer.alloc(32, 3));
 const signatureCommande = new SignatureLienCommande(Buffer.alloc(32, 3));
+const signatureDesinscription = new SignatureLienDesinscription(Buffer.alloc(32, 3));
+const empreinte = new EmpreinteAdresse(Buffer.alloc(32, 4));
 const PARAMETRES = {
   centre: 'Centre A',
   telephoneCentre: '0100000000',
@@ -63,6 +67,8 @@ function envoyer(maintenant = () => new Date()) {
     signature,
     signatureDocument,
     signatureCommande,
+    signatureDesinscription,
+    empreinte,
     documents: null,
     urlPublique: 'https://exemple.test',
     maintenant,
@@ -161,9 +167,9 @@ describe('travailEnvoi', () => {
     await creerNotification();
     await envoyer();
     expect(notifier.envoyes).toHaveLength(1);
-    const message = notifier.envoyes[0];
+    const message = notifier.envoyes[0] as { texte: string };
     expect(message).toMatchObject({ canal: 'SMS', destinataire: '+33600000000' });
-    const jeton = message?.texte.split('/rdv/lien/')[1] ?? '';
+    const jeton = message.texte.split('/rdv/lien/')[1] ?? '';
     expect(signature.lire(jeton)).toEqual({ organisationId, reservationId });
     await expect(prisma().notification.findFirstOrThrow()).resolves.toMatchObject({
       statut: 'ENVOYEE',
@@ -279,7 +285,7 @@ describe('messages vers un document', () => {
       parametres: { centre: 'Centre A' },
     });
     await envoyer();
-    const texte = notifier.envoyes[0]?.texte ?? '';
+    const { texte } = notifier.envoyes[0] as { texte: string };
     expect(signatureDocument.lire(texte.split('/document/')[1] ?? '')).toEqual({
       organisationId,
       lienId: lien.id,
@@ -336,6 +342,8 @@ describe('repartirEnvois', () => {
       signature,
       signatureDocument,
       signatureCommande,
+      signatureDesinscription,
+      empreinte,
       documents: null,
       urlPublique: 'https://exemple.test',
     });

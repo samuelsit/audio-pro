@@ -87,6 +87,12 @@ export const TYPES_ENTITE = [
   'OTOSCOPIE',
   'MODELE_FORMULAIRE',
   'REPONSE_FORMULAIRE',
+  'MESSAGE_PATIENT',
+  'MODELE_MESSAGE',
+  'PARAMETRES_COMMUNICATION',
+  'REGLAGE_SCENARIO',
+  'CAMPAGNE',
+  'LOT_COURRIER',
 ] as const;
 
 export const typeEntiteSchema = z.enum(TYPES_ENTITE, { error: 'Type d’entité inconnu.' });
@@ -146,6 +152,12 @@ export const LIBELLES_TYPES_ENTITE: Readonly<Record<TypeEntite, string>> = {
   OTOSCOPIE: 'Otoscopie',
   MODELE_FORMULAIRE: 'Modèle de formulaire',
   REPONSE_FORMULAIRE: 'Réponse à un formulaire',
+  MESSAGE_PATIENT: 'Message au patient',
+  MODELE_MESSAGE: 'Modèle de message',
+  PARAMETRES_COMMUNICATION: 'Paramètres de communication',
+  REGLAGE_SCENARIO: 'Scénario de communication',
+  CAMPAGNE: 'Campagne',
+  LOT_COURRIER: 'Lot de courrier',
   TYPE_RDV: 'Type de rendez-vous',
   CABINE: 'Cabine',
   EXCEPTION_AGENDA: 'Exception d’agenda',
