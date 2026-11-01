@@ -32,6 +32,7 @@ import {
   type CanalNotification,
   type Centimes,
   type ContenuFacture,
+  type LigneBrouillonSaisie,
   type LigneFacture,
   type NatureLigneFacture,
   type NaturePiece,
@@ -42,6 +43,7 @@ import {
   type StatutFacture,
   type StatutFse,
   type TypeEvenementCaisse,
+  type VenteDirecteSaisie,
   type VueFacture,
 } from '@ha/domain';
 
@@ -312,6 +314,47 @@ async function evaluerVenteDirecte(
   };
 }
 
+/** Brouillon d'une vente directe, dans la transaction de l'appelant. */
+export async function ouvrirVenteDirecte(
+  tx: ClientTransaction,
+  acteur: UtilisateurConnecte,
+  { patientId, centreId, prescriptionId }: VenteDirecteSaisie,
+): Promise<string> {
+  const patient = await tx.patient.findFirst({
+    where: { id: patientId, organisationId: acteur.organisationId },
+    select: { id: true },
+  });
+  if (!patient) {
+    throw ErreurSaisie.surChamp('patientId', 'Patient inconnu.');
+  }
+  const prescription =
+    prescriptionId === null
+      ? null
+      : await tx.prescription.findFirst({
+          where: { id: prescriptionId, dossier: { patientId } },
+          select: { dossier: { select: { devis: { where: { statut: 'SIGNE' } } } } },
+        });
+  if (prescriptionId !== null && !prescription) {
+    throw ErreurSaisie.surChamp('prescriptionId', 'Cette prescription n’est pas celle du patient.');
+  }
+  // À VÉRIFIER : taux du devis signé, sinon taux général : aucun texte pour une vente directe (R30).
+  const tauxAmo = prescription
+    ? (prescription.dossier.devis[0]?.tauxAmo ?? TAUX_AMO_GENERAL.valeur)
+    : null;
+  const { id } = await tx.facture.create({
+    data: {
+      organisationId: acteur.organisationId,
+      centreId,
+      patientId,
+      prescriptionId,
+      tauxAmo,
+      createdById: acteur.id,
+    },
+    select: { id: true },
+  });
+  return id;
+}
+
 /** Ouvre une vente directe. La prescription, facultative, doit être celle du patient (R30). */
 export async function creerVenteDirecte(
   acteur: UtilisateurConnecte,
@@ -320,56 +363,19 @@ export async function creerVenteDirecte(
   if (!peutValiderFacture(acteur.role)) {
     throw new AccesRefuseError();
   }
-  const { patientId, centreId, prescriptionId } = valider(venteDirecteSaisieSchema, saisie);
-  verifierAccesCentre(acteur, centreId);
-  const { id } = await withAudit(
+  const donnees = valider(venteDirecteSaisieSchema, saisie);
+  verifierAccesCentre(acteur, donnees.centreId);
+  return withAudit(
     acteur,
-    async (tx) => {
-      const patient = await tx.patient.findFirst({
-        where: { id: patientId, organisationId: acteur.organisationId },
-        select: { id: true },
-      });
-      if (!patient) {
-        throw ErreurSaisie.surChamp('patientId', 'Patient inconnu.');
-      }
-      const prescription =
-        prescriptionId === null
-          ? null
-          : await tx.prescription.findFirst({
-              where: { id: prescriptionId, dossier: { patientId } },
-              select: { dossier: { select: { devis: { where: { statut: 'SIGNE' } } } } },
-            });
-      if (prescriptionId !== null && !prescription) {
-        throw ErreurSaisie.surChamp(
-          'prescriptionId',
-          'Cette prescription n’est pas celle du patient.',
-        );
-      }
-      // À VÉRIFIER : taux du devis signé, sinon taux général : aucun texte pour une vente directe (R30).
-      const tauxAmo = prescription
-        ? (prescription.dossier.devis[0]?.tauxAmo ?? TAUX_AMO_GENERAL.valeur)
-        : null;
-      return tx.facture.create({
-        data: {
-          organisationId: acteur.organisationId,
-          centreId,
-          patientId,
-          prescriptionId,
-          tauxAmo,
-          createdById: acteur.id,
-        },
-        select: { id: true },
-      });
-    },
-    ({ id: factureId }) => ({
+    (tx) => ouvrirVenteDirecte(tx, acteur, donnees),
+    (factureId) => ({
       action: 'CREATE',
       entiteType: 'FACTURE',
       entiteId: factureId,
-      patientId,
-      centreId,
+      patientId: donnees.patientId,
+      centreId: donnees.centreId,
     }),
   );
-  return id;
 }
 
 /** L'utilisateur atteste la couverture saisie pour cette vente, comme sur un dossier (R22). */
@@ -408,37 +414,47 @@ export async function ajouterLigneBrouillon(
     async (tx) => {
       const facture = await lireFacture(tx, acteur, factureId);
       exigerBrouillon(facture);
-      const accessoire =
-        ligne.accessoireId === null
-          ? null
-          : await tx.accessoire.findFirst({
-              where: { id: ligne.accessoireId, organisationId: acteur.organisationId },
-              select: { id: true, nature: true, codeLpp: true },
-            });
-      if (ligne.accessoireId !== null && accessoire?.nature !== ligne.nature) {
-        throw ErreurSaisie.surChamp('accessoireId', 'Article inconnu.');
-      }
-      const dernier = await tx.ligneFacture.findFirst({
-        where: { factureId },
-        orderBy: { rang: 'desc' },
-        select: { rang: true },
-      });
-      await tx.ligneFacture.create({
-        data: {
-          factureId,
-          rang: (dernier?.rang ?? 0) + 1,
-          nature: ligne.nature,
-          libelle: ligne.libelle,
-          codeLpp: accessoire?.codeLpp ?? null,
-          accessoireId: ligne.accessoireId,
-          quantite: ligne.quantite,
-          prixUnitaireCentimes: ligne.prixUnitaire,
-        },
-      });
+      await ecrireLigneBrouillon(tx, acteur, factureId, ligne);
       return facture;
     },
     (facture) => evenementPiece('UPDATE', facture, { ligneAjoutee: ligne.nature }),
   );
+}
+
+/** Écrit une ligne validée sur un brouillon, dans la transaction de l'appelant. */
+export async function ecrireLigneBrouillon(
+  tx: ClientTransaction,
+  acteur: UtilisateurConnecte,
+  factureId: string,
+  ligne: LigneBrouillonSaisie,
+): Promise<void> {
+  const accessoire =
+    ligne.accessoireId === null
+      ? null
+      : await tx.accessoire.findFirst({
+          where: { id: ligne.accessoireId, organisationId: acteur.organisationId },
+          select: { id: true, nature: true, codeLpp: true },
+        });
+  if (ligne.accessoireId !== null && accessoire?.nature !== ligne.nature) {
+    throw ErreurSaisie.surChamp('accessoireId', 'Article inconnu.');
+  }
+  const dernier = await tx.ligneFacture.findFirst({
+    where: { factureId },
+    orderBy: { rang: 'desc' },
+    select: { rang: true },
+  });
+  await tx.ligneFacture.create({
+    data: {
+      factureId,
+      rang: (dernier?.rang ?? 0) + 1,
+      nature: ligne.nature,
+      libelle: ligne.libelle,
+      codeLpp: accessoire?.codeLpp ?? null,
+      accessoireId: ligne.accessoireId,
+      quantite: ligne.quantite,
+      prixUnitaireCentimes: ligne.prixUnitaire,
+    },
+  });
 }
 
 export async function retirerLigneBrouillon(

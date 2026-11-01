@@ -123,6 +123,21 @@ export default async function PageAppareil({ params }: PageProps<'/stock/apparei
           .
         </p>
       ) : null}
+      {fiche.ticketId ? (
+        <p className="text-sm text-muted-foreground">
+          Cet appareil est suivi par un{' '}
+          <Link href={`/sav/tickets/${fiche.ticketId}`} className="underline underline-offset-4">
+            ticket SAV
+          </Link>
+          .
+        </p>
+      ) : fiche.statut === 'VENDU' || fiche.statut === 'SAV' ? (
+        <div>
+          <Button asChild variant="outline">
+            <Link href={`/sav/nouveau?serie=${fiche.numeroSerie}`}>Ouvrir un ticket SAV</Link>
+          </Button>
+        </div>
+      ) : null}
       <ActionsAppareil key={fiche.mouvements[0]?.id} fiche={fiche} destinations={destinations} />
 
       <section className="grid gap-2">

@@ -62,6 +62,8 @@ model Organisation {
   parametresCommande       ParametresCommande?
   parametresSav            ParametresSav?
   garantiesAppareil        GarantieAppareil[]
+  compteursSav             CompteurSav[]
+  ticketsSav               TicketSav[]
   reglesCommande           RegleCommande[]
   compteursCommande        CompteurCommande[]
   commandes                Commande[]
@@ -174,6 +176,7 @@ model Centre {
   patients              Patient[]
   lecturesVitale        LectureVitale[]
   appareils             Appareil[]
+  ticketsSav            TicketSav[]
   mouvementsDepart      MouvementAppareil[]       @relation("MouvementCentreAvant")
   mouvementsArrivee     MouvementAppareil[]       @relation("MouvementCentreApres")
   stockAccessoires      StockAccessoire[]
@@ -245,6 +248,7 @@ model Utilisateur {
   comptes                      Compte[]
   deuxFacteurs                 DeuxFacteurs[]
   lecturesVitale               LectureVitale[]
+  ticketsSavOuverts            TicketSav[]
   mouvementsAppareil           MouvementAppareil[]
   mouvementsAccessoire         MouvementAccessoire[]
   transitionsDossier           TransitionDossier[]
@@ -420,6 +424,7 @@ model Patient {
   appareils             Appareil[]
   mouvementsAppareil    MouvementAppareil[]
   garantiesAppareil     GarantieAppareil[]
+  ticketsSav            TicketSav[]
   dossiers              Dossier[]
   delivrances           Delivrance[]
   factures              Facture[]
@@ -1387,6 +1392,8 @@ model Appareil {
   remplacePar               Appareil?               @relation("EchangeAppareil", fields: [remplaceParId], references: [id], onDelete: Restrict)
   remplace                  Appareil?               @relation("EchangeAppareil")
   garantie                  GarantieAppareil?
+  tickets                   TicketSav[]             @relation("TicketAppareil")
+  ticketsRemplacant         TicketSav[]             @relation("TicketRemplacant")
 
   @@unique([fabricantId, numeroSerie])
   @@index([organisationId, numeroSerie])
@@ -1424,6 +1431,96 @@ model GarantieAppareil {
   @@map("garantie_appareil")
 }
 
+enum MotifSav {
+  PANNE
+  CASSE
+  PERTE
+  VOL
+  ENTRETIEN
+  AUTRE
+}
+
+enum ActionSav {
+  REPARATION_CENTRE
+  ENVOI_FABRICANT
+  ECHANGE
+}
+
+enum StatutTicketSav {
+  OUVERT
+  EN_COURS
+  CHEZ_FABRICANT
+  A_RESTITUER
+  CLOTURE
+  ANNULE
+}
+
+enum CouvertureSav {
+  GARANTIE
+  ASSURANCE
+  AUCUNE
+}
+
+/// Numéros des tickets et des bons de retour : un compteur par client, par nature et par an.
+model CompteurSav {
+  organisationId String       @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  nature         String
+  annee          Int
+  dernier        Int
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+
+  @@id([organisationId, nature, annee])
+  @@map("compteur_sav")
+}
+
+/// Ticket SAV d'un appareil. Le centre est celui de l'appareil ; le patient est nul pour un appareil repris
+/// sans vente. Au plus un ticket ouvert par appareil (index unique partiel, voir la migration).
+/// `description`, `diagnostic`, `motifAnnulation` et `motifFacturation` sont chiffrés. Lu directement.
+model TicketSav {
+  id                   String              @id @default(uuid(7))
+  organisationId       String              @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  numero               String
+  centreId             String              @map("centre_id")
+  patientId            String?             @map("patient_id")
+  appareilId           String              @map("appareil_id")
+  /// Remplaçant reçu, en attente de remise : l'appareil reste réservé tant que le ticket est ouvert.
+  appareilRemplacantId String?             @map("appareil_remplacant_id")
+  motif                MotifSav
+  description          String?
+  diagnostic           String?
+  action               ActionSav?
+  statut               StatutTicketSav     @default(OUVERT)
+  /// Calculée à l'ouverture, recalculée à cette date si le diagnostic change le motif.
+  couverture           CouvertureSav
+  coutCentimes         Int?                @map("cout_centimes")
+  factureId            String?             @map("facture_id")
+  motifFacturation     String?             @map("motif_facturation")
+  motifAnnulation      String?             @map("motif_annulation")
+  dateOuverture        DateTime            @map("date_ouverture") @db.Date
+  dateDiagnostic       DateTime?           @map("date_diagnostic") @db.Date
+  dateReparation       DateTime?           @map("date_reparation") @db.Date
+  dateCloture          DateTime?           @map("date_cloture") @db.Date
+  ouvertParId          String              @map("ouvert_par_id")
+  createdAt            DateTime            @default(now()) @map("created_at")
+  updatedAt            DateTime            @updatedAt @map("updated_at")
+  organisation         Organisation        @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  centre               Centre              @relation(fields: [centreId], references: [id], onDelete: Restrict)
+  patient              Patient?            @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  appareil             Appareil            @relation("TicketAppareil", fields: [appareilId], references: [id], onDelete: Restrict)
+  appareilRemplacant   Appareil?           @relation("TicketRemplacant", fields: [appareilRemplacantId], references: [id], onDelete: Restrict)
+  facture              Facture?            @relation(fields: [factureId], references: [id], onDelete: Restrict)
+  ouvertPar            Utilisateur         @relation(fields: [ouvertParId], references: [id], onDelete: Restrict)
+  mouvements           MouvementAppareil[]
+
+  @@unique([organisationId, numero])
+  @@index([centreId, statut])
+  @@index([appareilId])
+  @@index([appareilRemplacantId])
+  @@index([patientId])
+  @@index([factureId])
+  @@map("ticket_sav")
+}
+
 /// Sans ligne, `PARAMETRES_SAV_DEFAUT` s'applique.
 model ParametresSav {
   organisationId    String       @id @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
@@ -1457,6 +1554,8 @@ model MouvementAppareil {
   dossierId      String?               @map("dossier_id")
   /// Commande fabricant à l'origine de la réception.
   commandeId     String?               @map("commande_id")
+  /// Ticket SAV qui a provoqué le mouvement.
+  ticketSavId    String?               @map("ticket_sav_id")
   /// Chiffré (contexte « mouvement_appareil.motif ») : texte libre. Null pour la réception.
   motif          String?
   organisation   Organisation          @relation(fields: [organisationId], references: [id], onDelete: Restrict)
@@ -1467,11 +1566,13 @@ model MouvementAppareil {
   patient        Patient?              @relation(fields: [patientId], references: [id], onDelete: Restrict)
   dossier        Dossier?              @relation(fields: [dossierId], references: [id], onDelete: Restrict)
   commande       Commande?             @relation(fields: [commandeId], references: [id], onDelete: Restrict)
+  ticketSav      TicketSav?            @relation(fields: [ticketSavId], references: [id], onDelete: Restrict)
 
   @@index([appareilId, horodatage])
   @@index([patientId])
   @@index([dossierId])
   @@index([commandeId])
+  @@index([ticketSavId])
   @@map("mouvement_appareil")
 }
 
@@ -2198,6 +2299,7 @@ model Facture {
   delivrancesAnnulees     Delivrance[]      @relation("DelivranceAvoir")
   encaissements           Encaissement[]
   creances                Creance[]
+  ticketsSav              TicketSav[]
 
   @@unique([centreId, numeroSequence])
   @@index([organisationId])

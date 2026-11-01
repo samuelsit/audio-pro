@@ -33,6 +33,7 @@ import { aujourdhui } from '@/server/services/patients';
 
 import { confirmerCouvertureVente, validerFacture } from '@/server/services/facturation';
 import { enregistrerParametresSav } from '@/server/services/garanties';
+import { ouvrirTicket } from '@/server/services/tickets-sav';
 import {
   ajouterContact,
   creerCentrale,
@@ -51,7 +52,13 @@ import {
 } from '@/server/services/tiers-payant';
 
 import { creerFournisseurDe } from './achats';
-import { creerCatalogueDevis, dossierJusquAchat, identifierCentreA, SCAN } from './devis';
+import {
+  creerAppareil,
+  creerCatalogueDevis,
+  dossierJusquAchat,
+  identifierCentreA,
+  SCAN,
+} from './devis';
 import { creerJeuDeDonnees } from './donnees';
 import { venteDirecte } from './facturation';
 
@@ -451,6 +458,17 @@ export async function creerClientComplet(suffixe: string) {
     suiviParAn: '2',
     pretDureeJours: '30',
   });
+  const serieVendue = `SERIE-SAV${suffixe}`.toUpperCase();
+  const appareilVenduId = await creerAppareil(d, catalogue.classeI, serieVendue);
+  await prisma().appareil.update({
+    where: { id: appareilVenduId },
+    data: { statut: 'VENDU', patientId },
+  });
+  const ticketId = await ouvrirTicket(audio, {
+    numeroSerie: serieVendue,
+    motif: 'PANNE',
+    description: 'Panne fictive',
+  });
   await enregistrerSeuil(d.acteurs.admin, {
     centreId: d.centres.a.id,
     produit: `modele:${catalogue.classeI}`,
@@ -472,6 +490,7 @@ export async function creerClientComplet(suffixe: string) {
     regleCommandeId,
     commandeId,
     commandeRecueId,
+    ticketId,
     ecartId,
     factureFournisseurId,
     releveId,

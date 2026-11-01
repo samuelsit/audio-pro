@@ -20,6 +20,7 @@ import {
   peutCorrigerIdentite,
   peutTransferer,
   peutVoirPrixAchat,
+  STATUTS_TICKET_OUVERTS,
   transfertAccessoireSaisieSchema,
   transfertSaisieSchema,
   transitionsPossibles,
@@ -129,6 +130,8 @@ export interface Mouvement {
   readonly dossierId?: string;
   /** Appareil qui le remplace, avec le statut `REMPLACE`. */
   readonly remplaceParId?: string;
+  /** Ticket SAV qui provoque le mouvement. */
+  readonly ticketSavId?: string;
 }
 
 /**
@@ -168,6 +171,7 @@ export async function appliquerMouvement(
       // Un appareil rendu garde dans son historique le patient qui le détenait.
       patientId: patientId ?? appareil.patientId,
       dossierId: mouvement.dossierId ?? null,
+      ticketSavId: mouvement.ticketSavId ?? null,
       motif,
     },
   });
@@ -234,6 +238,21 @@ async function appareilTenuParEssai(
   return liens > 0;
 }
 
+/** Un ticket ouvert pilote l'appareil, comme l'appareil de remplacement qu'il attend de remettre. */
+async function ticketOuvertSur(
+  client: Pick<ClientTransaction, 'ticketSav'>,
+  appareilId: string,
+): Promise<string | null> {
+  const ticket = await client.ticketSav.findFirst({
+    where: {
+      statut: { in: [...STATUTS_TICKET_OUVERTS] },
+      OR: [{ appareilId }, { appareilRemplacantId: appareilId }],
+    },
+    select: { id: true },
+  });
+  return ticket?.id ?? null;
+}
+
 export async function changerStatut(
   acteur: UtilisateurConnecte,
   appareilId: string,
@@ -252,6 +271,9 @@ export async function changerStatut(
           'statut',
           'Cet appareil est suivi par un essai : passer par le dossier du patient.',
         );
+      }
+      if ((await ticketOuvertSur(tx, appareilId)) !== null) {
+        throw ErreurSaisie.surChamp('statut', 'Cet appareil est suivi par un ticket SAV.');
       }
       const transition = verifierTransitionManuelle(
         etatAppareil(appareil),
@@ -572,6 +594,8 @@ export interface FicheAppareil {
   annulable: boolean;
   garantie: GarantieAffichee | null;
   parcPret: boolean;
+  /** Ticket ouvert qui pilote l'appareil. */
+  ticketId: string | null;
   corrigeable: boolean;
   voitPrix: boolean;
 }
@@ -584,14 +608,14 @@ const selectionPatient = {
   prenoms: true,
 } as const;
 
-const selectionPatientSuivi = {
+export const selectionPatientSuivi = {
   ...selectionPatient,
   fusionneDans: { select: selectionPatient },
 } as const;
 
-type PatientLu = Prisma.PatientGetPayload<{ select: typeof selectionPatientSuivi }>;
+export type PatientLu = Prisma.PatientGetPayload<{ select: typeof selectionPatientSuivi }>;
 
-function afficherPatient(
+export function afficherPatient(
   acteur: UtilisateurConnecte,
   patient: PatientLu | null,
 ): { patient: PatientAffiche | null; patientMasque: boolean } {
@@ -659,6 +683,7 @@ async function lireFicheAppareil(
     select: { essai: { select: { dossierId: true } } },
   });
   const issuDunEchange = await client.appareil.count({ where: { remplaceParId: appareilId } });
+  const ticketId = await ticketOuvertSur(client, appareilId);
   const fiche: FicheAppareil = {
     id: a.id,
     numeroSerie: a.numeroSerie,
@@ -676,12 +701,14 @@ async function lireFicheAppareil(
     enConsignation: a.enConsignation,
     parcPret: a.parcPret,
     mouvements,
-    transitions: lienEssai
-      ? []
-      : transitionsPossibles(etat).map((statut) => ({
-          statut,
-          patientAChoisir: patientAChoisir(etat, statut),
-        })),
+    ticketId,
+    transitions:
+      lienEssai || ticketId !== null
+        ? []
+        : transitionsPossibles(etat).map((statut) => ({
+            statut,
+            patientAChoisir: patientAChoisir(etat, statut),
+          })),
     dossierEssaiId: lienEssai?.essai.dossierId ?? null,
     transferable: peutTransferer(a.statut),
     annulable:
