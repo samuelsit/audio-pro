@@ -43,17 +43,23 @@ async function lireContenu(
   const factureIds = evenements.flatMap((e) =>
     e.factureId && (e.type === 'FACTURE_VALIDEE' || e.type === 'AVOIR_VALIDE') ? [e.factureId] : [],
   );
-  const [pieces, lignes, mouvements, sessions, comptages, clotures] = await Promise.all([
-    tx.facture.findMany({ where: { id: { in: factureIds } }, orderBy: { numeroSequence: 'asc' } }),
-    tx.ligneFacture.findMany({
-      where: { factureId: { in: factureIds } },
-      orderBy: [{ factureId: 'asc' }, { rang: 'asc' }],
-    }),
-    tx.encaissement.findMany({ where: plage, orderBy: { rang: 'asc' } }),
-    tx.sessionCaisse.findMany({ where: plage, orderBy: { rang: 'asc' } }),
-    tx.comptageCaisse.findMany({ where: plage, orderBy: { rang: 'asc' } }),
-    tx.clotureCaisse.findMany({ where: plage, orderBy: { rang: 'asc' } }),
-  ]);
+  const [pieces, lignes, mouvements, reglements, regularisations, sessions, comptages, clotures] =
+    await Promise.all([
+      tx.facture.findMany({
+        where: { id: { in: factureIds } },
+        orderBy: { numeroSequence: 'asc' },
+      }),
+      tx.ligneFacture.findMany({
+        where: { factureId: { in: factureIds } },
+        orderBy: [{ factureId: 'asc' }, { rang: 'asc' }],
+      }),
+      tx.encaissement.findMany({ where: plage, orderBy: { rang: 'asc' } }),
+      tx.reglementOrganisme.findMany({ where: plage, orderBy: { rang: 'asc' } }),
+      tx.regularisationCreance.findMany({ where: plage, orderBy: { rang: 'asc' } }),
+      tx.sessionCaisse.findMany({ where: plage, orderBy: { rang: 'asc' } }),
+      tx.comptageCaisse.findMany({ where: plage, orderBy: { rang: 'asc' } }),
+      tx.clotureCaisse.findMany({ where: plage, orderBy: { rang: 'asc' } }),
+    ]);
   const maillons: MaillonArchive[] = evenements.map((e) => ({
     rang: e.rang,
     type: e.type,
@@ -75,6 +81,8 @@ async function lireContenu(
     pieces: enJson(pieces) as unknown[],
     lignes: enJson(lignes) as unknown[],
     mouvements: enJson(mouvements) as unknown[],
+    reglements: enJson(reglements) as unknown[],
+    regularisations: enJson(regularisations) as unknown[],
     sessions: enJson(sessions) as unknown[],
     comptages: enJson(comptages) as unknown[],
     clotures: enJson(clotures) as unknown[],

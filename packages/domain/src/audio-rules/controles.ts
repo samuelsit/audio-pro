@@ -39,6 +39,8 @@ export const CODES_CONTROLE = [
   'RESTE_A_CHARGE_CLASSE_I',
   'PEC_MANQUANTE',
   'PEC_EN_ATTENTE',
+  'PEC_EXPIREE',
+  'TIERS_PAYANT_OBLIGATOIRE',
   'PEC_REFUSEE',
   'PEC_SANS_JUSTIFICATIF',
   'PEC_SUPERIEURE_AU_RESTE',
@@ -102,6 +104,9 @@ export const LIBELLES_CONTROLES: Readonly<Record<CodeControle, string>> = {
     'Reste à charge sur une aide de classe I malgré un contrat responsable : vérifier la prise en charge.',
   PEC_MANQUANTE: 'Renseigner la prise en charge complémentaire.',
   PEC_EN_ATTENTE: 'Prise en charge complémentaire demandée, réponse en attente.',
+  PEC_EXPIREE:
+    'Prise en charge complémentaire expirée : la renouveler, ou la passer sans tiers payant.',
+  TIERS_PAYANT_OBLIGATOIRE: 'Le tiers payant AMO est obligatoire pour un bénéficiaire de la C2S.',
   PEC_REFUSEE: 'Prise en charge complémentaire refusée : la part AMC revient au patient.',
   PEC_SANS_JUSTIFICATIF: 'Joindre le justificatif de la prise en charge complémentaire.',
   PEC_SUPERIEURE_AU_RESTE: 'Le montant accordé dépasse ce qui reste après l’AMO : il a été écrêté.',

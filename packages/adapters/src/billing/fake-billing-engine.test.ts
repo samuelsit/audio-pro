@@ -5,6 +5,7 @@ import type { FseDraft } from '@ha/domain';
 import { FakeBillingEngine } from './fake-billing-engine';
 
 const DRAFT: FseDraft = {
+  tiersPayantAmo: true,
   factureId: 'f1',
   numeroFacture: 'FA-000001',
   dateFacture: '2026-11-01',

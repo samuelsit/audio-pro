@@ -22,7 +22,7 @@ const message = (saisie: unknown, champ: string) =>
 
 describe('pecSaisieSchema', () => {
   it('accepte une prise en charge accordée', () => {
-    expect(pecSaisieSchema.parse(accordee)).toEqual({
+    expect(pecSaisieSchema.parse(accordee)).toMatchObject({
       statut: 'ACCORDEE',
       organisme: 'Mutuelle Exemple',
       plateforme: 'Plateforme fictive',
@@ -62,10 +62,93 @@ describe('pecSaisieSchema', () => {
       statut: 'SANS_TIERS_PAYANT',
       organisme: null,
       plateforme: null,
+      numeroAdherent: null,
       numeroAccord: null,
       montantAccordeCentimes: null,
       datePec: null,
+      validiteFin: null,
+      complementaireId: null,
+      devisId: null,
+      offre: null,
+      demande: null,
+      montantDemandeCentimes: null,
     });
+  });
+
+  it('à demander : la date peut attendre', () => {
+    const saisie = { statut: 'A_DEMANDER', organisme: 'Mutuelle', datePec: '' };
+    expect(pecSaisieSchema.parse(saisie)).toMatchObject({ statut: 'A_DEMANDER', datePec: null });
+  });
+
+  const demande = (...montants: readonly string[]) =>
+    montants.map((montant) => ({
+      libelle: 'Aide droite',
+      codeLpp: '',
+      prixTtcCentimes: '150000',
+      amoCentimes: '24000',
+      montant,
+    }));
+
+  it('additionne les montants demandés par ligne', () => {
+    const lue = pecSaisieSchema.parse({ ...accordee, demande: demande('500,00', '210,00') });
+    expect(lue).toMatchObject({ montantDemandeCentimes: 71_000 });
+    expect(lue.demande?.[0]).toEqual({
+      libelle: 'Aide droite',
+      codeLpp: null,
+      prixTtcCentimes: 150_000,
+      amoCentimes: 24_000,
+      montantDemandeCentimes: 50_000,
+    });
+  });
+
+  it('une ligne vide compte pour zéro', () => {
+    const lue = pecSaisieSchema.parse({ ...accordee, demande: demande('710,00', '') });
+    expect(lue.montantDemandeCentimes).toBe(71_000);
+  });
+
+  it('accepte un accord partiel inférieur à la demande', () => {
+    const lue = pecSaisieSchema.parse({
+      ...accordee,
+      statut: 'PARTIELLE',
+      montantAccorde: '400,00',
+      demande: demande('710,00'),
+    });
+    expect(lue).toMatchObject({ statut: 'PARTIELLE', montantAccordeCentimes: 40_000 });
+  });
+
+  it.each([
+    [
+      'montant demandé illisible',
+      { demande: demande('abc') },
+      'demande',
+      'Montant demandé invalide (exemple : 710,00).',
+    ],
+    [
+      'partiel sans demande',
+      { statut: 'PARTIELLE' },
+      'demande',
+      'Renseigner la demande : un accord partiel se compare à elle.',
+    ],
+    [
+      'partiel égal à la demande',
+      { statut: 'PARTIELLE', demande: demande('710,00') },
+      'montantAccorde',
+      'Un accord partiel est inférieur au montant demandé.',
+    ],
+    [
+      'accord inférieur à la demande',
+      { demande: demande('800,00') },
+      'statut',
+      'Montant inférieur à la demande : choisir « Accordée en partie ».',
+    ],
+    [
+      'validité avant la date',
+      { validiteFin: '2026-10-19' },
+      'validiteFin',
+      'La validité finit avant la date de la prise en charge.',
+    ],
+  ])('refuse : %s', (_, surcharge, champ, attendu) => {
+    expect(message({ ...accordee, ...surcharge }, champ)).toBe(attendu);
   });
 
   it('refuse un statut inconnu', () => {

@@ -129,43 +129,58 @@ describe('encaisseNet et resteRemboursable', () => {
 });
 
 describe('calculerSolde', () => {
-  const facture = {
-    nature: 'FACTURE',
+  const montants = {
     totalTtcCentimes: 100_000,
+    totalAmoCentimes: 25_000,
     totalResteCentimes: 60_000,
+    tiersPayantAmo: true,
   } as const;
-  const avoir = { nature: 'AVOIR', totalTtcCentimes: 100_000, totalResteCentimes: 60_000 } as const;
+  const facture = { ...montants, nature: 'FACTURE' } as const;
+  const avoir = { ...montants, nature: 'AVOIR' } as const;
+  const sansTiersPayant = { ...facture, tiersPayantAmo: false } as const;
+  const avoirPartiel = {
+    nature: 'AVOIR',
+    totalTtcCentimes: 50_000,
+    totalAmoCentimes: 12_500,
+    totalResteCentimes: 30_000,
+    tiersPayantAmo: true,
+  } as const;
 
   it.each([
-    ['rien de payé', [facture], [], { du: 60_000, plafond: 100_000, tropPercu: 0 }],
-    ['partiel', [facture], [entree(20_000)], { du: 40_000, plafond: 80_000, tropPercu: 0 }],
+    ['rien de payé', [facture], [], { du: 60_000, tropPercu: 0 }],
+    ['partiel', [facture], [entree(20_000)], { du: 40_000, tropPercu: 0 }],
+    ['plusieurs paiements', [facture], [entree(20_000), entree(40_000)], { du: 0, tropPercu: 0 }],
+    ['remboursement', [facture], [entree(60_000), sortie(10_000)], { du: 10_000, tropPercu: 0 }],
+    ['payé au-delà de sa part', [facture], [entree(70_000)], { du: 0, tropPercu: 10_000 }],
+    ['avoir total : trop-perçu', [facture, avoir], [entree(60_000)], { du: 0, tropPercu: 60_000 }],
     [
-      'plusieurs paiements',
-      [facture],
-      [entree(20_000), entree(40_000)],
-      { du: 0, plafond: 40_000, tropPercu: 0 },
-    ],
-    ['avance des organismes', [facture], [entree(100_000)], { du: 0, plafond: 0, tropPercu: 0 }],
-    [
-      'remboursement',
-      [facture],
-      [entree(60_000), sortie(10_000)],
-      { du: 10_000, plafond: 50_000, tropPercu: 0 },
-    ],
-    [
-      'avoir total : trop-perçu',
-      [facture, avoir],
+      'avoir partiel après paiement : trop-perçu',
+      [facture, avoirPartiel],
       [entree(60_000)],
-      { du: 0, plafond: 0, tropPercu: 60_000 },
+      { du: 0, tropPercu: 30_000 },
     ],
     [
       'paiements conservés sur la nouvelle facture',
       [facture, avoir, facture],
       [entree(25_000)],
-      { du: 35_000, plafond: 75_000, tropPercu: 0 },
+      { du: 35_000, tropPercu: 0 },
+    ],
+    ['sans tiers payant, le patient règle l’AMO', [sansTiersPayant], [], { du: 85_000 }],
+    [
+      'sans tiers payant, tout est réglé',
+      [sansTiersPayant],
+      [entree(85_000)],
+      { du: 0, tropPercu: 0 },
     ],
   ])('%s', (_, pieces, mouvements, attendu) => {
     expect(calculerSolde(pieces, mouvements)).toMatchObject(attendu);
+  });
+
+  it.each([
+    ['créance transférée au patient', 40_000, { partPatient: 100_000, du: 100_000 }],
+    ['transfert contre-passé', 0, { partPatient: 60_000, du: 60_000 }],
+  ])('%s', (_, transferts, attendu) => {
+    expect(calculerSolde([facture], [], transferts)).toMatchObject(attendu);
   });
 });
 

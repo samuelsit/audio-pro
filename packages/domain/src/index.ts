@@ -27,4 +27,5 @@ export * from './prescripteur';
 export * from './praticien';
 export * from './reservation';
 export * from './stock';
+export * from './tiers-payant';
 export * from './vitale';

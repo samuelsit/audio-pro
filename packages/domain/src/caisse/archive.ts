@@ -23,6 +23,7 @@ charge, empreintePrecedente, format, horodatage, rang et type. Format 1 : champs
 et type. Les horodatages sont en UTC.
 « pieces » et « lignes » : factures et avoirs validés sur la période, ligne par ligne.
 « mouvements » : encaissements, remboursements et annulations. Une correction est une opération inverse.
+« reglements » : virements reçus des organismes, parts AMO et AMC. « regularisations » : écarts et transferts au patient.
 « sessions » et « comptages » : fonds de caisse, espèces comptées, écarts et leurs justifications.
 « clotures » : clôtures de la période, avec totaux par mode de paiement et par taux de TVA, grand total et total
 perpétuel, signature Ed25519 de l'empreinte du maillon de clôture.
@@ -52,6 +53,8 @@ export interface EntreeArchive extends Periode {
   readonly pieces: readonly unknown[];
   readonly lignes: readonly unknown[];
   readonly mouvements: readonly unknown[];
+  readonly reglements: readonly unknown[];
+  readonly regularisations: readonly unknown[];
   readonly sessions: readonly unknown[];
   readonly comptages: readonly unknown[];
   readonly clotures: readonly unknown[];

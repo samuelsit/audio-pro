@@ -139,4 +139,12 @@ describe('recapitulatifTva', () => {
       { taux: 2000, ht: 2_000, tva: 400 },
     ]);
   });
+
+  it.each([
+    ['sans tiers payant', { tiersPayantAmo: false }, true],
+    ['avec tiers payant', { tiersPayantAmo: true }, false],
+    ['facture antérieure', {}, false],
+  ])('net à régler : %s', (_, surcharge, attendu) => {
+    expect(rendreFactureHtml({ ...VUE, ...surcharge }, { duplicata: false }).includes('Net à régler')).toBe(attendu);
+  });
 });

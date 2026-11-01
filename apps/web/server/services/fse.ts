@@ -16,6 +16,8 @@ import { base, type ClientTransaction } from '../chiffrement';
 import { ErreurSaisie } from '../erreurs';
 import { depuisDate } from './dossiers';
 import { evenementPiece, lireFacture, type FactureLue } from './facturation';
+import { aujourdhui } from './patients';
+import { replanifierCreancesCaisse } from './tiers-payant';
 
 const MESSAGE_FSE_IMPOSSIBLE = 'Cette facture ne donne pas lieu à une FSE.';
 
@@ -74,6 +76,7 @@ async function construireBrouillon(
   }
   const { praticien } = prescription.dossier;
   return construireFseDraft({
+    tiersPayantAmo: piece.tiersPayantAmo,
     factureId: piece.id,
     numeroFacture: piece.numero,
     dateFacture: depuisDate(piece.dateFacture),
@@ -124,7 +127,12 @@ async function enregistrerResultat(
   const { reference, statut, motif } = resultatFseSchema.parse(resultat);
   await withAudit(
     acteur,
-    (tx) => tx.fse.update({ where: { factureId: facture.id }, data: { reference, statut, motif } }),
+    async (tx) => {
+      await tx.fse.update({ where: { factureId: facture.id }, data: { reference, statut, motif } });
+      if (statut === 'ACCEPTEE') {
+        await replanifierCreancesCaisse(tx, facture.id, aujourdhui());
+      }
+    },
     () => evenementFse(facture, statut),
   );
   return statut;

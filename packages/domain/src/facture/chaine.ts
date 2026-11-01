@@ -12,6 +12,9 @@ export const TYPES_EVENEMENT_CAISSE = [
   'ENCAISSEMENT',
   'REMBOURSEMENT',
   'ANNULATION_ENCAISSEMENT',
+  'REGLEMENT_ORGANISME',
+  'ANNULATION_REGLEMENT_ORGANISME',
+  'REGULARISATION_ORGANISME',
   'CAISSE_OUVERTE',
   'CAISSE_COMPTEE',
   'CLOTURE',
@@ -37,6 +40,9 @@ export const LIBELLES_EVENEMENTS_CAISSE: Readonly<Record<TypeEvenementCaisse, st
   ENCAISSEMENT: 'Encaissement',
   REMBOURSEMENT: 'Remboursement',
   ANNULATION_ENCAISSEMENT: 'Annulation d’encaissement',
+  REGLEMENT_ORGANISME: 'Règlement d’organisme',
+  ANNULATION_REGLEMENT_ORGANISME: 'Annulation de règlement d’organisme',
+  REGULARISATION_ORGANISME: 'Régularisation de créance',
   CAISSE_OUVERTE: 'Ouverture de caisse',
   CAISSE_COMPTEE: 'Comptage de caisse',
   CLOTURE: 'Clôture',
@@ -124,6 +130,7 @@ export const RAISONS_RUPTURE = [
   'PIECE',
   'NUMEROTATION',
   'ENCAISSEMENT',
+  'TIERS_PAYANT',
   'SESSION',
   'CLOTURE',
   'ARCHIVE',
@@ -137,6 +144,7 @@ export const LIBELLES_RAISONS_RUPTURE: Readonly<Record<RaisonRupture, string>> =
   PIECE: 'Facture ou avoir différent de son maillon',
   NUMEROTATION: 'Numérotation interrompue',
   ENCAISSEMENT: 'Encaissement différent de son maillon',
+  TIERS_PAYANT: 'Règlement ou régularisation d’organisme différent de son maillon',
   SESSION: 'Ouverture ou comptage différent de son maillon',
   CLOTURE: 'Clôture différente de son maillon ou de ses opérations',
   ARCHIVE: 'Archive différente de son empreinte',
@@ -192,6 +200,8 @@ export interface PieceAChainer {
   readonly factureOrigineId: string | null;
   /** Non nul seulement si des acomptes sont déduits : les maillons antérieurs restent identiques. */
   readonly acomptesDeduits?: Centimes;
+  /** Présent seulement à `false` : les maillons antérieurs restent identiques. */
+  readonly tiersPayantAmo?: boolean;
   readonly totaux: {
     readonly prixTTC: Centimes;
     readonly ht: Centimes;
@@ -217,10 +227,16 @@ export interface PieceAChainer {
 }
 
 /** Charge d'un maillon de validation, recalculée à la vérification depuis la pièce elle-même. */
-export function chargePiece({ lignes, acomptesDeduits, ...piece }: PieceAChainer): unknown {
+export function chargePiece({
+  lignes,
+  acomptesDeduits,
+  tiersPayantAmo,
+  ...piece
+}: PieceAChainer): unknown {
   return {
     ...piece,
     ...(acomptesDeduits ? { acomptesDeduits } : {}),
+    ...(tiersPayantAmo === false ? { tiersPayantAmo } : {}),
     lignes: lignes.map(
       ({
         nature,

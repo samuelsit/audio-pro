@@ -39,7 +39,7 @@ export function amcDepuisPec(montant: Centimes, offre: OffreCalculee): AmcPoste 
   return { amcDroite: partDu(0), amcGauche: partDu(1), amcConsommables: partDu(2) };
 }
 
-/** Le devis figé ne porte plus la PEC : plafonnée au reste, elle diffère de sa part AMC. */
+/** Le devis figé ne porte plus la PEC : plafonnée au reste, elle diffère de sa part AMC. Un refus vaut 0. */
 export function pecDiffereDuDevis(montant: Centimes, offres: readonly OffreCalculee[]): boolean {
   return offres.some(({ total }) => (total.amc ?? 0) !== Math.min(montant, total.resteApresAMO));
 }

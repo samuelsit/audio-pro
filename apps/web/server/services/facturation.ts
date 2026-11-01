@@ -4,6 +4,7 @@ import { verrouillerTete } from '@ha/caisse';
 import type { Prisma } from '@ha/db';
 import {
   acomptesADeduire,
+  creancesDeFacture,
   encaisseNet,
   adresseDuCanal,
   calculerPagination,
@@ -16,6 +17,7 @@ import {
   filtreFacturesSchema,
   formaterNumero,
   ligneBrouillonSaisieSchema,
+  partPatientDeLaPiece,
   peutGererSerie,
   peutValiderFacture,
   prefixeSerieSchema,
@@ -23,6 +25,7 @@ import {
   preparerFacture,
   rendreFactureHtml,
   TAUX_AMO_GENERAL,
+  tiersPayantSaisieSchema,
   vendeurFactureSchema,
   venteDirecteSaisieSchema,
   verifierTransition,
@@ -72,6 +75,7 @@ import {
   versConsommable,
   versVendeur,
   type FactureEvaluee,
+  type PayeursFacture,
 } from './factures';
 import { decrireCodesLpp, tarifsAudioEnVigueur, versClientLpp } from './lpp';
 import { aujourdhui, type Client } from './patients';
@@ -98,6 +102,7 @@ export interface FactureLue {
   nature: NaturePiece;
   statut: StatutFacture;
   tauxAmo: number | null;
+  tiersPayantAmo: boolean;
   amoConfirmeeLe: Date | null;
 }
 
@@ -111,6 +116,7 @@ const selectionFacture = {
   nature: true,
   statut: true,
   tauxAmo: true,
+  tiersPayantAmo: true,
   amoConfirmeeLe: true,
 } as const;
 
@@ -222,6 +228,8 @@ async function evaluerVenteDirecte(
       where: { patientId: facture.patientId },
       select: {
         c2s: true,
+        caisse: true,
+        regime: true,
         origine: true,
         derniereLectureVitale: true,
         updatedAt: true,
@@ -244,6 +252,7 @@ async function evaluerVenteDirecte(
       contenu: null,
       controle,
       etat: etatFacture(controle),
+      payeurs: null,
     };
   }
   const codes = remboursable ? saisies.flatMap((l) => (l.codeLpp ? [l.codeLpp] : [])) : [];
@@ -266,8 +275,11 @@ async function evaluerVenteDirecte(
     tarifs: audio,
     tauxTva,
   });
+  const c2s = remboursable && (couverture?.c2s ?? false);
   const controle = controlerVenteDirecte(contenu, {
     remboursable,
+    c2s,
+    tiersPayantAmo: facture.tiersPayantAmo,
     couvertureAmo: couverture
       ? {
           origine: couverture.origine,
@@ -289,6 +301,12 @@ async function evaluerVenteDirecte(
     contenu,
     controle,
     etat: etatFacture(controle),
+    payeurs: {
+      c2s,
+      caisse: couverture?.caisse ?? null,
+      regime: couverture?.regime ?? null,
+      pec: null,
+    },
   };
 }
 
@@ -594,6 +612,42 @@ async function evaluerPourValidation(
 }
 
 /**
+ * Une créance par part portée par un organisme, nées avec la facture dans la même transaction.
+ * Source : voir `creancesDeFacture`.
+ */
+async function creerCreances(
+  tx: ClientTransaction,
+  facture: FactureLue,
+  payeurs: PayeursFacture | null,
+  totaux: { readonly totalAmoCentimes: number; readonly totalAmcCentimes: number },
+  jour: string,
+): Promise<void> {
+  const creances = creancesDeFacture({
+    dateFacture: jour,
+    tiersPayantAmo: facture.tiersPayantAmo,
+    amo: centimes(totaux.totalAmoCentimes),
+    amc: centimes(totaux.totalAmcCentimes),
+    c2s: payeurs?.c2s ?? false,
+    caisse: payeurs?.caisse ?? null,
+    regime: payeurs?.regime ?? null,
+    complementaire: payeurs?.pec ?? null,
+  });
+  await tx.creance.createMany({
+    data: creances.map(({ montant, echeanceAttendue, ...creance }) => ({
+      ...creance,
+      organisationId: facture.organisationId,
+      centreId: facture.centreId,
+      factureId: facture.id,
+      patientId: facture.patientId,
+      montantCentimes: montant,
+      soldeCentimes: montant,
+      dateEmission: versDate(jour),
+      echeanceAttendue: versDate(echeanceAttendue),
+    })),
+  });
+}
+
+/**
  * Valide un brouillon dans une seule transaction : relit et recontrôle, attribue le numéro, fige lignes,
  * totaux et instantanés, chaîne, puis applique les effets de la vente. Rien ne survit à un échec, numéro
  * compris. La date de facture est le jour de validation, non antidatable : attribuée sous le verrou de la
@@ -631,10 +685,11 @@ export async function validerFacture(
       const lignes = contenu.lignes.map((l, index) => versDonneesLigne(factureId, l, index + 1));
       await tx.ligneFacture.createMany({ data: lignes });
       const totaux = totauxEnBase(contenu);
+      const { tiersPayantAmo } = lue;
       const acomptesDeduitsCentimes = lue.dossierId
         ? acomptesADeduire(
             await acomptesNetsDuDossier(tx, lue.dossierId),
-            totaux.totalResteCentimes,
+            partPatientDeLaPiece({ ...totaux, tiersPayantAmo }),
           )
         : 0;
       const charge = chargeDepuisBase(
@@ -671,6 +726,7 @@ export async function validerFacture(
           empreinte,
         },
       });
+      await creerCreances(tx, lue, evaluee.payeurs, totaux, jour);
       const evenements = [
         evenementPiece('UPDATE', lue, { numero, nature: 'FACTURE' }),
         ...(dossier ? await vendreAppareils(tx, acteur, lue, dossier, contenu, jour) : []),
@@ -685,6 +741,29 @@ export async function validerFacture(
     ({ evenements }) => evenements,
   ).then((r) => r.facture);
   await deposerOriginal(acteur, facture).catch(() => undefined);
+}
+
+/**
+ * Le patient avance la part AMO, ou non : le choix se fait sur le brouillon et se fige à la validation. La C2S
+ * l'interdit, ce que `controlerFacture` bloque.
+ * Source : convention-audioprothesistes.pdf, art. 27, p. 26 (dispense d'avance).
+ */
+export async function modifierTiersPayantAmo(
+  acteur: UtilisateurConnecte,
+  factureId: string,
+  saisie: unknown,
+): Promise<void> {
+  const { tiersPayantAmo } = valider(tiersPayantSaisieSchema, saisie);
+  await withAudit(
+    acteur,
+    async (tx) => {
+      const facture = await lireFacture(tx, acteur, factureId);
+      exigerBrouillon(facture);
+      await tx.facture.update({ where: { id: factureId }, data: { tiersPayantAmo } });
+      return facture;
+    },
+    (facture) => evenementPiece('UPDATE', facture, { tiersPayantAmo }),
+  );
 }
 
 // --- PDF ------------------------------------------------------------------------------------------
@@ -716,6 +795,7 @@ async function lireVue(client: Client, factureId: string): Promise<VueFacture> {
       resteACharge: centimes(piece.totalResteCentimes),
     },
     acomptesDeduits: centimes(piece.acomptesDeduitsCentimes),
+    tiersPayantAmo: piece.tiersPayantAmo,
     lignes: lignes.map((l) => ({
       nature: l.nature,
       libelle: l.libelle,

@@ -34,6 +34,7 @@ const ENTRETIEN: LigneFactureFse = {
 };
 
 const ENTREE: EntreeFse = {
+  tiersPayantAmo: true,
   factureId: 'f1',
   numeroFacture: 'FA-000001',
   dateFacture: '2026-11-01',

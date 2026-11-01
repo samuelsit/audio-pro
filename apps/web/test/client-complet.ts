@@ -20,6 +20,12 @@ import { aujourdhui } from '@/server/services/patients';
 
 import { confirmerCouvertureVente, validerFacture } from '@/server/services/facturation';
 import { preparerFse } from '@/server/services/fse';
+import {
+  classerEcartReglement,
+  enregistrerRejet,
+  enregistrerReglement,
+  lettrer,
+} from '@/server/services/tiers-payant';
 
 import { creerCatalogueDevis, dossierJusquAchat, identifierCentreA, SCAN } from './devis';
 import { creerJeuDeDonnees } from './donnees';
@@ -262,6 +268,41 @@ export async function creerClientComplet(suffixe: string) {
     partenaire: '',
     echeances: '',
   });
+  const { id: complementaireId } = await prisma().complementaire.create({
+    data: { organisationId, nom: 'Mutuelle fictive', identifiant: 'AMC-TEST' },
+  });
+  const { id: creanceId } = await prisma().creance.create({
+    data: {
+      organisationId,
+      centreId: d.centres.a.id,
+      factureId: venteId,
+      patientId,
+      type: 'AMC',
+      complementaireId,
+      organisme: 'Mutuelle fictive',
+      montantCentimes: 100,
+      soldeCentimes: 100,
+      dateEmission: new Date('2026-01-05T00:00:00.000Z'),
+      echeanceAttendue: new Date('2026-02-05T00:00:00.000Z'),
+    },
+  });
+  const reglementId = await enregistrerReglement(audio, d.centres.a.id, {
+    complementaireId,
+    dateReglement: aujourdhui(),
+    reference: `VIR-TEST${suffixe}`,
+    partAmc: '1,00',
+  });
+  await lettrer(audio, reglementId, { imputations: [{ creanceId, montant: '0,50' }] });
+  await classerEcartReglement(d.acteurs.admin, reglementId, {
+    montant: '0,10',
+    motif: 'Écart fictif',
+    type: 'AMC',
+  });
+  await enregistrerRejet(audio, creanceId, {
+    dateRejet: aujourdhui(),
+    code: '',
+    motif: 'Rejet fictif',
+  });
   await compterCaisse(audio, d.centres.a.id, {
     comptees: '11',
     remiseBanque: '',
@@ -304,6 +345,9 @@ export async function creerClientComplet(suffixe: string) {
     fabricantId,
     cabineId,
     venteId,
+    complementaireId,
+    creanceId,
+    reglementId,
     typeRdvId: typeRdv.id,
     rdvId,
     reservationId: reservation.id,

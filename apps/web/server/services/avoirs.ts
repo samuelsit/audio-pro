@@ -17,6 +17,7 @@ import { withAudit, type EvenementAudit } from '../audit/journal';
 import type { ClientTransaction } from '../chiffrement';
 import { ErreurSaisie, valider } from '../erreurs';
 import { ajouterMaillon, chargeDepuisBase } from './chaine-caisse';
+import { imputerAvoirSurCreances } from './tiers-payant';
 import { appliquerTransition, evenementTransition, lireDossier, versDate } from './dossiers';
 import {
   attribuerNumero,
@@ -148,7 +149,7 @@ async function annulerVente(
   }
   await appliquerTransition(tx, acteur, dossier, 'A_FACTURER', 'Avoir total');
   evenements.push(evenementTransition(dossier, 'A_FACTURER'));
-  evenements.push(await creerBrouillonDossier(tx, acteur, dossier));
+  evenements.push(await creerBrouillonDossier(tx, acteur, dossier, facture.tiersPayantAmo));
   return evenements;
 }
 
@@ -199,6 +200,7 @@ export async function emettreAvoir(
           dossierId: facture.dossierId,
           nature: 'AVOIR',
           factureOrigineId: factureId,
+          tiersPayantAmo: piece.tiersPayantAmo,
           motif,
           createdById: acteur.id,
         },
@@ -247,6 +249,7 @@ export async function emettreAvoir(
           dossierId: facture.dossierId,
           factureOrigineId: factureId,
           acomptesDeduitsCentimes,
+          tiersPayantAmo: piece.tiersPayantAmo,
           ...enBase,
         },
         lignes,
@@ -273,6 +276,7 @@ export async function emettreAvoir(
           empreinte,
         },
       });
+      await imputerAvoirSurCreances(tx, acteur, factureId, totaux);
       const fse = await tx.fse.findUnique({ where: { factureId }, select: { statut: true } });
       const effets = resultat.solde
         ? await annulerVente(tx, acteur, facture, id, piece.lignes)

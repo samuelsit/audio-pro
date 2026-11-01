@@ -5,6 +5,8 @@ import {
   chargeComptage,
   chargeMouvement,
   chargeOuverture,
+  chargeReglement,
+  chargeRegularisation,
   DEBUT_CHAINE,
   EMPREINTE_INITIALE,
   maillonSuivantValide,
@@ -42,6 +44,8 @@ type ClientLecture = Pick<
   | 'serieFacture'
   | 'facture'
   | 'encaissement'
+  | 'reglementOrganisme'
+  | 'regularisationCreance'
   | 'sessionCaisse'
   | 'comptageCaisse'
   | 'clotureCaisse'
@@ -60,20 +64,25 @@ async function lireDetails(
   factureIds: readonly string[],
 ) {
   const plage = { centreId, rang: { gte: premier, lte: dernier } };
-  const [pieces, mouvements, sessions, comptages, clotures, archives] = await Promise.all([
-    client.facture.findMany({
-      where: { id: { in: [...factureIds] }, statut: 'VALIDEE' },
-      include: { lignes: { orderBy: { rang: 'asc' } } },
-    }),
-    client.encaissement.findMany({ where: plage }),
-    client.sessionCaisse.findMany({ where: plage }),
-    client.comptageCaisse.findMany({ where: plage, include: { session: true } }),
-    client.clotureCaisse.findMany({ where: plage }),
-    client.archiveCaisse.findMany({ where: plage }),
-  ]);
+  const [pieces, mouvements, reglements, regularisations, sessions, comptages, clotures, archives] =
+    await Promise.all([
+      client.facture.findMany({
+        where: { id: { in: [...factureIds] }, statut: 'VALIDEE' },
+        include: { lignes: { orderBy: { rang: 'asc' } } },
+      }),
+      client.encaissement.findMany({ where: plage }),
+      client.reglementOrganisme.findMany({ where: plage }),
+      client.regularisationCreance.findMany({ where: plage }),
+      client.sessionCaisse.findMany({ where: plage }),
+      client.comptageCaisse.findMany({ where: plage, include: { session: true } }),
+      client.clotureCaisse.findMany({ where: plage }),
+      client.archiveCaisse.findMany({ where: plage }),
+    ]);
   return {
     pieces: new Map(pieces.map((p) => [p.id, p])),
     mouvements: new Map(mouvements.map((m) => [m.rang, m])),
+    reglements: new Map(reglements.map((r) => [r.rang, r])),
+    regularisations: new Map(regularisations.map((r) => [r.rang, r])),
     sessions: new Map(sessions.map((s) => [s.rang, s])),
     comptages: new Map(comptages.map((c) => [c.rang, c])),
     clotures: new Map(clotures.map((c) => [c.rang, c])),
@@ -117,6 +126,33 @@ function mouvementFidele(
   return (
     ligne?.empreinte === evenement.empreinte &&
     identiques(chargeMouvement(ligne, hacheur), evenement.charge)
+  );
+}
+
+function reglementFidele(
+  evenement: EvenementControle,
+  details: Details,
+  hacheur: Hacheur,
+): boolean {
+  const ligne = details.reglements.get(evenement.rang);
+  return (
+    ligne?.empreinte === evenement.empreinte &&
+    identiques(
+      chargeReglement({ ...ligne, dateReglement: depuisDate(ligne.dateReglement) }, hacheur),
+      evenement.charge,
+    )
+  );
+}
+
+function regularisationFidele(
+  evenement: EvenementControle,
+  details: Details,
+  hacheur: Hacheur,
+): boolean {
+  const ligne = details.regularisations.get(evenement.rang);
+  return (
+    ligne?.empreinte === evenement.empreinte &&
+    identiques(chargeRegularisation(ligne, hacheur), evenement.charge)
   );
 }
 
@@ -225,6 +261,11 @@ async function controlerEvenement(
     case 'REMBOURSEMENT':
     case 'ANNULATION_ENCAISSEMENT':
       return mouvementFidele(evenement, details, deps.hacheur) ? null : 'ENCAISSEMENT';
+    case 'REGLEMENT_ORGANISME':
+    case 'ANNULATION_REGLEMENT_ORGANISME':
+      return reglementFidele(evenement, details, deps.hacheur) ? null : 'TIERS_PAYANT';
+    case 'REGULARISATION_ORGANISME':
+      return regularisationFidele(evenement, details, deps.hacheur) ? null : 'TIERS_PAYANT';
     case 'CAISSE_OUVERTE':
     case 'CAISSE_COMPTEE':
       return sessionFidele(evenement, details, deps.hacheur) ? null : 'SESSION';
@@ -243,6 +284,10 @@ const TYPES_MOUVEMENT: readonly TypeEvenementCaisse[] = [
   'REMBOURSEMENT',
   'ANNULATION_ENCAISSEMENT',
 ];
+const TYPES_REGLEMENT: readonly TypeEvenementCaisse[] = [
+  'REGLEMENT_ORGANISME',
+  'ANNULATION_REGLEMENT_ORGANISME',
+];
 
 /** Une ligne sans maillon échappe au parcours des maillons : on compare les nombres, et la série. */
 async function controlerLignesOrphelines(
@@ -255,6 +300,8 @@ async function controlerLignesOrphelines(
   const [
     maillonsPieces,
     maillonsMouvements,
+    maillonsReglements,
+    maillonsRegularisations,
     maillonsOuvertures,
     maillonsComptages,
     maillonsClotures,
@@ -262,28 +309,45 @@ async function controlerLignesOrphelines(
   ] = await Promise.all([
     compter(TYPES_PIECE),
     compter(TYPES_MOUVEMENT),
+    compter(TYPES_REGLEMENT),
+    compter(['REGULARISATION_ORGANISME']),
     compter(['CAISSE_OUVERTE']),
     compter(['CAISSE_COMPTEE']),
     compter(['CLOTURE']),
     compter(['ARCHIVAGE']),
   ]);
   const where = { centreId };
-  const [pieces, plusHaut, serie, mouvements, sessions, comptages, clotures, archives] =
-    await Promise.all([
-      client.facture.count({ where: { centreId, statut: 'VALIDEE' } }),
-      client.facture.aggregate({ where, _max: { numeroSequence: true } }),
-      client.serieFacture.findUnique({ where, select: { dernierNumero: true } }),
-      client.encaissement.count({ where }),
-      client.sessionCaisse.count({ where }),
-      client.comptageCaisse.count({ where }),
-      client.clotureCaisse.count({ where }),
-      client.archiveCaisse.count({ where }),
-    ]);
+  const [
+    pieces,
+    plusHaut,
+    serie,
+    mouvements,
+    reglements,
+    regularisations,
+    sessions,
+    comptages,
+    clotures,
+    archives,
+  ] = await Promise.all([
+    client.facture.count({ where: { centreId, statut: 'VALIDEE' } }),
+    client.facture.aggregate({ where, _max: { numeroSequence: true } }),
+    client.serieFacture.findUnique({ where, select: { dernierNumero: true } }),
+    client.encaissement.count({ where }),
+    client.reglementOrganisme.count({ where }),
+    client.regularisationCreance.count({ where }),
+    client.sessionCaisse.count({ where }),
+    client.comptageCaisse.count({ where }),
+    client.clotureCaisse.count({ where }),
+    client.archiveCaisse.count({ where }),
+  ]);
   if (pieces !== maillonsPieces) {
     return { valide: false, rang, raison: 'PIECE' };
   }
   if (mouvements !== maillonsMouvements) {
     return { valide: false, rang, raison: 'ENCAISSEMENT' };
+  }
+  if (reglements !== maillonsReglements || regularisations !== maillonsRegularisations) {
+    return { valide: false, rang, raison: 'TIERS_PAYANT' };
   }
   if (sessions !== maillonsOuvertures || comptages !== maillonsComptages) {
     return { valide: false, rang, raison: 'SESSION' };

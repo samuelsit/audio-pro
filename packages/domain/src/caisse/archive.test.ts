@@ -53,6 +53,8 @@ const ENTREE = {
   pieces: [],
   lignes: [],
   mouvements: [],
+  reglements: [],
+  regularisations: [],
   sessions: [],
   comptages: [],
   clotures: [],

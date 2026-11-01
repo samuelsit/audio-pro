@@ -2,7 +2,7 @@ import { LIBELLES_OREILLES, type Oreille } from '../audio-rules/code-prestation'
 import { dateFr, echapperHtml } from '../devis/rendu';
 import { finGarantieMinimale } from '../devis/calcul';
 import { GARANTIE_FABRICANT } from '../devis/modele';
-import { formatEuros, type Centimes } from '../money';
+import { centimes, formatEuros, type Centimes } from '../money';
 import { MENTION_DELIVRANCE, type ClientFacture, type VendeurFacture } from './mentions';
 import { LIBELLES_NATURES_PIECE, type NatureLigneFacture, type NaturePiece } from './types';
 
@@ -42,6 +42,8 @@ export interface VueFacture {
   };
   /** Acomptes repris à la validation (R35). */
   readonly acomptesDeduits?: Centimes;
+  /** `false` : le patient règle aussi la part AMO. */
+  readonly tiersPayantAmo?: boolean;
   /** Sur un avoir : numéro et date de la facture reprise, et motif. */
   readonly origine: {
     readonly numero: string;
@@ -188,6 +190,11 @@ ${origine === null ? '' : `<p>Avoir sur la facture n° ${echapperHtml(origine.nu
     ${
       vue.acomptesDeduits
         ? `<tr><td>Acomptes déduits</td><td class="n">${euros(vue.acomptesDeduits)}</td></tr>`
+        : ''
+    }
+    ${
+      vue.tiersPayantAmo === false
+        ? `<tr class="fort"><td>Net à régler (sans tiers payant AMO)</td><td class="n">${euros(centimes(totaux.resteACharge + totaux.amo - (vue.acomptesDeduits ?? 0)))}</td></tr>`
         : ''
     }
   </tbody>

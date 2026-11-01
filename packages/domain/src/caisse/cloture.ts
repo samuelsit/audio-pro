@@ -11,7 +11,7 @@ import { MODES_PAIEMENT, NATURES_MOUVEMENT, type ModePaiement } from './encaisse
  * donc de nouvelles attestations.
  * Source : fiscal/boi-tva-decla-30-10-30.html § 340 et § 380.
  */
-export const VERSION_CAISSE = '1.0';
+export const VERSION_CAISSE = '2.0';
 
 /** Source : fiscal/boi-tva-decla-30-10-30.html § 170 : trois échéances « cumulatives et impératives ». */
 export const PORTEES_CLOTURE = ['JOUR', 'MOIS', 'EXERCICE'] as const;

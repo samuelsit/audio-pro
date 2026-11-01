@@ -103,7 +103,7 @@ export async function BlocEncaissements({ factureId }: { factureId: string }) {
         ) : null}
       </dl>
       <Mouvements mouvements={mouvements} remboursable={peutRembourser(acteur.role)} />
-      {solde.plafond > 0 ? (
+      {solde.du > 0 ? (
         <FormulaireEncaissement factureId={factureId} montantPropose={saisie(solde.du)} />
       ) : null}
     </section>

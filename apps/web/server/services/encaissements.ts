@@ -97,13 +97,19 @@ type FacturePourSolde = Pick<FactureLue, 'id' | 'dossierId'>;
  */
 export async function soldeDeFacture(client: Client, facture: FacturePourSolde): Promise<Solde> {
   const { id, dossierId } = facture;
-  const [pieces, mouvements] = await Promise.all([
+  const [pieces, mouvements, transferts] = await Promise.all([
     client.facture.findMany({
       where: {
         statut: 'VALIDEE',
         ...(dossierId ? { dossierId } : { OR: [{ id }, { factureOrigineId: id }] }),
       },
-      select: { nature: true, totalTtcCentimes: true, totalResteCentimes: true },
+      select: {
+        nature: true,
+        totalTtcCentimes: true,
+        totalAmoCentimes: true,
+        totalResteCentimes: true,
+        tiersPayantAmo: true,
+      },
     }),
     client.encaissement.findMany({
       where: dossierId
@@ -111,11 +117,18 @@ export async function soldeDeFacture(client: Client, facture: FacturePourSolde):
         : { factureId: id },
       select: { nature: true, montantCentimes: true },
     }),
+    client.regularisationCreance.aggregate({
+      where: {
+        nature: 'TRANSFERT_PATIENT',
+        creance: { facture: dossierId ? { dossierId } : { id } },
+      },
+      _sum: { montantCentimes: true },
+    }),
   ]);
-  return calculerSolde(pieces, mouvements);
+  return calculerSolde(pieces, mouvements, transferts._sum.montantCentimes ?? 0);
 }
 
-/** Encaisse sur une facture validée. Le plafond se lit sous le verrou de tête : deux caisses ne le dépassent pas. */
+/** Encaisse sur une facture validée. Le dû se lit sous le verrou de tête : deux caisses ne le dépassent pas. */
 export async function encaisserFacture(
   acteur: UtilisateurConnecte,
   factureId: string,
@@ -136,12 +149,9 @@ export async function encaisserFacture(
       if (donnees.mode === 'ESPECES') {
         await exigerSessionOuverte(tx, facture.centreId);
       }
-      const { plafond } = await soldeDeFacture(tx as unknown as Client, facture);
-      if (donnees.montantCentimes > plafond) {
-        throw ErreurSaisie.surChamp(
-          'montant',
-          `Au plus ${formatEuros(plafond)} sur cette facture.`,
-        );
+      const { du } = await soldeDeFacture(tx as unknown as Client, facture);
+      if (donnees.montantCentimes > du) {
+        throw ErreurSaisie.surChamp('montant', `Au plus ${formatEuros(du)} sur cette facture.`);
       }
       const id = await ecrireMouvement(tx, acteur, facture.centreId, {
         ...donnees,

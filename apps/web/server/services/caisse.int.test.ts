@@ -2,7 +2,13 @@ import path from 'node:path';
 
 import { cloturerCentre, archiverCentre, maillonDepuisBase } from '@ha/caisse';
 import { prisma } from '@ha/db/admin';
-import { enchainer, MODES_PAIEMENT, sirenDepuisSiret, type ContenuMaillon } from '@ha/domain';
+import {
+  enchainer,
+  MODES_PAIEMENT,
+  sirenDepuisSiret,
+  VERSION_CAISSE,
+  type ContenuMaillon,
+} from '@ha/domain';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -121,7 +127,6 @@ describe('encaissement d’une facture', () => {
     expect((await encaissementsDeFacture(audio, factureId)).solde).toMatchObject({
       encaisse: 200,
       du: VENTE - 200,
-      plafond: VENTE - 200,
     });
     await encaisserFacture(audio, factureId, paiement('CHEQUE', '1,00', { reference: '1234567' }));
     await encaisserFacture(
@@ -131,7 +136,7 @@ describe('encaissement d’une facture', () => {
     );
 
     const { solde, mouvements } = await encaissementsDeFacture(audio, factureId);
-    expect(solde).toMatchObject({ encaisse: VENTE, du: 0, plafond: 0 });
+    expect(solde).toMatchObject({ encaisse: VENTE, du: 0 });
     expect(mouvements.map((m) => m.mode)).toEqual(['CB', 'CHEQUE', 'FINANCEMENT']);
     expect(mouvements[1]?.reference).toBe('1234567');
     expect(mouvements[2]).toMatchObject({ partenaire: 'Partenaire démo', echeances: 3 });
@@ -326,7 +331,6 @@ describe('acomptes', () => {
     expect((await encaissementsDeFacture(audio, factureId)).solde).toMatchObject({
       tropPercu: VENTE,
       du: 0,
-      plafond: 0,
     });
   });
 });
@@ -429,7 +433,7 @@ describe('clôtures', () => {
       grandTotalCentimes: BigInt(2 * VENTE),
       perpetuelCentimes: BigInt(2 * VENTE),
       encaissePerpetuelCentimes: BigInt(VENTE),
-      versionCaisse: '1.0',
+      versionCaisse: VERSION_CAISSE,
     });
     expect(jour?.totaux).toMatchObject({
       factures: 2,

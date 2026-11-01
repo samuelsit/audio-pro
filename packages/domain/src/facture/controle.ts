@@ -7,6 +7,7 @@ import { plafondPrixVente, type TarifsAudio } from '../audio-rules/tarifs';
 import type { Oreille } from '../audio-rules/code-prestation';
 import type { Centimes } from '../money';
 import { ageAt } from '../patient/age';
+import { pecAccordee, pecExpiree } from '../tiers-payant/pec';
 import type { OrigineDonnee } from '../patient/patient';
 import { etatDroitsAmo } from '../vitale/droits';
 import { controlerMentions, type ClientFacture, type VendeurFacture } from './mentions';
@@ -54,7 +55,13 @@ export interface FaitsFacture {
   readonly historiqueDelivrances: readonly Delivrance[];
   /** Devis signé avec une offre retenue, `null` sinon. */
   readonly devis: DevisFacture | null;
-  readonly pec: { readonly statut: StatutPec; readonly justificatif: boolean } | null;
+  readonly pec: {
+    readonly statut: StatutPec;
+    readonly justificatif: boolean;
+    readonly validiteFin: string | null;
+  } | null;
+  /** Le tiers payant AMO est demandé sur cette facture. */
+  readonly tiersPayantAmo: boolean;
   readonly tarifs: TarifsAudio;
   readonly vendeur: VendeurFacture;
   readonly client: ClientFacture;
@@ -63,6 +70,8 @@ export interface FaitsFacture {
 /** Une vente directe n'a ni devis ni dossier ; la couverture n'importe qu'avec une prescription. */
 export interface FaitsVenteDirecte {
   readonly remboursable: boolean;
+  readonly c2s: boolean;
+  readonly tiersPayantAmo: boolean;
   readonly couvertureAmo: CouvertureAmoAControler | null;
   readonly amoConfirmeeLe: string | null;
   readonly vendeur: VendeurFacture;
@@ -227,7 +236,7 @@ function controlerLignes(
         c2s && !refusOffreC2S ? 'PRIX_SUPERIEUR_PLAFOND_C2S' : 'PRIX_SUPERIEUR_PRIX_LIMITE';
       erreurs.push({ code, oreille });
     }
-    const accordee = !c2s && pec?.statut === 'ACCORDEE';
+    const accordee = !c2s && pec !== null && pecAccordee(pec.statut);
     if (
       accordee &&
       devis?.contratResponsable === true &&
@@ -251,7 +260,7 @@ function controlerLignes(
  * À VÉRIFIER : choix applicatif, la procédure de PEC n'est pas dans docs/ref (R23).
  */
 function controlerPec(
-  { amcNonAffectee }: ContenuFacture,
+  { amcNonAffectee, dateDelivrance }: ContenuFacture,
   { c2s, couvertureAmc, devis, pec }: FaitsFacture,
   { erreurs, avertissements }: Collecte,
 ): void {
@@ -265,17 +274,34 @@ function controlerPec(
     }
     return;
   }
-  if (pec.statut === 'DEMANDEE') {
+  if (pecExpiree(pec, dateDelivrance)) {
+    erreurs.push(constat('PEC_EXPIREE'));
+  } else if (pec.statut === 'A_DEMANDER' || pec.statut === 'DEMANDEE') {
     erreurs.push(constat('PEC_EN_ATTENTE'));
   } else if (pec.statut === 'REFUSEE') {
     avertissements.push(constat('PEC_REFUSEE'));
-  } else if (pec.statut === 'ACCORDEE') {
+  } else if (pecAccordee(pec.statut)) {
     if (!pec.justificatif) {
       avertissements.push(constat('PEC_SANS_JUSTIFICATIF'));
     }
     if (amcNonAffectee > 0) {
       avertissements.push(constat('PEC_SUPERIEURE_AU_RESTE'));
     }
+  }
+}
+
+/**
+ * La C2S impose le tiers payant.
+ * Source : convention-audioprothesistes.pdf, art. 1, p. 6 et art. 27, p. 26.
+ * À VÉRIFIER : AME, ALD, maternité, risques professionnels et détention sont aussi visés par l'article, mais
+ * aucune de ces situations n'est connue de façon fiable à la facturation (R43).
+ */
+function controlerTiersPayant(
+  { c2s, tiersPayantAmo }: Pick<FaitsFacture, 'c2s' | 'tiersPayantAmo'>,
+  { erreurs }: Collecte,
+): void {
+  if (c2s && !tiersPayantAmo) {
+    erreurs.push({ code: 'TIERS_PAYANT_OBLIGATOIRE', oreille: null });
   }
 }
 
@@ -293,6 +319,7 @@ export function controlerFacture(
     collecte.erreurs.push({ code: 'DEVIS_NON_SIGNE', oreille: null });
   }
   controlerCouverture(facture, faits, collecte);
+  controlerTiersPayant(faits, collecte);
   controlerPrescription(facture, faits, collecte);
   controlerLignes(facture, faits, collecte);
   controlerPec(facture, faits, collecte);
@@ -319,6 +346,7 @@ export function controlerVenteDirecte(
   if (faits.remboursable) {
     controlerCouverture(contenu, faits, collecte);
   }
+  controlerTiersPayant(faits, collecte);
   controlerTva(contenu, collecte);
   collecterMentions(contenu, faits, collecte);
   return {

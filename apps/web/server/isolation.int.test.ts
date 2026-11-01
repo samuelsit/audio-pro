@@ -8,6 +8,8 @@ import { creerClientComplet, type ClientComplet } from '@/test/client-complet';
 import { viderBase } from '@/test/donnees';
 
 import { AccesRefuseError, type UtilisateurConnecte } from './auth/acces';
+import { modifierComplementaire } from './services/complementaires';
+import { marquerRelancee, obtenirReglement } from './services/tiers-payant';
 import { base } from './chiffrement';
 import { importerLpp } from './lpp/importer';
 import {
@@ -78,7 +80,13 @@ const TABLES_ISOLEES = [
   'chaine_caisse',
   'cloture_caisse',
   'comptage_caisse',
+  'complementaire',
+  'creance',
   'encaissement',
+  'lettrage',
+  'reglement_organisme',
+  'regularisation_creance',
+  'rejet_creance',
   'evenement_caisse',
   'parametres_comptables',
   'session_caisse',
@@ -517,6 +525,18 @@ describe('identifiant d’un autre client forcé dans l’URL', () => {
     { entite: 'utilisateur', appel: (x, c) => obtenirUtilisateur(x, c.d.utilisateurs.audioAB.id) },
     { entite: 'praticien', appel: (x, c) => obtenirPraticien(x, c.d.praticiens.praticienAB.id) },
     { entite: 'fabricant', appel: (x, c) => obtenirFabricant(x, c.fabricantId) },
+    { entite: 'règlement d’organisme', appel: (x, c) => obtenirReglement(x, c.reglementId) },
+    { entite: 'relance d’une créance', appel: (x, c) => marquerRelancee(x, c.creanceId) },
+    {
+      entite: 'modification d’une complémentaire',
+      appel: (x, c) =>
+        modifierComplementaire(x, c.complementaireId, {
+          nom: 'Mutuelle fictive',
+          identifiant: 'AMC-TEST',
+          modePec: 'PORTAIL',
+          delaiPaiementJours: '30',
+        }),
+    },
     { entite: 'modèle', appel: (x, c) => obtenirModele(x, c.catalogue.classeI) },
     { entite: 'accessoire', appel: (x, c) => obtenirAccessoire(x, c.catalogue.piles) },
     {

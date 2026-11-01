@@ -68,6 +68,7 @@ function faits(surcharge: Partial<FaitsFacture> = {}): FaitsFacture {
       tauxTva: [{ nature: 'AIDE_AUDITIVE', taux: 550 }],
     },
     pec: null,
+    tiersPayantAmo: true,
     tarifs: TARIFS,
     vendeur: VENDEUR,
     client: CLIENT,
@@ -185,8 +186,36 @@ describe('erreurs bloquantes', () => {
       code: 'PEC_MANQUANTE',
     },
     {
+      cas: 'PEC à demander',
+      f: {
+        pec: { statut: 'A_DEMANDER', justificatif: false, validiteFin: null },
+      } as Partial<FaitsFacture>,
+      code: 'PEC_EN_ATTENTE',
+    },
+    {
+      cas: 'PEC expirée',
+      f: {
+        pec: { statut: 'EXPIREE', justificatif: false, validiteFin: null },
+      } as Partial<FaitsFacture>,
+      code: 'PEC_EXPIREE',
+    },
+    {
+      cas: 'accord dont la validité finit avant la délivrance',
+      f: {
+        pec: { statut: 'ACCORDEE', justificatif: true, validiteFin: '2000-01-01' },
+      } as Partial<FaitsFacture>,
+      code: 'PEC_EXPIREE',
+    },
+    {
+      cas: 'tiers payant refusé en C2S',
+      f: { c2s: true, tiersPayantAmo: false },
+      code: 'TIERS_PAYANT_OBLIGATOIRE',
+    },
+    {
       cas: 'PEC demandée sans réponse',
-      f: { pec: { statut: 'DEMANDEE', justificatif: false } } as Partial<FaitsFacture>,
+      f: {
+        pec: { statut: 'DEMANDEE', justificatif: false, validiteFin: null },
+      } as Partial<FaitsFacture>,
       code: 'PEC_EN_ATTENTE',
     },
   ])('$cas', ({ f, code }) => {
@@ -269,14 +298,14 @@ describe('situations qui ne bloquent pas', () => {
   });
 
   it('sans tiers payant, l’attente de PEC est levée', () => {
-    const pec = { statut: 'SANS_TIERS_PAYANT', justificatif: false } as const;
+    const pec = { statut: 'SANS_TIERS_PAYANT', justificatif: false, validiteFin: null } as const;
     expect(controler({ couvertureAmc: true, pec })).toEqual({ erreurs: [], avertissements: [] });
   });
 });
 
 describe('avertissements', () => {
   const amo = faits().couvertureAmo;
-  const accordee = { statut: 'ACCORDEE', justificatif: true } as const;
+  const accordee = { statut: 'ACCORDEE', justificatif: true, validiteFin: null } as const;
 
   it.each([
     {
@@ -327,13 +356,25 @@ describe('avertissements', () => {
     },
     {
       cas: 'PEC refusée',
-      f: { pec: { statut: 'REFUSEE', justificatif: false } } as Partial<FaitsFacture>,
+      f: {
+        pec: { statut: 'REFUSEE', justificatif: false, validiteFin: null },
+      } as Partial<FaitsFacture>,
       base: facture(),
       code: 'PEC_REFUSEE',
     },
     {
+      cas: 'PEC accordée en partie sans justificatif',
+      f: {
+        pec: { statut: 'PARTIELLE', justificatif: false, validiteFin: null },
+      } as Partial<FaitsFacture>,
+      base: facture(),
+      code: 'PEC_SANS_JUSTIFICATIF',
+    },
+    {
       cas: 'PEC accordée sans justificatif',
-      f: { pec: { statut: 'ACCORDEE', justificatif: false } } as Partial<FaitsFacture>,
+      f: {
+        pec: { statut: 'ACCORDEE', justificatif: false, validiteFin: null },
+      } as Partial<FaitsFacture>,
       base: facture(),
       code: 'PEC_SANS_JUSTIFICATIF',
     },
@@ -425,6 +466,8 @@ describe('TVA et mentions', () => {
 describe('vente directe', () => {
   const directe = {
     remboursable: false,
+    c2s: false,
+    tiersPayantAmo: true,
     couvertureAmo: null,
     amoConfirmeeLe: null,
     vendeur: VENDEUR,
@@ -438,6 +481,15 @@ describe('vente directe', () => {
   it('exige une couverture dès qu’une prescription ouvre le remboursement', () => {
     const resultat = controlerVenteDirecte(facture(), { ...directe, remboursable: true });
     expect(codes(resultat.erreurs)).toEqual(['COUVERTURE_AMO_ABSENTE']);
+  });
+
+  it('impose le tiers payant en C2S', () => {
+    const resultat = controlerVenteDirecte(facture(), {
+      ...directe,
+      c2s: true,
+      tiersPayantAmo: false,
+    });
+    expect(codes(resultat.erreurs)).toEqual(['TIERS_PAYANT_OBLIGATOIRE']);
   });
 
   it('refuse une vente sans ligne ou sans taux', () => {

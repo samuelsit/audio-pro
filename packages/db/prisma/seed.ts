@@ -13,12 +13,13 @@ import {
 } from './seed-catalogue';
 import { NOMBRE_DOSSIERS_DEMO, seedDossiers } from './seed-dossiers';
 import { seedFacturation } from './seed-facturation';
+import { NOMBRE_COMPLEMENTAIRES_DEMO, seedComplementaires } from './seed-complementaires';
 import { NOMBRE_PATIENTS_DEMO, PATIENTS_INDEPENDANT, seedPatients } from './seed-patients';
 import { nombreAppareilsDemo, seedStock } from './seed-stock';
 
 // Seed idempotent de démonstration. Toutes les données sont fictives (domaine exemple.test,
 // RPPS et NIR inventés). Les patients de démonstration sont dans seed-patients.ts.
-const SCHEMA_VERSION = '9';
+const SCHEMA_VERSION = '10';
 
 // Deux clients fictifs : un réseau de 3 centres et un centre indépendant (ADR-016).
 const ORGANISATION_ID = '019a3000-0000-7000-8000-000000000001';
@@ -358,6 +359,7 @@ async function main(): Promise<void> {
     await seedStock(db, ORGANISATION_ID, [NORD, CENTRE, SUD], ADMIN_ID);
     await seedDossiers(db, ORGANISATION_ID, NORD, ADMIN_ID);
     await seedFacturation(db, ORGANISATION_ID, NORD, ADMIN_ID);
+    await seedComplementaires(db, ORGANISATION_ID);
     await seedAudiologie(db, ORGANISATION_ID, NORD, ADMIN_ID);
     await seedPatients(
       db,
@@ -397,7 +399,7 @@ async function main(): Promise<void> {
       await db.appMeta.upsert({ where: { key }, create: { key, value }, update: { value } });
     }
     console.log(
-      `Seed terminé (schema_version=${SCHEMA_VERSION}) : ${ORGANISATIONS.length} organisations, ${CENTRES.length + 1} centres, ${UTILISATEURS.length + UTILISATEURS_INDEPENDANT.length + 1} utilisateurs, ${NOMBRE_PATIENTS_DEMO + PATIENTS_INDEPENDANT.length} patients, ${NOMBRE_FABRICANTS_DEMO} fabricants, ${NOMBRE_MODELES_DEMO} modèles, ${nombreAppareilsDemo(CENTRES.length)} appareils, ${NOMBRE_DOSSIERS_DEMO} dossiers.`,
+      `Seed terminé (schema_version=${SCHEMA_VERSION}) : ${ORGANISATIONS.length} organisations, ${CENTRES.length + 1} centres, ${UTILISATEURS.length + UTILISATEURS_INDEPENDANT.length + 1} utilisateurs, ${NOMBRE_PATIENTS_DEMO + PATIENTS_INDEPENDANT.length} patients, ${NOMBRE_FABRICANTS_DEMO} fabricants, ${NOMBRE_MODELES_DEMO} modèles, ${nombreAppareilsDemo(CENTRES.length)} appareils, ${NOMBRE_DOSSIERS_DEMO} dossiers, ${NOMBRE_COMPLEMENTAIRES_DEMO} complémentaires.`,
     );
   } finally {
     await db.$disconnect();

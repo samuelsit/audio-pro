@@ -37,6 +37,8 @@ export const fseDraftSchema = z.object({
   factureId: z.string().min(1),
   numeroFacture: z.string().min(1),
   dateFacture: dateCalendaireSchema,
+  /** Faux : le patient a réglé la part AMO, la caisse le rembourse lui. */
+  tiersPayantAmo: z.boolean(),
   beneficiaire: z.object({
     nir: z.string().min(1),
     rangNaissance: z.number().int(),

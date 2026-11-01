@@ -180,6 +180,7 @@ export interface PieceChainee {
   readonly dossierId: string | null;
   readonly factureOrigineId: string | null;
   readonly acomptesDeduitsCentimes?: number;
+  readonly tiersPayantAmo?: boolean;
   readonly totalTtcCentimes: number;
   readonly totalHtCentimes: number;
   readonly totalTvaCentimes: number;
@@ -199,6 +200,7 @@ export function chargeDepuisBase(piece: PieceChainee, lignes: readonly LigneChai
     dossierId: piece.dossierId,
     factureOrigineId: piece.factureOrigineId,
     acomptesDeduits: centimes(piece.acomptesDeduitsCentimes ?? 0),
+    ...(piece.tiersPayantAmo === undefined ? {} : { tiersPayantAmo: piece.tiersPayantAmo }),
     totaux: {
       prixTTC: centimes(piece.totalTtcCentimes),
       ht: centimes(piece.totalHtCentimes),

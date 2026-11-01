@@ -138,7 +138,17 @@ export function resteRemboursable(
 export interface PieceSoldee {
   readonly nature: NaturePiece;
   readonly totalTtcCentimes: number;
+  readonly totalAmoCentimes: number;
   readonly totalResteCentimes: number;
+  readonly tiersPayantAmo: boolean;
+}
+
+/** Ce qu'une pièce met à la charge du patient : sans tiers payant, il règle aussi la part AMO. */
+export function partPatientDeLaPiece(
+  piece: Pick<PieceSoldee, 'totalAmoCentimes' | 'totalResteCentimes' | 'tiersPayantAmo'>,
+): Centimes {
+  const { totalResteCentimes, totalAmoCentimes, tiersPayantAmo } = piece;
+  return centimes(totalResteCentimes + (tiersPayantAmo ? 0 : totalAmoCentimes));
 }
 
 export interface Solde {
@@ -147,40 +157,48 @@ export interface Solde {
   /** Reste à charge, avoirs déduits. */
   readonly resteNet: Centimes;
   readonly encaisse: Centimes;
-  /** Ce que le patient doit encore. */
+  /** Part du patient : reste à charge, part AMO sans tiers payant et créances passées à sa charge. */
+  readonly partPatient: Centimes;
+  /** Ce que le patient doit encore, et le plus qu'on puisse encaisser. */
   readonly du: Centimes;
-  /** Au plus ce qu'on peut encore encaisser : le patient peut avancer la part des organismes. */
-  readonly plafond: Centimes;
-  /** Encaissé au-delà du TTC net : à rembourser, ou à reporter sur la prochaine facture du dossier. */
+  /** Encaissé au-delà de sa part : à rembourser, ou à reporter sur la prochaine facture du dossier. */
   readonly tropPercu: Centimes;
 }
 
 /**
  * Solde d'un dossier ou d'une vente directe, toujours calculé : une pièce validée ne change plus. Après un avoir
- * total, le dossier garde ses paiements pour la facture suivante.
- * À VÉRIFIER : plafond au TTC, faute de drapeau de tiers payant avant l'étape 16 (R34).
+ * total, le dossier garde ses paiements pour la facture suivante. La part des organismes n'est pas encaissable au
+ * guichet : un patient qui l'avance est une facture sans tiers payant.
+ * `transfertsNets` : créances d'organisme passées à la charge du patient, contre-passations déduites.
+ * Source : convention-audioprothesistes.pdf, art. 27, p. 26 (dispense d'avance).
+ * À VÉRIFIER : R34, R43.
  */
 export function calculerSolde(
   pieces: readonly PieceSoldee[],
   mouvements: readonly Mouvement[],
+  transfertsNets = 0,
 ): Solde {
   const signe = (nature: NaturePiece) => (nature === 'FACTURE' ? 1 : -1);
   const ttcNet = pieces.reduce((t, p) => t + signe(p.nature) * p.totalTtcCentimes, 0);
   const resteNet = pieces.reduce((t, p) => t + signe(p.nature) * p.totalResteCentimes, 0);
+  const partPatient = pieces.reduce(
+    (t, p) => t + signe(p.nature) * partPatientDeLaPiece(p),
+    transfertsNets,
+  );
   const encaisse = encaisseNet(mouvements);
   return {
     ttcNet: centimes(ttcNet),
     resteNet: centimes(resteNet),
     encaisse,
-    du: centimes(Math.max(resteNet - encaisse, 0)),
-    plafond: centimes(Math.max(ttcNet - encaisse, 0)),
-    tropPercu: centimes(Math.max(encaisse - ttcNet, 0)),
+    partPatient: centimes(partPatient),
+    du: centimes(Math.max(partPatient - encaisse, 0)),
+    tropPercu: centimes(Math.max(encaisse - partPatient, 0)),
   };
 }
 
-/** Acomptes repris par une facture : jamais plus que son reste à charge (R35). */
-export function acomptesADeduire(acomptesNets: number, resteACharge: number): Centimes {
-  return centimes(Math.max(Math.min(acomptesNets, resteACharge), 0));
+/** Acomptes repris par une facture : jamais plus que la part du patient (R35). */
+export function acomptesADeduire(acomptesNets: number, partPatient: number): Centimes {
+  return centimes(Math.max(Math.min(acomptesNets, partPatient), 0));
 }
 
 /** Texte libre chiffré en base : le maillon n'en garde que l'empreinte. */

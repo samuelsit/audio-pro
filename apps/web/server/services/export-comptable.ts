@@ -159,6 +159,7 @@ export async function produireFec(
     [comptes.compteAmc]: 'Organismes complémentaires',
     [comptes.compteAcomptes]: 'Clients, avances et acomptes reçus',
     [comptes.compteTva]: 'TVA collectée',
+    [comptes.compteCreancesIrrecouvrables]: 'Pertes sur créances irrécouvrables',
   };
   const lignes = formaterEcritures(
     numeroterEcritures(ecritures),

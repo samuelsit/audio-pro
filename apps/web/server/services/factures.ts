@@ -6,6 +6,7 @@ import {
   calculerPagination,
   centimes,
   controlerFacture,
+  demandePecSchema,
   designationAideSchema,
   designationConsommableSchema,
   devisCalculeSchema,
@@ -13,6 +14,8 @@ import {
   etatFacture,
   extensionDocument,
   filtreAFacturerSchema,
+  ligneDemandePecSchema,
+  montantPecApplicable,
   oreillesConcernees,
   oreillesDuDossier,
   pecSaisieSchema,
@@ -26,9 +29,13 @@ import {
   type ContenuFacture,
   type EtatFacture,
   type FaitsFacture,
+  type LigneDemandePec,
   type Pagination,
+  type PayeurComplementaire,
+  type PecSaisie,
   type Perimetre,
   type ResultatControleFacture,
+  type ReponsePec,
   type RubriqueOffre,
   type StatutPec,
   type TypeDocument,
@@ -43,6 +50,7 @@ import { base, type ClientTransaction } from '../chiffrement';
 import { documents } from '../documents';
 import { ErreurSaisie, valider } from '../erreurs';
 import { centresDuPerimetre } from '../perimetre';
+import { pecGateway, pecGatewayDisponible } from '../pec-gateway';
 import { constatSchema, depuisDate, lireDossier, versDate, type DossierLu } from './dossiers';
 import { decrireCodesLpp, tarifsAudioEnVigueur, versClientLpp, type CodeLppDecrit } from './lpp';
 import { aujourdhui, type Client } from './patients';
@@ -76,6 +84,7 @@ export async function creerBrouillonDossier(
   tx: ClientTransaction,
   acteur: UtilisateurConnecte,
   dossier: Pick<DossierLu, 'id' | 'patientId' | 'centreId'>,
+  tiersPayantAmo = true,
 ): Promise<EvenementAudit> {
   const { id } = await tx.facture.create({
     data: {
@@ -83,6 +92,7 @@ export async function creerBrouillonDossier(
       centreId: dossier.centreId,
       patientId: dossier.patientId,
       dossierId: dossier.id,
+      tiersPayantAmo,
       createdById: acteur.id,
     },
     select: { id: true },
@@ -250,6 +260,17 @@ export interface FactureEvaluee {
   factureId: string;
   controle: ResultatControleFacture;
   etat: EtatFacture;
+  /** `null` si la base LPP ne couvre pas la date : rien n'est facturable. */
+  payeurs: PayeursFacture | null;
+}
+
+/** Qui paiera : lu avec l'évaluation, pour que les créances portent sur ce que la validation fige. */
+export interface PayeursFacture {
+  readonly c2s: boolean;
+  readonly caisse: string | null;
+  readonly regime: string | null;
+  /** Complémentaire qui fournit la part AMC ; `null` en C2S ou sans accord. */
+  readonly pec: PayeurComplementaire | null;
 }
 
 const SANS_TARIF: ResultatControleFacture = {
@@ -298,6 +319,8 @@ export async function evaluerFactures(
       select: {
         patientId: true,
         c2s: true,
+        caisse: true,
+        regime: true,
         origine: true,
         derniereLectureVitale: true,
         updatedAt: true,
@@ -337,8 +360,13 @@ export async function evaluerFactures(
       select: {
         dossierId: true,
         statut: true,
+        organisme: true,
+        numeroAccord: true,
         montantAccordeCentimes: true,
+        validiteFin: true,
         justificatifCle: true,
+        complementaireId: true,
+        complementaire: { select: { delaiPaiementJours: true } },
       },
     }),
     client.centre.findMany({
@@ -390,6 +418,7 @@ export async function evaluerFactures(
         facture: null,
         controle: SANS_TARIF,
         etat: etatFacture(SANS_TARIF),
+        payeurs: null,
       });
       continue;
     }
@@ -398,7 +427,11 @@ export async function evaluerFactures(
     const surdicecite = chiffre.surdicecite === 'OUI';
     const dateNaissance = depuisDate(patient.dateNaissance);
     const offre = offres.get(dossier.id);
-    const pec = pecs.find((p) => p.dossierId === dossier.id);
+    const pecLue = pecs.find((p) => p.dossierId === dossier.id);
+    const pec = pecLue && {
+      ...pecLue,
+      validiteFin: pecLue.validiteFin && depuisDate(pecLue.validiteFin),
+    };
     const prescription = prescriptions.find((p) => p.dossierId === dossier.id);
     const lignesOffre = offre?.lignes ?? [];
 
@@ -410,10 +443,7 @@ export async function evaluerFactures(
       tauxAMO: devis.find((d) => d.dossierId === dossier.id)?.tauxAmo ?? 0,
       tarifs: audio,
       tauxTva,
-      montantAccorde:
-        pec?.statut === 'ACCORDEE' && pec.montantAccordeCentimes !== null
-          ? centimes(pec.montantAccordeCentimes)
-          : null,
+      montantAccorde: montantPecApplicable(pec ?? null, dateDelivrance),
       aides: lignesOffre.flatMap((ligne) => {
         const { oreille, classe, modeleId } = ligne;
         if (ligne.nature !== 'AIDE_AUDITIVE' || !oreille || !classe) {
@@ -501,7 +531,14 @@ export async function evaluerFactures(
         devis.find((d) => d.dossierId === dossier.id),
         offre,
       ),
-      pec: pec ? { statut: pec.statut, justificatif: pec.justificatifCle !== null } : null,
+      pec: pec
+        ? {
+            statut: pec.statut,
+            justificatif: pec.justificatifCle !== null,
+            validiteFin: pec.validiteFin,
+          }
+        : null,
+      tiersPayantAmo: ligneFacture.tiersPayantAmo,
       tarifs: audio,
       vendeur: versVendeur(centre),
       client: versClient(patient),
@@ -512,6 +549,20 @@ export async function evaluerFactures(
       facture,
       controle,
       etat: etatFacture(controle),
+      payeurs: {
+        c2s,
+        caisse: couverture?.caisse ?? null,
+        regime: couverture?.regime ?? null,
+        pec:
+          !c2s && pec?.organisme
+            ? {
+                organisme: pec.organisme,
+                complementaireId: pec.complementaireId,
+                numeroAccord: pec.numeroAccord,
+                delaiPaiementJours: pec.complementaire?.delaiPaiementJours ?? null,
+              }
+            : null,
+      },
     });
   }
   return resultat;
@@ -639,6 +690,27 @@ function evenementPec(
   };
 }
 
+/** Le référentiel fixe l'organisme et, à défaut de saisie, la plateforme. */
+async function organismeDeLaPec(
+  client: Client,
+  { complementaireId, organisme, plateforme }: PecSaisie,
+): Promise<{ organisme: string | null; plateforme: string | null }> {
+  if (complementaireId === null) {
+    return { organisme, plateforme };
+  }
+  const complementaire = await client.complementaire.findUnique({
+    where: { id: complementaireId },
+    select: { nom: true, plateformeTiersPayant: true },
+  });
+  if (!complementaire) {
+    throw ErreurSaisie.surChamp('complementaireId', 'Cette complémentaire n’existe plus.');
+  }
+  return {
+    organisme: complementaire.nom,
+    plateforme: plateforme ?? complementaire.plateformeTiersPayant,
+  };
+}
+
 /**
  * Saisie de la prise en charge complémentaire, remplacée à chaque enregistrement. Sans nouveau fichier, le
  * justificatif reste. Il est déposé hors transaction ; si elle échoue, l'objet déposé est retiré, et
@@ -664,7 +736,10 @@ export async function enregistrerPec(
   }
   const champs = {
     ...donnees,
+    ...(await organismeDeLaPec(base(acteur), donnees)),
     datePec: donnees.datePec === null ? null : versDate(donnees.datePec),
+    validiteFin: donnees.validiteFin === null ? null : versDate(donnees.validiteFin),
+    demande: donnees.demande ?? [],
     saisieParId: acteur.id,
     ...(nouveau
       ? {
@@ -705,6 +780,94 @@ export async function enregistrerPec(
     }
     throw erreur;
   }
+}
+
+/** Réponse du port sur une PEC existante : statut, accord et validité seulement. */
+async function appliquerReponsePec(
+  acteur: UtilisateurConnecte,
+  dossierId: string,
+  { reference, statut, numeroAccord, montantAccordeCentimes, validiteFin }: ReponsePec,
+): Promise<StatutPec> {
+  await withAudit(
+    acteur,
+    async (tx) => {
+      const { dossier, factureId } = await exigerPecPossible(tx, acteur, dossierId);
+      await tx.priseEnCharge.update({
+        where: { dossierId },
+        data: {
+          statut,
+          numeroAccord,
+          montantAccordeCentimes,
+          validiteFin: validiteFin === null ? null : versDate(validiteFin),
+          referencePlateforme: reference,
+          datePec: versDate(aujourdhui()),
+          saisieParId: acteur.id,
+        },
+      });
+      return { dossier, factureId };
+    },
+    ({ dossier, factureId }) => evenementPec(dossier, factureId, statut),
+  );
+  return statut;
+}
+
+/**
+ * Envoie à la plateforme la demande déjà enregistrée, hors transaction, et applique sa réponse.
+ * À VÉRIFIER : champs et statuts provisoires, alignés sur docs/vendor/pec à l'étape 28.
+ */
+export async function demanderPecPlateforme(
+  acteur: UtilisateurConnecte,
+  dossierId: string,
+): Promise<StatutPec> {
+  const client = base(acteur);
+  await exigerPecPossible(client, acteur, dossierId);
+  if (!pecGatewayDisponible()) {
+    throw new ErreurSaisie(
+      {},
+      'Aucune plateforme n’est branchée : saisissez la réponse du portail.',
+    );
+  }
+  const pec = await client.priseEnCharge.findUnique({
+    where: { dossierId },
+    select: {
+      organisme: true,
+      numeroAdherent: true,
+      demande: true,
+      complementaire: { select: { identifiant: true } },
+    },
+  });
+  const demande = demandePecSchema.safeParse({
+    dossierId,
+    organisme: pec?.organisme,
+    organismeIdentifiant: pec?.complementaire?.identifiant ?? null,
+    numeroAdherent: pec?.numeroAdherent ?? null,
+    lignes: pec?.demande,
+  });
+  if (!demande.success) {
+    throw new ErreurSaisie({}, 'Enregistrez d’abord l’organisme et les lignes de la demande.');
+  }
+  return appliquerReponsePec(acteur, dossierId, await pecGateway().demander(demande.data));
+}
+
+/** Relit la réponse de la plateforme. */
+export async function actualiserPec(
+  acteur: UtilisateurConnecte,
+  dossierId: string,
+): Promise<StatutPec> {
+  const client = base(acteur);
+  await exigerPecPossible(client, acteur, dossierId);
+  const pec = await client.priseEnCharge.findUnique({
+    where: { dossierId },
+    select: { referencePlateforme: true },
+  });
+  if (!pec?.referencePlateforme) {
+    throw new ErreurSaisie({}, 'Cette prise en charge n’a pas été demandée par la plateforme.');
+  }
+  return appliquerReponsePec(
+    acteur,
+    dossierId,
+    await pecGateway().consulter(pec.referencePlateforme),
+  );
 }
 
 export interface JustificatifPec {
@@ -767,9 +930,15 @@ export interface PecAffichee {
   statut: StatutPec;
   organisme: string | null;
   plateforme: string | null;
+  numeroAdherent: string | null;
   numeroAccord: string | null;
   montantAccordeCentimes: number | null;
+  montantDemandeCentimes: number | null;
   datePec: string | null;
+  validiteFin: string | null;
+  complementaireId: string | null;
+  referencePlateforme: string | null;
+  demande: readonly LigneDemandePec[];
   justificatif: boolean;
 }
 
@@ -778,9 +947,15 @@ function versPecAffichee(pec: Prisma.PriseEnChargeGetPayload<object>): PecAffich
     statut: pec.statut,
     organisme: pec.organisme,
     plateforme: pec.plateforme,
+    numeroAdherent: pec.numeroAdherent,
     numeroAccord: pec.numeroAccord,
     montantAccordeCentimes: pec.montantAccordeCentimes,
+    montantDemandeCentimes: pec.montantDemandeCentimes,
     datePec: pec.datePec && depuisDate(pec.datePec),
+    validiteFin: pec.validiteFin && depuisDate(pec.validiteFin),
+    complementaireId: pec.complementaireId,
+    referencePlateforme: pec.referencePlateforme,
+    demande: z.array(ligneDemandePecSchema).parse(pec.demande ?? []),
     justificatif: pec.justificatifCle !== null,
   };
 }

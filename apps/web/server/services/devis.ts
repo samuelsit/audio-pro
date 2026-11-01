@@ -24,6 +24,7 @@ import {
   MESSAGES_BLOCAGE_SIGNATURE,
   nouvelleVersionPossible,
   oreillesDuDossier,
+  montantPecApplicable,
   pecDiffereDuDevis,
   peutEmettreDevis,
   peutEnregistrerSignature,
@@ -626,14 +627,16 @@ const selectionCentre = {
   tvaIntracommunautaire: true,
 } as const;
 
+/** Montant de la PEC à ce jour ; 0 après un refus ou une expiration, `null` sans décision. */
 async function lirePecAccordee(client: Client, dossierId: string): Promise<Centimes | null> {
   const pec = await client.priseEnCharge.findUnique({
     where: { dossierId },
-    select: { statut: true, montantAccordeCentimes: true },
+    select: { statut: true, montantAccordeCentimes: true, validiteFin: true },
   });
-  return pec?.statut === 'ACCORDEE' && pec.montantAccordeCentimes !== null
-    ? centimes(pec.montantAccordeCentimes)
-    : null;
+  return montantPecApplicable(
+    pec && { ...pec, validiteFin: pec.validiteFin && depuisDate(pec.validiteFin) },
+    aujourdhui(),
+  );
 }
 
 /** Lit ce que le devis ne porte pas. Hors transaction : Prisma charge les relations en parallèle. */

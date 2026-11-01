@@ -34,6 +34,7 @@ export default defineConfig({
       VITALE_LECTEUR: 'simulation',
       NOTIFIER: 'simulation',
       BILLING_ENGINE: 'simulation',
+      PEC_GATEWAY: 'simulation',
       E_SIGNATURE: 'simulation',
       NOTIFIER_SIMULATION_FICHIER: FICHIER_NOTIFICATIONS_E2E,
       CAPTCHA: 'simulation',

@@ -2,6 +2,8 @@ import { z } from 'zod';
 
 import { NATURES_LIGNE_FACTURE, NATURES_PIECE, type NatureLigneFacture } from '../facture/types';
 import type { TypeEvenementCaisse } from '../facture/chaine';
+import { TYPES_CREANCE, type TypeCreance } from '../tiers-payant/creance';
+import { LIBELLES_NATURES_REGULARISATION, NATURES_REGULARISATION } from '../tiers-payant/saisie';
 import {
   LIBELLES_MODES_PAIEMENT,
   LIBELLES_NATURES_MOUVEMENT,
@@ -34,6 +36,8 @@ export const parametresComptablesSchema = z.object({
   compteTva: compteSchema,
   compteEcartNegatif: compteSchema,
   compteEcartPositif: compteSchema,
+  // Par défaut : les lignes enregistrées avant l'étape 16 n'ont pas ce compte.
+  compteCreancesIrrecouvrables: compteSchema.default('654000'),
   ventes: z.object(
     Object.fromEntries(NATURES_LIGNE_FACTURE.map((nature) => [nature, compteSchema])) as Record<
       NatureLigneFacture,
@@ -62,6 +66,7 @@ export const PARAMETRES_COMPTABLES_DEFAUT: ParametresComptables = {
   compteTva: '445710',
   compteEcartNegatif: '658000',
   compteEcartPositif: '758000',
+  compteCreancesIrrecouvrables: '654000',
   ventes: {
     AIDE_AUDITIVE: '707000',
     PILE: '707100',
@@ -104,6 +109,7 @@ const chargePieceComptableSchema = z.object({
   nature: z.enum(NATURES_PIECE),
   numero: z.string(),
   acomptesDeduits: z.number().optional(),
+  tiersPayantAmo: z.boolean().optional(),
   totaux: z.object({ amo: z.number(), amc: z.number(), resteACharge: z.number() }),
   lignes: z.array(
     z.object({
@@ -119,6 +125,19 @@ const chargeMouvementComptableSchema = z.object({
   mode: z.enum(MODES_PAIEMENT),
   montantCentimes: z.number(),
   devisId: z.string().nullable(),
+});
+
+const chargeReglementComptableSchema = z.object({
+  organisme: z.string(),
+  reference: z.string(),
+  partAmoCentimes: z.number(),
+  partAmcCentimes: z.number(),
+});
+
+const chargeRegularisationComptableSchema = z.object({
+  type: z.enum(TYPES_CREANCE),
+  nature: z.enum(NATURES_REGULARISATION),
+  montantCentimes: z.number(),
 });
 
 const chargeComptageComptableSchema = z.object({
@@ -144,11 +163,12 @@ function regrouper(lignes: readonly LigneEcriture[]): readonly LigneEcriture[] {
 }
 
 function ecriturePiece(maillon: MaillonComptable, p: ParametresComptables): Ecriture {
-  const { nature, numero, totaux, lignes, acomptesDeduits } = chargePieceComptableSchema.parse(
-    maillon.charge,
-  );
+  const { nature, numero, totaux, lignes, acomptesDeduits, tiersPayantAmo } =
+    chargePieceComptableSchema.parse(maillon.charge);
   const signe = nature === 'FACTURE' ? 1 : -1;
   const acomptes = acomptesDeduits ?? 0;
+  // Sans tiers payant, la caisse ne doit rien au centre : la part AMO reste due par le patient.
+  const amoPatient = tiersPayantAmo === false ? totaux.amo : 0;
   return {
     journal: p.journalVentes,
     journalLibelle: p.journalVentesLibelle,
@@ -157,9 +177,9 @@ function ecriturePiece(maillon: MaillonComptable, p: ParametresComptables): Ecri
     libelle: `${nature === 'FACTURE' ? 'Facture' : 'Avoir'} ${numero}`,
     lignes: nonNulles(
       regrouper([
-        ligne(p.compteClients, signe * (totaux.resteACharge - acomptes)),
+        ligne(p.compteClients, signe * (totaux.resteACharge + amoPatient - acomptes)),
         ligne(p.compteAcomptes, signe * acomptes),
-        ligne(p.compteAmo, signe * totaux.amo),
+        ligne(p.compteAmo, signe * (totaux.amo - amoPatient)),
         ligne(p.compteAmc, signe * totaux.amc),
         ...lignes.flatMap((l) => [
           ligne(p.ventes[l.nature], -signe * l.montantHT),
@@ -185,6 +205,62 @@ function ecritureMouvement(maillon: MaillonComptable, p: ParametresComptables): 
       ligne(p.tresorerie[mode], signe * montantCentimes),
       ligne(devisId === null ? p.compteClients : p.compteAcomptes, -signe * montantCentimes),
     ],
+  };
+}
+
+function compteOrganisme(type: TypeCreance, p: ParametresComptables): string {
+  return type === 'AMO' ? p.compteAmo : p.compteAmc;
+}
+
+/**
+ * Virement d'un organisme : la banque contre ses comptes collectifs, dès réception. Le lettrage n'écrit rien.
+ * À VÉRIFIER : R45, à faire valider par l'expert-comptable.
+ */
+function ecritureReglement(maillon: MaillonComptable, p: ParametresComptables): Ecriture {
+  const { organisme, reference, partAmoCentimes, partAmcCentimes } =
+    chargeReglementComptableSchema.parse(maillon.charge);
+  const annulation = maillon.type === 'ANNULATION_REGLEMENT_ORGANISME';
+  return {
+    journal: p.journalTresorerie,
+    journalLibelle: p.journalTresorerieLibelle,
+    date: maillon.date,
+    pieceRef: `O-${String(maillon.rang)}`,
+    libelle: `${annulation ? 'Annulation de règlement' : 'Règlement'} ${organisme} ${reference}`,
+    lignes: nonNulles([
+      ligne(p.tresorerie.VIREMENT, partAmoCentimes + partAmcCentimes),
+      ligne(p.compteAmo, -partAmoCentimes),
+      ligne(p.compteAmc, -partAmcCentimes),
+    ]),
+  };
+}
+
+/** Ce qu'une régularisation solde sur le compte de l'organisme, et le compte qui reçoit la différence. À VÉRIFIER : R45. */
+function ecritureRegularisation(maillon: MaillonComptable, p: ParametresComptables): Ecriture {
+  const { type, nature, montantCentimes } = chargeRegularisationComptableSchema.parse(
+    maillon.charge,
+  );
+  const organisme = compteOrganisme(type, p);
+  const lignes = {
+    ECART_PERTE: [
+      ligne(p.compteCreancesIrrecouvrables, montantCentimes),
+      ligne(organisme, -montantCentimes),
+    ],
+    ECART_PROFIT: [
+      ligne(organisme, montantCentimes),
+      ligne(p.compteEcartPositif, -montantCentimes),
+    ],
+    TRANSFERT_PATIENT: [
+      ligne(p.compteClients, montantCentimes),
+      ligne(organisme, -montantCentimes),
+    ],
+  }[nature];
+  return {
+    journal: p.journalVentes,
+    journalLibelle: p.journalVentesLibelle,
+    date: maillon.date,
+    pieceRef: `R-${String(maillon.rang)}`,
+    libelle: LIBELLES_NATURES_REGULARISATION[nature],
+    lignes,
   };
 }
 
@@ -220,6 +296,11 @@ export function ecrituresDepuisMaillon(
     case 'REMBOURSEMENT':
     case 'ANNULATION_ENCAISSEMENT':
       return [ecritureMouvement(maillon, parametres)];
+    case 'REGLEMENT_ORGANISME':
+    case 'ANNULATION_REGLEMENT_ORGANISME':
+      return [ecritureReglement(maillon, parametres)];
+    case 'REGULARISATION_ORGANISME':
+      return [ecritureRegularisation(maillon, parametres)];
     case 'CAISSE_COMPTEE': {
       const ecart = ecritureEcart(maillon, parametres);
       return ecart ? [ecart] : [];

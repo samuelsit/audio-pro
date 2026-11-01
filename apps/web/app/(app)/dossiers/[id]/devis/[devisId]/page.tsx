@@ -283,8 +283,8 @@ export default async function PageDevis({ params }: PageProps<'/dossiers/[id]/de
         <Alert>
           <AlertTitle>Prise en charge différente du devis</AlertTitle>
           <AlertDescription>
-            La part AMC de ce devis ne reprend pas la prise en charge accordée. Une nouvelle version
-            la reprendrait ; sans elle, la facture utilisera quand même la prise en charge.
+            La part AMC de ce devis ne reprend pas la réponse de la complémentaire, accord ou refus.
+            Une nouvelle version la reprendrait ; sans elle, la facture l’appliquera quand même.
           </AlertDescription>
         </Alert>
       ) : null}

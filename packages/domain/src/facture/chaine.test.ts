@@ -160,6 +160,14 @@ describe('chargePiece', () => {
     );
   });
 
+  it('n’ajoute le tiers payant que s’il est refusé', () => {
+    const sans = serialiserCanonique(chargePiece(piece));
+    expect(serialiserCanonique(chargePiece({ ...piece, tiersPayantAmo: true }))).toBe(sans);
+    expect(serialiserCanonique(chargePiece({ ...piece, tiersPayantAmo: false }))).toContain(
+      '"tiersPayantAmo":false',
+    );
+  });
+
   it('n’ajoute les acomptes déduits que s’ils existent', () => {
     expect(serialiserCanonique(chargePiece({ ...piece, acomptesDeduits: centimes(0) }))).toBe(
       serialiserCanonique(chargePiece(piece)),

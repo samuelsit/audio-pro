@@ -474,7 +474,7 @@ export function FormulaireDevis({
 
       {donnees.pecAccordeeCentimes !== null ? (
         <p className="text-sm text-muted-foreground">
-          Prise en charge accordée : la part AMC vient de son montant et ne se saisit pas.
+          Réponse de la complémentaire reçue : la part AMC vient de son montant et ne se saisit pas.
         </p>
       ) : null}
 

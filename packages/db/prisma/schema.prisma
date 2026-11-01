@@ -72,6 +72,12 @@ model Organisation {
   chainesCaisse         ChaineCaisse[]
   evenementsCaisse      EvenementCaisse[]
   encaissements         Encaissement[]
+  complementaires       Complementaire[]
+  creances              Creance[]
+  reglementsOrganismes  ReglementOrganisme[]
+  lettrages             Lettrage[]
+  regularisations       RegularisationCreance[]
+  rejetsCreances        RejetCreance[]
   sessionsCaisse        SessionCaisse[]
   comptagesCaisse       ComptageCaisse[]
   cloturesCaisse        ClotureCaisse[]
@@ -118,38 +124,38 @@ model Organisation {
 
 /// Centre (établissement). On ne supprime pas un centre : on le désactive.
 model Centre {
-  id                    String                 @id @default(uuid(7))
-  organisationId        String                 @map("organisation_id")
+  id                    String                  @id @default(uuid(7))
+  organisationId        String                  @map("organisation_id")
   nom                   String
   /// Segment centre de l'URL publique de réservation, unique dans le client.
-  slug                  String                 @default(dbgenerated("slug_provisoire()"))
-  adresseLigne1         String                 @map("adresse_ligne1")
-  adresseLigne2         String?                @map("adresse_ligne2")
-  codePostal            String                 @map("code_postal")
+  slug                  String                  @default(dbgenerated("slug_provisoire()"))
+  adresseLigne1         String                  @map("adresse_ligne1")
+  adresseLigne2         String?                 @map("adresse_ligne2")
+  codePostal            String                  @map("code_postal")
   ville                 String
   finess                String?
   /// Identifiant de facturation Assurance Maladie, attribué par établissement.
-  numeroFacturationAm   String?                @map("numero_facturation_am")
+  numeroFacturationAm   String?                 @map("numero_facturation_am")
   /// Identification de l'entreprise, au pied du devis normalisé (p. 2).
-  raisonSociale         String?                @map("raison_sociale")
+  raisonSociale         String?                 @map("raison_sociale")
   siret                 String?
   rcs                   String?
-  tvaIntracommunautaire String?                @map("tva_intracommunautaire")
+  tvaIntracommunautaire String?                 @map("tva_intracommunautaire")
   email                 String
   telephone             String
   /// Plages par jour, validées par `horairesOuvertureSchema`.
-  horairesOuverture     Json?                  @map("horaires_ouverture")
-  actif                 Boolean                @default(true)
-  createdAt             DateTime               @default(now()) @map("created_at")
-  updatedAt             DateTime               @updatedAt @map("updated_at")
-  organisation          Organisation           @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  horairesOuverture     Json?                   @map("horaires_ouverture")
+  actif                 Boolean                 @default(true)
+  createdAt             DateTime                @default(now()) @map("created_at")
+  updatedAt             DateTime                @updatedAt @map("updated_at")
+  organisation          Organisation            @relation(fields: [organisationId], references: [id], onDelete: Restrict)
   utilisateurs          UtilisateurCentre[]
   praticiens            PraticienCentre[]
   patients              Patient[]
   lecturesVitale        LectureVitale[]
   appareils             Appareil[]
-  mouvementsDepart      MouvementAppareil[]    @relation("MouvementCentreAvant")
-  mouvementsArrivee     MouvementAppareil[]    @relation("MouvementCentreApres")
+  mouvementsDepart      MouvementAppareil[]     @relation("MouvementCentreAvant")
+  mouvementsArrivee     MouvementAppareil[]     @relation("MouvementCentreApres")
   stockAccessoires      StockAccessoire[]
   mouvementsAccessoire  MouvementAccessoire[]
   cabines               Cabine[]
@@ -163,6 +169,11 @@ model Centre {
   chaineCaisse          ChaineCaisse?
   evenementsCaisse      EvenementCaisse[]
   encaissements         Encaissement[]
+  creances              Creance[]
+  reglementsOrganismes  ReglementOrganisme[]
+  lettrages             Lettrage[]
+  regularisations       RegularisationCreance[]
+  rejetsCreances        RejetCreance[]
   sessionsCaisse        SessionCaisse[]
   comptagesCaisse       ComptageCaisse[]
   cloturesCaisse        ClotureCaisse[]
@@ -182,25 +193,25 @@ model Centre {
 /// Compte utilisateur. Table « user » de Better Auth (noms de champs imposés : name, email,
 /// emailVerified, image, twoFactorEnabled), complétée par nos champs métier.
 model Utilisateur {
-  id                    String                @id @default(uuid(7))
+  id                    String                  @id @default(uuid(7))
   /// Null pour le seul SUPERADMIN, hors de toute organisation (CHECK en base).
-  organisationId        String?               @map("organisation_id")
+  organisationId        String?                 @map("organisation_id")
   prenom                String
   nom                   String
   /// Nom affiché exigé par Better Auth (« Prénom Nom »), maintenu par le service.
-  name                  String                @map("nom_affiche")
+  name                  String                  @map("nom_affiche")
   /// Toujours en minuscules.
-  email                 String                @unique
-  emailVerified         Boolean               @default(false) @map("email_verifie")
+  email                 String                  @unique
+  emailVerified         Boolean                 @default(false) @map("email_verifie")
   image                 String?
   role                  Role
-  actif                 Boolean               @default(true)
-  doitChangerMotDePasse Boolean               @default(true) @map("doit_changer_mot_de_passe")
+  actif                 Boolean                 @default(true)
+  doitChangerMotDePasse Boolean                 @default(true) @map("doit_changer_mot_de_passe")
   /// 2FA TOTP : obligatoire pour ADMIN_CLIENT et SUPERADMIN, facultative pour les autres rôles.
-  twoFactorEnabled      Boolean               @default(false) @map("deux_facteurs_actif")
-  createdAt             DateTime              @default(now()) @map("created_at")
-  updatedAt             DateTime              @updatedAt @map("updated_at")
-  organisation          Organisation?         @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  twoFactorEnabled      Boolean                 @default(false) @map("deux_facteurs_actif")
+  createdAt             DateTime                @default(now()) @map("created_at")
+  updatedAt             DateTime                @updatedAt @map("updated_at")
+  organisation          Organisation?           @relation(fields: [organisationId], references: [id], onDelete: Restrict)
   centres               UtilisateurCentre[]
   praticien             Praticien?
   sessions              Session[]
@@ -210,33 +221,38 @@ model Utilisateur {
   mouvementsAppareil    MouvementAppareil[]
   mouvementsAccessoire  MouvementAccessoire[]
   transitionsDossier    TransitionDossier[]
-  prescriptionsSaisies  Prescription[]        @relation("PrescriptionSaisie")
-  prescriptionsForcees  Prescription[]        @relation("PrescriptionForcee")
-  devisCrees            Devis[]               @relation("DevisCree")
-  devisEmis             Devis[]               @relation("DevisEmis")
+  prescriptionsSaisies  Prescription[]          @relation("PrescriptionSaisie")
+  prescriptionsForcees  Prescription[]          @relation("PrescriptionForcee")
+  devisCrees            Devis[]                 @relation("DevisCree")
+  devisEmis             Devis[]                 @relation("DevisEmis")
   signaturesDevis       SignatureDevis[]
   essaisDemarres        Essai[]
-  appareilsPoses        EssaiAppareil[]       @relation("EssaiAppareilPose")
-  appareilsRetires      EssaiAppareil[]       @relation("EssaiAppareilRetire")
+  appareilsPoses        EssaiAppareil[]         @relation("EssaiAppareilPose")
+  appareilsRetires      EssaiAppareil[]         @relation("EssaiAppareilRetire")
   rdvEssai              EssaiRdv[]
   prolongationsEssai    ProlongationEssai[]
-  facturesCreees        Facture[]             @relation("FactureCreee")
-  couverturesConfirmees Facture[]             @relation("CouvertureConfirmee")
-  facturesValidees      Facture[]             @relation("FactureValidee")
+  facturesCreees        Facture[]               @relation("FactureCreee")
+  couverturesConfirmees Facture[]               @relation("CouvertureConfirmee")
+  facturesValidees      Facture[]               @relation("FactureValidee")
   evenementsCaisse      EvenementCaisse[]
   encaissements         Encaissement[]
+  reglementsOrganismes  ReglementOrganisme[]
+  lettrages             Lettrage[]
+  regularisations       RegularisationCreance[]
+  rejetsSaisis          RejetCreance[]          @relation("RejetSaisi")
+  rejetsResolus         RejetCreance[]          @relation("RejetResolu")
   sessionsCaisse        SessionCaisse[]
   comptagesCaisse       ComptageCaisse[]
   cloturesCaisse        ClotureCaisse[]
   archivesCaisse        ArchiveCaisse[]
   fsesSoumises          Fse[]
   priseEnChargeSaisies  PriseEnCharge[]
-  rendezVousCrees       RendezVous[]          @relation("RendezVousCreateur")
-  exceptionsCreees      ExceptionAgenda[]     @relation("ExceptionAgendaCreateur")
+  rendezVousCrees       RendezVous[]            @relation("RendezVousCreateur")
+  exceptionsCreees      ExceptionAgenda[]       @relation("ExceptionAgendaCreateur")
   bilansCrees           BilanAudiologique[]
-  inventairesOuverts    Inventaire[]          @relation("InventaireOuvertPar")
+  inventairesOuverts    Inventaire[]            @relation("InventaireOuvertPar")
   liensDocument         LienDocument[]
-  inventairesClotures   Inventaire[]          @relation("InventaireCloturePar")
+  inventairesClotures   Inventaire[]            @relation("InventaireCloturePar")
   mesuresAudiologiques  MesureAudiologique[]
   otoscopies            Otoscopie[]
   modelesFormulaire     ModeleFormulaire[]
@@ -374,6 +390,7 @@ model Patient {
   delivrances           Delivrance[]
   factures              Facture[]
   encaissements         Encaissement[]
+  creances              Creance[]
   liensDocument         LienDocument[]
   rendezVous            RendezVous[]
   bilansAudiologiques   BilanAudiologique[]
@@ -1222,6 +1239,7 @@ model Devis {
   offres                DevisOffre[]
   signature             SignatureDevis?
   encaissements         Encaissement[]
+  prisesEnCharge        PriseEnCharge[]
 
   @@unique([dossierId, version])
   @@unique([organisationId, numero, version])
@@ -1414,9 +1432,12 @@ model ProlongationEssai {
 // ---------------------------------------------------------------------------
 
 enum StatutPec {
+  A_DEMANDER
   DEMANDEE
   ACCORDEE
+  PARTIELLE
   REFUSEE
+  EXPIREE
   SANS_TIERS_PAYANT
 }
 
@@ -1447,6 +1468,9 @@ enum TypeEvenementCaisse {
   ENCAISSEMENT
   REMBOURSEMENT
   ANNULATION_ENCAISSEMENT
+  REGLEMENT_ORGANISME
+  ANNULATION_REGLEMENT_ORGANISME
+  REGULARISATION_ORGANISME
   CAISSE_OUVERTE
   CAISSE_COMPTEE
   CLOTURE
@@ -1523,6 +1547,8 @@ model Facture {
   valideeParId            String?           @map("validee_par_id")
   /// Empreinte du maillon de validation dans la chaîne du centre.
   empreinte               String?           @db.Char(64)
+  /// Faux : le patient règle aussi la part AMO. Posé sur le brouillon, figé à la validation.
+  tiersPayantAmo          Boolean           @default(true) @map("tiers_payant_amo")
   /// Renseignés ensemble (contrainte CHECK) : saisie de la couverture AMO confirmée.
   amoConfirmeeLe          DateTime?         @map("amo_confirmee_le")
   amoConfirmeeParId       String?           @map("amo_confirmee_par_id")
@@ -1546,6 +1572,7 @@ model Facture {
   delivrances             Delivrance[]      @relation("DelivranceFacture")
   delivrancesAnnulees     Delivrance[]      @relation("DelivranceAvoir")
   encaissements           Encaissement[]
+  creances                Creance[]
 
   @@unique([centreId, numeroSequence])
   @@index([organisationId])
@@ -1878,28 +1905,43 @@ model TauxTva {
 
 /// Prise en charge complémentaire saisie à la main. Rattachée au dossier : elle pourra précéder l'achat.
 model PriseEnCharge {
-  id                     String       @id @default(uuid(7))
-  organisationId         String       @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
-  dossierId              String       @unique @map("dossier_id")
+  id                     String          @id @default(uuid(7))
+  organisationId         String          @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  dossierId              String          @unique @map("dossier_id")
   statut                 StatutPec
   /// Vides sans tiers payant ; organisme, numéro et montant requis si accordée (contraintes CHECK).
   organisme              String?
   plateforme             String?
-  numeroAccord           String?      @map("numero_accord")
-  montantAccordeCentimes Int?         @map("montant_accorde_centimes")
-  datePec                DateTime?    @map("date_pec") @db.Date
+  numeroAdherent         String?         @map("numero_adherent")
+  numeroAccord           String?         @map("numero_accord")
+  montantAccordeCentimes Int?            @map("montant_accorde_centimes")
+  /// Date de la demande ou de la réponse ; vide tant que la PEC est à demander.
+  datePec                DateTime?       @map("date_pec") @db.Date
+  validiteFin            DateTime?       @map("validite_fin") @db.Date
+  complementaireId       String?         @map("complementaire_id")
+  /// Devis et offre dont vient la demande. Instantané des lignes (Zod : `ligneDemandePecSchema`).
+  devisId                String?         @map("devis_id")
+  offre                  String?
+  demande                Json?
+  montantDemandeCentimes Int?            @map("montant_demande_centimes")
+  /// Référence rendue par `PecGateway`.
+  referencePlateforme    String?         @map("reference_plateforme")
   /// Clé opaque dans le DocumentStore. Le nom du fichier d'origine n'est pas conservé.
-  justificatifCle        String?      @unique @map("justificatif_cle")
-  justificatifType       String?      @map("justificatif_type")
-  justificatifTaille     Int?         @map("justificatif_taille")
-  saisieParId            String       @map("saisie_par_id")
-  createdAt              DateTime     @default(now()) @map("created_at")
-  updatedAt              DateTime     @updatedAt @map("updated_at")
-  dossier                Dossier      @relation(fields: [dossierId], references: [id], onDelete: Restrict)
-  saisiePar              Utilisateur  @relation(fields: [saisieParId], references: [id], onDelete: Restrict)
-  organisation           Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  justificatifCle        String?         @unique @map("justificatif_cle")
+  justificatifType       String?         @map("justificatif_type")
+  justificatifTaille     Int?            @map("justificatif_taille")
+  saisieParId            String          @map("saisie_par_id")
+  createdAt              DateTime        @default(now()) @map("created_at")
+  updatedAt              DateTime        @updatedAt @map("updated_at")
+  dossier                Dossier         @relation(fields: [dossierId], references: [id], onDelete: Restrict)
+  complementaire         Complementaire? @relation(fields: [complementaireId], references: [id], onDelete: Restrict)
+  devis                  Devis?          @relation(fields: [devisId], references: [id], onDelete: SetNull)
+  saisiePar              Utilisateur     @relation(fields: [saisieParId], references: [id], onDelete: Restrict)
+  organisation           Organisation    @relation(fields: [organisationId], references: [id], onDelete: Restrict)
 
   @@index([organisationId])
+  @@index([complementaireId])
+  @@index([devisId])
   @@map("prise_en_charge")
 }
 
@@ -2527,4 +2569,230 @@ model ReponseFormulaire {
   @@index([organisationId])
   @@index([modeleId])
   @@map("reponse_formulaire")
+}
+
+// ---------------------------------------------------------------------------
+// Tiers payant
+// ---------------------------------------------------------------------------
+
+enum ModePec {
+  PORTAIL
+  EDI
+}
+
+enum TypeCreance {
+  AMO
+  AMC
+}
+
+enum OrigineReglement {
+  MANUEL
+  NOEMIE
+}
+
+enum NatureRegularisation {
+  ECART_PERTE
+  ECART_PROFIT
+  TRANSFERT_PATIENT
+}
+
+enum ResolutionRejet {
+  REPRESENTEE
+  TRANSFEREE_PATIENT
+  ABANDONNEE
+}
+
+/// Référentiel des complémentaires d'un client.
+model Complementaire {
+  id                    String               @id @default(uuid(7))
+  organisationId        String               @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  nom                   String
+  identifiant           String
+  plateformeTiersPayant String?              @map("plateforme_tiers_payant")
+  telephone             String?
+  email                 String?
+  adresse               String?
+  modePec               ModePec              @default(PORTAIL) @map("mode_pec")
+  /// Délai attendu entre la facture et le paiement. À VÉRIFIER (R42).
+  delaiPaiementJours    Int                  @default(30) @map("delai_paiement_jours")
+  actif                 Boolean              @default(true)
+  createdAt             DateTime             @default(now()) @map("created_at")
+  updatedAt             DateTime             @updatedAt @map("updated_at")
+  organisation          Organisation         @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  prisesEnCharge        PriseEnCharge[]
+  creances              Creance[]
+  reglements            ReglementOrganisme[]
+
+  @@unique([organisationId, identifiant])
+  @@map("complementaire")
+}
+
+/// Ce qu'un organisme doit sur une facture, une ligne par part. Seuls le solde, l'échéance et la relance évoluent.
+model Creance {
+  id                String                  @id @default(uuid(7))
+  organisationId    String                  @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  centreId          String                  @map("centre_id")
+  factureId         String                  @map("facture_id")
+  patientId         String                  @map("patient_id")
+  type              TypeCreance
+  complementaireId  String?                 @map("complementaire_id")
+  /// Libellé figé à la validation : caisse ou complémentaire.
+  organisme         String
+  regime            String?
+  numeroAccord      String?                 @map("numero_accord")
+  montantCentimes   Int                     @map("montant_centimes")
+  /// Écrit par le service sous le verrou de chaîne (ADR-030) ; négatif s'il reste un indu.
+  soldeCentimes     Int                     @map("solde_centimes")
+  dateEmission      DateTime                @map("date_emission") @db.Date
+  echeanceAttendue  DateTime                @map("echeance_attendue") @db.Date
+  derniereRelanceLe DateTime?               @map("derniere_relance_le") @db.Date
+  createdAt         DateTime                @default(now()) @map("created_at")
+  organisation      Organisation            @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  centre            Centre                  @relation(fields: [centreId], references: [id], onDelete: Restrict)
+  facture           Facture                 @relation(fields: [factureId], references: [id], onDelete: Restrict)
+  patient           Patient                 @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  complementaire    Complementaire?         @relation(fields: [complementaireId], references: [id], onDelete: Restrict)
+  lettrages         Lettrage[]
+  regularisations   RegularisationCreance[]
+  rejets            RejetCreance[]
+
+  @@unique([factureId, type])
+  @@index([organisationId])
+  @@index([centreId, soldeCentimes])
+  @@index([centreId, organisme])
+  @@index([patientId])
+  @@index([complementaireId])
+  @@map("creance")
+}
+
+/// Virement reçu d'un organisme, chaîné. Ajout seul, sauf `resteALettrerCentimes` ; une annulation est une ligne inverse.
+model ReglementOrganisme {
+  id                    String                  @id
+  organisationId        String                  @map("organisation_id")
+  centreId              String                  @map("centre_id")
+  organisme             String
+  complementaireId      String?                 @map("complementaire_id")
+  dateReglement         DateTime                @map("date_reglement") @db.Date
+  /// En clair : référence du virement, sans donnée patient. Elle sert au rapprochement (art. 37).
+  reference             String
+  /// Négatives sur une annulation.
+  partAmoCentimes       Int                     @map("part_amo_centimes")
+  partAmcCentimes       Int                     @map("part_amc_centimes")
+  resteALettrerCentimes Int                     @map("reste_a_lettrer_centimes")
+  origine               OrigineReglement        @default(MANUEL)
+  /// Identifiant du retour NOEMIE, pour importer deux fois sans doublon (étape 26).
+  identifiantExterne    String?                 @map("identifiant_externe")
+  origineId             String?                 @map("origine_id")
+  /// Chiffré : saisie libre.
+  motif                 String?
+  rang                  Int
+  empreinte             String                  @db.Char(64)
+  acteurId              String                  @map("acteur_id")
+  createdAt             DateTime                @map("created_at") @db.Timestamptz(3)
+  organisation          Organisation            @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  centre                Centre                  @relation(fields: [centreId], references: [id], onDelete: Restrict)
+  complementaire        Complementaire?         @relation(fields: [complementaireId], references: [id], onDelete: Restrict)
+  origineReglement      ReglementOrganisme?     @relation("ReglementInverse", fields: [origineId], references: [id], onDelete: Restrict)
+  inverses              ReglementOrganisme[]    @relation("ReglementInverse")
+  acteur                Utilisateur             @relation(fields: [acteurId], references: [id], onDelete: Restrict)
+  lettrages             Lettrage[]
+  regularisations       RegularisationCreance[]
+
+  @@unique([centreId, rang])
+  @@unique([centreId, identifiantExterne])
+  @@index([organisationId])
+  @@index([centreId, resteALettrerCentimes])
+  @@index([centreId, organisme, reference])
+  @@index([complementaireId])
+  @@index([origineId])
+  @@map("reglement_organisme")
+}
+
+/// Appariement d'un règlement et d'une créance. Sans effet comptable, ajout seul : un délettrage est une ligne inverse.
+model Lettrage {
+  id              String             @id @default(uuid(7))
+  organisationId  String             @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  centreId        String             @map("centre_id")
+  reglementId     String             @map("reglement_id")
+  creanceId       String             @map("creance_id")
+  type            TypeCreance
+  /// Négatif sur un délettrage.
+  montantCentimes Int                @map("montant_centimes")
+  origineId       String?            @map("origine_id")
+  acteurId        String             @map("acteur_id")
+  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  organisation    Organisation       @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  centre          Centre             @relation(fields: [centreId], references: [id], onDelete: Restrict)
+  reglement       ReglementOrganisme @relation(fields: [reglementId], references: [id], onDelete: Restrict)
+  creance         Creance            @relation(fields: [creanceId], references: [id], onDelete: Restrict)
+  origineLettrage Lettrage?          @relation("LettrageInverse", fields: [origineId], references: [id], onDelete: Restrict)
+  inverses        Lettrage[]         @relation("LettrageInverse")
+  acteur          Utilisateur        @relation(fields: [acteurId], references: [id], onDelete: Restrict)
+
+  @@index([organisationId])
+  @@index([reglementId])
+  @@index([creanceId])
+  @@index([origineId])
+  @@map("lettrage")
+}
+
+/// Écart ou transfert au patient, chaîné. Ajout seul ; une contre-passation est une ligne de montant négatif.
+model RegularisationCreance {
+  id              String                  @id
+  organisationId  String                  @map("organisation_id")
+  centreId        String                  @map("centre_id")
+  creanceId       String?                 @map("creance_id")
+  reglementId     String?                 @map("reglement_id")
+  type            TypeCreance
+  nature          NatureRegularisation
+  montantCentimes Int                     @map("montant_centimes")
+  /// Chiffré : saisie libre.
+  motif           String
+  origineId       String?                 @map("origine_id")
+  rang            Int
+  empreinte       String                  @db.Char(64)
+  acteurId        String                  @map("acteur_id")
+  createdAt       DateTime                @map("created_at") @db.Timestamptz(3)
+  organisation    Organisation            @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  centre          Centre                  @relation(fields: [centreId], references: [id], onDelete: Restrict)
+  creance         Creance?                @relation(fields: [creanceId], references: [id], onDelete: Restrict)
+  reglement       ReglementOrganisme?     @relation(fields: [reglementId], references: [id], onDelete: Restrict)
+  origineLigne    RegularisationCreance?  @relation("RegularisationInverse", fields: [origineId], references: [id], onDelete: Restrict)
+  inverses        RegularisationCreance[] @relation("RegularisationInverse")
+  acteur          Utilisateur             @relation(fields: [acteurId], references: [id], onDelete: Restrict)
+
+  @@unique([centreId, rang])
+  @@index([organisationId])
+  @@index([creanceId])
+  @@index([reglementId])
+  @@index([origineId])
+  @@map("regularisation_creance")
+}
+
+/// Rejet d'un organisme sur une créance. `resolution` vide : à traiter.
+model RejetCreance {
+  id             String           @id @default(uuid(7))
+  organisationId String           @default(dbgenerated("app_organisation_id()")) @map("organisation_id")
+  centreId       String           @map("centre_id")
+  creanceId      String           @map("creance_id")
+  dateRejet      DateTime         @map("date_rejet") @db.Date
+  /// Code de l'organisme, à aligner sur NOEMIE à l'étape 26.
+  code           String?
+  /// Chiffré : saisie libre.
+  motif          String
+  resolution     ResolutionRejet?
+  resoluLe       DateTime?        @map("resolu_le") @db.Timestamptz(3)
+  resoluParId    String?          @map("resolu_par_id")
+  saisiParId     String           @map("saisi_par_id")
+  createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  organisation   Organisation     @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  centre         Centre           @relation(fields: [centreId], references: [id], onDelete: Restrict)
+  creance        Creance          @relation(fields: [creanceId], references: [id], onDelete: Restrict)
+  saisiPar       Utilisateur      @relation("RejetSaisi", fields: [saisiParId], references: [id], onDelete: Restrict)
+  resoluPar      Utilisateur?     @relation("RejetResolu", fields: [resoluParId], references: [id], onDelete: Restrict)
+
+  @@index([organisationId])
+  @@index([creanceId])
+  @@index([centreId, resolution])
+  @@map("rejet_creance")
 }
