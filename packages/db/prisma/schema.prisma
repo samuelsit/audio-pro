@@ -2720,6 +2720,19 @@ model TauxTva {
   @@map("taux_tva")
 }
 
+/// Quota annuel de boîtes de piles remboursées, commun à tous les clients et géré en console éditeur. Vide tant
+/// qu'un texte ne le fixe pas (R15) : aucune valeur n'est inventée. Un changement ajoute une ligne.
+model QuotaPiles {
+  id          String   @id @default(uuid(7))
+  debut       DateTime @unique @db.Date
+  boitesParAn Int      @map("boites_par_an")
+  /// Texte qui fixe le quota.
+  source      String
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("quota_piles")
+}
+
 /// Prise en charge complémentaire saisie à la main. Rattachée au dossier : elle pourra précéder l'achat.
 model PriseEnCharge {
   id                     String          @id @default(uuid(7))

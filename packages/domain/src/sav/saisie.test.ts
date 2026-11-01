@@ -5,6 +5,7 @@ import {
   filtreTicketsSchema,
   motifObligatoireSchema,
   ouvertureTicketSchema,
+  venteComptoirSchema,
 } from './saisie';
 
 describe('ouvertureTicketSchema', () => {
@@ -55,5 +56,35 @@ describe('filtreTicketsSchema', () => {
       statut: undefined,
       motif: undefined,
     });
+  });
+});
+
+describe('venteComptoirSchema', () => {
+  const UUID = '018f0000-0000-7000-8000-000000000001';
+  const base = {
+    patientId: UUID,
+    centreId: UUID,
+    prescriptionId: '',
+    lignes: [{ accessoireId: UUID, quantite: '2' }],
+    entretienLibelle: '',
+    entretienPrix: '',
+  };
+
+  it('lit les quantités', () => {
+    expect(venteComptoirSchema.parse(base).lignes).toEqual([{ accessoireId: UUID, quantite: 2 }]);
+  });
+
+  it('accepte un entretien seul', () => {
+    const saisie = { ...base, lignes: [], entretienLibelle: 'Nettoyage', entretienPrix: '10' };
+    expect(venteComptoirSchema.parse(saisie)).toMatchObject({ entretienPrix: 1000 });
+  });
+
+  it.each([
+    { cas: 'rien à vendre', ecart: { lignes: [] } },
+    { cas: 'libellé sans prix', ecart: { entretienLibelle: 'Nettoyage' } },
+    { cas: 'prix sans libellé', ecart: { entretienPrix: '10' } },
+    { cas: 'quantité nulle', ecart: { lignes: [{ accessoireId: UUID, quantite: '0' }] } },
+  ])('refuse : $cas', ({ ecart }) => {
+    expect(venteComptoirSchema.safeParse({ ...base, ...ecart }).success).toBe(false);
   });
 });

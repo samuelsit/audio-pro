@@ -13,7 +13,26 @@ import {
   reactiverOrganisation,
   suspendreOrganisation,
 } from '@/server/services/organisations';
+import { ajouterQuotaPiles } from '@/server/services/quota-piles';
 import { ajouterTauxTva } from '@/server/services/taux-tva';
+
+export async function ajouterQuotaPilesAction(
+  _: EtatFormulaire,
+  formData: FormData,
+): Promise<EtatFormulaire> {
+  const acteur = await requireSuperadmin();
+  const donnees = {
+    boitesParAn: texte(formData, 'boitesParAn'),
+    debut: texte(formData, 'debut'),
+    source: texte(formData, 'source'),
+  };
+  const erreur = await executer(() => ajouterQuotaPiles(acteur, donnees), donnees);
+  if (erreur) {
+    return erreur;
+  }
+  revalidatePath(`${CHEMIN_CONSOLE}/quota-piles`);
+  return { succes: 'Quota enregistré.' };
+}
 
 export async function ajouterTauxTvaAction(
   _: EtatFormulaire,

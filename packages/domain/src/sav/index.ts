@@ -3,6 +3,7 @@ export * from './droits';
 export * from './garantie';
 export * from './parametres';
 export * from './pret';
+export * from './quota-piles';
 export * from './retour';
 export * from './saisie';
 export * from './ticket';

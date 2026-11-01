@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation';
 import { texte, type EtatFormulaire } from '@/lib/formulaire';
 import { executer } from '@/server/actions';
 import { requireSession } from '@/server/auth/gardes';
+import { venteComptoir } from '@/server/services/comptoir';
 import { preterAppareil, rendrePret } from '@/server/services/prets';
 import {
   abandonnerRemplacant,
@@ -264,4 +265,32 @@ export async function rendrePretAction(
   }
   revalidatePath('/sav/prets');
   return {};
+}
+
+export async function venteComptoirAction(
+  _: EtatFormulaire,
+  formData: FormData,
+): Promise<EtatFormulaire> {
+  const acteur = await requireSession();
+  const lignes = [...formData.entries()].flatMap(([cle, valeur]) => {
+    const quantite = String(valeur).trim();
+    return cle.startsWith('quantite:') && quantite !== '' && quantite !== '0'
+      ? [{ accessoireId: cle.slice('quantite:'.length), quantite }]
+      : [];
+  });
+  const donnees = {
+    patientId: texte(formData, 'patientId'),
+    centreId: texte(formData, 'centreId'),
+    prescriptionId: texte(formData, 'prescriptionId'),
+    entretienLibelle: texte(formData, 'entretienLibelle'),
+    entretienPrix: texte(formData, 'entretienPrix'),
+  };
+  let factureId = '';
+  const erreur = await executer(async () => {
+    factureId = await venteComptoir(acteur, { ...donnees, lignes });
+  }, donnees);
+  if (erreur) {
+    return erreur;
+  }
+  redirect(`/factures/${factureId}`);
 }

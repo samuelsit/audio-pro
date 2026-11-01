@@ -71,6 +71,9 @@ export default async function PageFichePatient({ params }: PageProps<'/patients/
       <EntetePatient fiche={fiche}>
         <LectureVitale patientId={fiche.id} />
         <Button asChild variant="outline">
+          <Link href={`/sav/comptoir?patient=${fiche.id}`}>Comptoir</Link>
+        </Button>
+        <Button asChild variant="outline">
           <Link href={`/factures/nouvelle?patient=${fiche.id}`}>Vente directe</Link>
         </Button>
         <Button asChild>

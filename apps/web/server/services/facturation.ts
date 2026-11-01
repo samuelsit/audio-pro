@@ -19,7 +19,8 @@ import {
   ligneBrouillonSaisieSchema,
   partPatientDeLaPiece,
   peutGererSerie,
-  peutValiderFacture,
+  peutValiderPiece,
+  peutVendreAuComptoir,
   prefixeSerieSchema,
   PREFIXE_SERIE_DEFAUT,
   preparerFacture,
@@ -360,7 +361,7 @@ export async function creerVenteDirecte(
   acteur: UtilisateurConnecte,
   saisie: unknown,
 ): Promise<string> {
-  if (!peutValiderFacture(acteur.role)) {
+  if (!peutVendreAuComptoir(acteur.role)) {
     throw new AccesRefuseError();
   }
   const donnees = valider(venteDirecteSaisieSchema, saisie);
@@ -681,13 +682,13 @@ export async function validerFacture(
   acteur: UtilisateurConnecte,
   factureId: string,
 ): Promise<void> {
-  if (!peutValiderFacture(acteur.role)) {
-    throw new AccesRefuseError();
-  }
   const facture = await withAudit(
     acteur,
     async (tx) => {
       const lue = await lireFacture(tx, acteur, factureId);
+      if (!peutValiderPiece(acteur.role, lue.dossierId !== null)) {
+        throw new AccesRefuseError();
+      }
       exigerBrouillon(lue);
       const { evaluee, contenu, dossier } = await evaluerPourValidation(tx, acteur, lue);
       if (evaluee.controle.erreurs.length > 0) {

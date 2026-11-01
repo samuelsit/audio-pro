@@ -19,6 +19,9 @@ export default async function LayoutConsole({ children }: { children: ReactNode 
           <Link href="/console/tva" className="text-sm underline-offset-4 hover:underline">
             Taux de TVA
           </Link>
+          <Link href="/console/quota-piles" className="text-sm underline-offset-4 hover:underline">
+            Quota de piles
+          </Link>
           <div className="ml-auto">
             <MenuUtilisateur
               nom={`${acteur.prenom} ${acteur.nom}`}

@@ -7,7 +7,7 @@ import {
   LIBELLES_STATUTS_FACTURE,
   LIBELLES_STATUTS_FSE,
   peutEmettreAvoir,
-  peutValiderFacture,
+  peutVendreAuComptoir,
 } from '@ha/domain';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -227,7 +227,7 @@ export default async function PageFacture({ params }: PageProps<'/factures/[id]'
         <BlocBrouillon
           detail={detail}
           accessoires={accessoires}
-          validable={peutValiderFacture(acteur.role)}
+          validable={peutVendreAuComptoir(acteur.role)}
         />
       ) : (
         <Lignes detail={detail} retirable={false} />

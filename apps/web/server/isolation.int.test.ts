@@ -179,6 +179,7 @@ const TABLES_GLOBALES: Readonly<Record<string, 'LECTURE' | 'AUCUN'>> = {
   lpp_lien: 'LECTURE',
   lpp_tarif: 'LECTURE',
   lpp_version: 'LECTURE',
+  quota_piles: 'LECTURE',
   taux_tva: 'LECTURE',
 };
 

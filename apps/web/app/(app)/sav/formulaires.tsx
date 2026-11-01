@@ -3,6 +3,8 @@
 import {
   ACTIONS_SAV,
   AVERTISSEMENT_FACTURATION_SAV,
+  centimes,
+  formatEuros,
   LIBELLES_ACTIONS_SAV,
   LIBELLES_MOTIFS_SAV,
   MOTIFS_SAV,
@@ -17,6 +19,7 @@ import {
   ZoneDeTexte,
 } from '@/components/formulaire';
 import { ETAT_INITIAL, type EtatFormulaire } from '@/lib/formulaire';
+import type { ArticleComptoir } from '@/server/services/comptoir';
 import type { FicheTicket } from '@/server/services/tickets-sav';
 
 import { SelecteurPatient } from '../stock/selecteur-patient';
@@ -37,6 +40,7 @@ import {
   preterAction,
   remettreRemplacantAction,
   rendrePretAction,
+  venteComptoirAction,
   restituerAction,
   terminerReparationAction,
 } from './actions';
@@ -412,6 +416,62 @@ export function FormulaireRetourPret({ pretId }: { pretId: string }) {
       <ChampTexte etat={etat} nom="etatRetour" libelle="État au retour" id={`etat-${pretId}`} />
       <div>
         <BoutonEnvoi variant="outline">Enregistrer le retour</BoutonEnvoi>
+      </div>
+    </form>
+  );
+}
+
+export function FormulaireComptoir({
+  patientId,
+  centreId,
+  articles,
+  prescriptions,
+}: {
+  patientId: string;
+  centreId: string;
+  articles: readonly ArticleComptoir[];
+  prescriptions: readonly { id: string; libelle: string }[];
+}) {
+  const [etat, envoyer] = useActionState(venteComptoirAction, ETAT_INITIAL);
+  return (
+    <form action={envoyer} className="grid max-w-2xl gap-4">
+      <MessageFormulaire etat={etat} />
+      <input type="hidden" name="patientId" value={patientId} />
+      <input type="hidden" name="centreId" value={centreId} />
+      <ListeDeroulante
+        etat={etat}
+        nom="prescriptionId"
+        libelle="Prescription (ouvre le remboursement des lignes LPP)"
+        vide="Sans prescription : tout en reste à charge"
+        requis={false}
+        options={prescriptions.map((p) => ({ valeur: p.id, libelle: p.libelle }))}
+      />
+      {articles.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Aucun article en stock dans ce centre.</p>
+      ) : (
+        <ul className="grid gap-2">
+          {articles.map((a) => (
+            <li key={a.id} className="grid items-end gap-2 sm:grid-cols-[1fr_8rem]">
+              <p className="text-sm">
+                {a.nom} ({a.categorie}), {formatEuros(centimes(a.prixCentimes))},{' '}
+                {a.quantiteEnStock} en stock
+              </p>
+              <ChampTexte
+                etat={etat}
+                nom={`quantite:${a.id}`}
+                libelle="Quantité"
+                inputMode="numeric"
+              />
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="grid gap-4 sm:grid-cols-[1fr_8rem]">
+        <ChampTexte etat={etat} nom="entretienLibelle" libelle="Entretien (hors LPP)" />
+        <ChampTexte etat={etat} nom="entretienPrix" libelle="Prix (€)" />
+      </div>
+      <div>
+        <BoutonEnvoi>Préparer la vente</BoutonEnvoi>
       </div>
     </form>
   );

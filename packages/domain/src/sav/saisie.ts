@@ -53,3 +53,37 @@ export const filtreTicketsSchema = z.object({
   motif: parametreOptionnel(motifSavSchema).catch(undefined),
 });
 export type FiltreTickets = z.output<typeof filtreTicketsSchema>;
+
+const lignesComptoirSchema = z.array(
+  z.object({
+    accessoireId: z.uuid('Article inconnu.'),
+    quantite: z.coerce
+      .number({ error: 'Quantité invalide.' })
+      .int('Quantité invalide.')
+      .min(1, 'Quantité invalide.')
+      .max(999, 'Quantité invalide.'),
+  }),
+);
+
+/** Vente au comptoir : articles du catalogue, plus un entretien libre. La fiche patient reste requise (R30). */
+export const venteComptoirSchema = z
+  .object({
+    patientId: z.uuid('Choisir un patient.'),
+    centreId: z.uuid('Choisir un centre.'),
+    prescriptionId: texteOptionnelSchema,
+    lignes: lignesComptoirSchema,
+    entretienLibelle: texteOptionnelSchema,
+    entretienPrix: coutSchema,
+  })
+  .superRefine(({ lignes, entretienLibelle, entretienPrix }, ctx) => {
+    if ((entretienLibelle === null) !== (entretienPrix === null)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['entretienPrix'],
+        message: 'Saisir le libellé et le prix de l’entretien.',
+      });
+    }
+    if (lignes.length === 0 && entretienLibelle === null) {
+      ctx.addIssue({ code: 'custom', path: ['lignes'], message: 'Choisir au moins un article.' });
+    }
+  });
