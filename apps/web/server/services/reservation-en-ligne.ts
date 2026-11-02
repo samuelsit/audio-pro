@@ -697,6 +697,18 @@ async function reporterConsentement(
     where: { id: patientId, consentementSms: false },
     data: { consentementSms: true },
   });
+  if (count === 1) {
+    await tx.evenementConsentement.create({
+      data: {
+        patientId,
+        canal: 'SMS',
+        finalite: 'SUIVI',
+        accorde: true,
+        origine: 'RESERVATION',
+        auteur: 'Réservation en ligne',
+      },
+    });
+  }
   return count === 0
     ? null
     : {

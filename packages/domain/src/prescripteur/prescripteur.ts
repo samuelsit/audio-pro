@@ -37,6 +37,10 @@ export const prescripteurSaisieSchema = z
     formationOtologie: formationSchema,
     cabinet: texteOptionnelSchema,
     contact: texteOptionnelSchema.pipe(z.email('Adresse e-mail ou MSSanté invalide.').nullable()),
+    adresseLigne1: texteOptionnelSchema,
+    adresseLigne2: texteOptionnelSchema,
+    codePostal: texteOptionnelSchema,
+    ville: texteOptionnelSchema,
   })
   .superRefine((p, ctx) => {
     if (formationOtologieConcernee(p.specialite) && p.formationOtologie === null) {

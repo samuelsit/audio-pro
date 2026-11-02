@@ -124,6 +124,10 @@ export const patientSaisieSchema = z
     consentementSms: z.boolean(),
     consentementEmail: z.boolean(),
     consentementCourrier: z.boolean(),
+    // Décochés tant qu'aucun formulaire ne les présente : un refus par défaut, jamais un accord (ADR-033).
+    consentementSmsCommercial: z.boolean().default(false),
+    consentementEmailCommercial: z.boolean().default(false),
+    consentementCourrierCommercial: z.boolean().default(false),
     notes: texteFacultatif(5000),
 
     amoNir: facultatif(nirSchema),
@@ -227,6 +231,9 @@ export const patientSaisieSchema = z
       consentementSms: s.consentementSms,
       consentementEmail: s.consentementEmail,
       consentementCourrier: s.consentementCourrier,
+      consentementSmsCommercial: s.consentementSmsCommercial,
+      consentementEmailCommercial: s.consentementEmailCommercial,
+      consentementCourrierCommercial: s.consentementCourrierCommercial,
       notes: s.notes,
       amo,
       amc,

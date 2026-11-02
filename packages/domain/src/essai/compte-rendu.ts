@@ -31,7 +31,12 @@ export interface VueCompteRenduEssai {
     readonly email: string;
   };
   readonly audioprothesiste: { readonly prenomNom: string; readonly identifiant: string };
-  readonly prescripteur: { readonly prenomNom: string; readonly cabinet: string | null };
+  readonly prescripteur: {
+    readonly prenomNom: string;
+    readonly cabinet: string | null;
+    /** Vide tant que la fiche n'a pas d'adresse postale. */
+    readonly adresse: readonly string[];
+  };
   readonly patient: { readonly prenomNom: string; readonly dateNaissance: string };
   readonly lieu: string;
   readonly dateCourrier: string;
@@ -97,6 +102,7 @@ ${entreprise.adresse.map((ligne) => `<p>${texte(ligne)}</p>`).join('\n')}
 <div>
 <p><strong>${texte(prescripteur.prenomNom)}</strong></p>
 ${prescripteur.cabinet === null ? '' : `<p>${texte(prescripteur.cabinet)}</p>`}
+${prescripteur.adresse.map((ligne) => `<p>${texte(ligne)}</p>`).join('\n')}
 <p>${texte(vue.lieu)}, le ${dateFr(vue.dateCourrier)}</p>
 </div>
 </div>

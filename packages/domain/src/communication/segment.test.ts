@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { bornesNaissance, campagneSaisieSchema, segmentSchema } from './segment';
+import {
+  bornesNaissance,
+  campagneSaisieSchema,
+  comptesRendusSaisieSchema,
+  segmentSchema,
+} from './segment';
 
 const CENTRE = '0190a000-0000-7000-8000-000000000001';
 const SEGMENT = { centreIds: [CENTRE] };
@@ -76,5 +81,14 @@ describe('campagneSaisieSchema', () => {
 
   it('refuse un canal inconnu', () => {
     expect(campagneSaisieSchema.safeParse({ ...saisie, canal: 'FAX' }).success).toBe(false);
+  });
+});
+
+describe('comptesRendusSaisieSchema', () => {
+  it.each([
+    [{ centreId: CENTRE, du: '2027-01-01', au: '2027-01-31' }, true],
+    [{ centreId: CENTRE, du: '2027-02-01', au: '2027-01-31' }, false],
+  ])('%j', (saisie, attendu) => {
+    expect(comptesRendusSaisieSchema.safeParse(saisie).success).toBe(attendu);
   });
 });

@@ -32,6 +32,16 @@ export const LIENS_DOSSIERS: readonly LienSousNavigation[] = [
   { href: '/essais', libelle: 'Essais en cours' },
 ];
 
+export const LIENS_RELANCES: readonly LienSousNavigation[] = [
+  { href: '/relances', libelle: 'Suivi' },
+];
+
+export const LIENS_GESTION_RELANCES: readonly LienSousNavigation[] = [
+  ...LIENS_RELANCES,
+  { href: '/relances/campagnes', libelle: 'Campagnes' },
+  { href: '/relances/courriers', libelle: 'Courriers' },
+];
+
 export const LIENS_CAISSE: readonly LienSousNavigation[] = [
   { href: '/caisse', libelle: 'Caisse du jour' },
 ];
@@ -86,6 +96,7 @@ export const LIENS_ADMINISTRATION: readonly LienSousNavigation[] = [
   { href: '/admin/regles-commande', libelle: 'Règles de commande' },
   { href: '/admin/parametres-commande', libelle: 'Paramètres de commande' },
   { href: '/admin/parametres-sav', libelle: 'Paramètres du SAV' },
+  { href: '/admin/communication', libelle: 'Communication' },
   { href: '/admin/modeles', libelle: 'Modèles' },
   { href: '/admin/accessoires', libelle: 'Accessoires et piles' },
   { href: '/admin/formulaires', libelle: 'Formulaires cliniques' },

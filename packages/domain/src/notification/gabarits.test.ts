@@ -37,7 +37,8 @@ describe('rendreMessage', () => {
   });
 
   const gabaritsRdv = GABARITS_NOTIFICATION.filter(
-    (g): g is GabaritRdv => g !== 'DOCUMENT_A_CONSULTER' && !gabaritAvecPieceJointe(g),
+    (g): g is GabaritRdv =>
+      g !== 'DOCUMENT_A_CONSULTER' && g !== 'MESSAGE_PATIENT' && !gabaritAvecPieceJointe(g),
   );
 
   it.each(gabaritsRdv)('%s cite le centre, jamais de libellé médical', (gabarit) => {

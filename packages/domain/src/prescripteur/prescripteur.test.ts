@@ -47,6 +47,10 @@ describe('prescripteurSaisieSchema', () => {
       formationOtologie: null,
       cabinet: null,
       contact: null,
+      adresseLigne1: null,
+      adresseLigne2: null,
+      codePostal: null,
+      ville: null,
     });
   });
 

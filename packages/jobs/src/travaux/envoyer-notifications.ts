@@ -269,9 +269,10 @@ export function travailEnvoi(dependances: DependancesEnvoi): Travail<ChargeEnvoi
             continue;
           }
           if (ligne.commandeId === null) {
+            // Une réservation ou un lien suit son propre parcours : seule l'opposition les concerne.
             const verdict = await gardeEnvoi({
               client,
-              messagePatientId: ligne.messagePatientId,
+              messagePatientId: ligne.gabarit === 'MESSAGE_PATIENT' ? ligne.messagePatientId : null,
               opposition: await sousOpposition(
                 client,
                 organisationId,
@@ -286,6 +287,12 @@ export function travailEnvoi(dependances: DependancesEnvoi): Travail<ChargeEnvoi
                 where: { id: ligne.id },
                 data: { statut: 'ABANDONNEE' },
               });
+              if (ligne.gabarit !== 'MESSAGE_PATIENT' && ligne.messagePatientId !== null) {
+                await client.messagePatient.update({
+                  where: { id: ligne.messagePatientId },
+                  data: { statut: 'BLOQUE', motif: 'OPPOSITION' },
+                });
+              }
               continue;
             }
             if (verdict.issue === 'REPORT') {
@@ -311,13 +318,27 @@ export function travailEnvoi(dependances: DependancesEnvoi): Travail<ChargeEnvoi
             }
           }
           const { sujet, corps } = message(organisationId, ligne);
-          if (ligne.canal === 'SMS') {
-            await notifier.envoyerSms({ destinataire: ligne.destinataire, texte: corps });
-          } else {
-            await notifier.envoyerEmail({
-              destinataire: ligne.destinataire,
-              sujet,
-              texte: corps,
+          const recu =
+            ligne.canal === 'SMS'
+              ? await notifier.envoyerSms({ destinataire: ligne.destinataire, texte: corps })
+              : await notifier.envoyerEmail({
+                  destinataire: ligne.destinataire,
+                  sujet,
+                  texte: corps,
+                });
+          if (ligne.messagePatientId !== null) {
+            await client.messagePatient.update({
+              where: { id: ligne.messagePatientId },
+              data: {
+                statut: 'ENVOYE',
+                envoyeLe: maintenant(),
+                idFournisseur: recu.idFournisseur,
+                segments: recu.credits,
+                coutMillimes:
+                  recu.credits === null
+                    ? null
+                    : coutSmsMillimes(recu.credits, parametres.tarifSmsMillimes),
+              },
             });
           }
           await client.notification.update({

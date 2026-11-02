@@ -82,6 +82,7 @@ import {
 } from './factures';
 import { decrireCodesLpp, tarifsAudioEnVigueur, versClientLpp } from './lpp';
 import { creerGarantie } from './garanties';
+import { exigerSansOpposition } from './consentements';
 import { aujourdhui, type Client } from './patients';
 import {
   appliquerMouvement,
@@ -1298,5 +1299,6 @@ export async function adresseEnvoi(
       'Le patient n’a pas cette coordonnée, ou n’y a pas consenti.',
     );
   }
+  await exigerSansOpposition(client, canal, adresse);
   return { canal, adresse };
 }

@@ -47,7 +47,7 @@ export function ChampTexte({
   nom: string;
   libelle: string;
   defaut?: string | null | undefined;
-  type?: 'text' | 'email' | 'tel' | 'password' | 'date' | 'time' | undefined;
+  type?: 'text' | 'email' | 'tel' | 'password' | 'date' | 'time' | 'datetime-local' | undefined;
   requis?: boolean | undefined;
   /** « (facultatif) » après le libellé d'un champ non requis ; inutile dans un formulaire de filtres. */
   mentionFacultatif?: boolean | undefined;

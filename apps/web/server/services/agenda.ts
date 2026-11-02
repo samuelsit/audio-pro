@@ -1269,7 +1269,7 @@ export async function marquerArrivee(
       let creation: EvenementAudit | null = null;
       let patientId = rdv.patientId;
       if (preparation !== null) {
-        patientId = await ecrirePatient(tx, acteur, preparation);
+        patientId = await ecrirePatient(tx, acteur, preparation, 'AGENDA');
         creation = evenementCreation(patientId, preparation);
       } else if (arrivee?.mode === 'EXISTANT') {
         await verifierPatient(tx, acteur, arrivee.patientId);

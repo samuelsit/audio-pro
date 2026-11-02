@@ -2,6 +2,7 @@ import { SystemClock } from '@ha/adapters';
 import type { Prisma } from '@ha/db';
 import {
   ageAt,
+  AUCUN_CONSENTEMENT,
   calculerPagination,
   champsDifferents,
   choixFusionSchema,
@@ -46,6 +47,7 @@ import { withAudit, type EvenementAudit } from '../audit/journal';
 import { base, empreinteNir, type ClientTransaction } from '../chiffrement';
 import { ErreurSaisie, valider } from '../erreurs';
 import { centresDuPerimetre } from '../perimetre';
+import { tracerConsentements } from './journal-consentements';
 
 export const PATIENTS_PAR_PAGE = 25;
 
@@ -117,6 +119,9 @@ export interface PatientDetail extends PatientResume {
   consentementSms: boolean;
   consentementEmail: boolean;
   consentementCourrier: boolean;
+  consentementSmsCommercial: boolean;
+  consentementEmailCommercial: boolean;
+  consentementCourrierCommercial: boolean;
   notes: string | null;
   amo: CouvertureAmoDetail | null;
   amc: CouvertureAmcDetail | null;
@@ -144,6 +149,9 @@ const selectionPatient = {
   consentementSms: true,
   consentementEmail: true,
   consentementCourrier: true,
+  consentementSmsCommercial: true,
+  consentementEmailCommercial: true,
+  consentementCourrierCommercial: true,
   notes: true,
   fusionneDansId: true,
   centre: { select: { id: true, nom: true } },
@@ -199,6 +207,9 @@ export async function lireFiche(
     consentementSms: p.consentementSms,
     consentementEmail: p.consentementEmail,
     consentementCourrier: p.consentementCourrier,
+    consentementSmsCommercial: p.consentementSmsCommercial,
+    consentementEmailCommercial: p.consentementEmailCommercial,
+    consentementCourrierCommercial: p.consentementCourrierCommercial,
     notes: p.notes,
     fusionneDansId: p.fusionneDansId,
     amo: amo && {
@@ -514,6 +525,9 @@ export function donneesPatient(d: PatientSaisie) {
     consentementSms: d.consentementSms,
     consentementEmail: d.consentementEmail,
     consentementCourrier: d.consentementCourrier,
+    consentementSmsCommercial: d.consentementSmsCommercial,
+    consentementEmailCommercial: d.consentementEmailCommercial,
+    consentementCourrierCommercial: d.consentementCourrierCommercial,
     notes: d.notes,
     nomNaissanceRecherche: normaliserPourRecherche(d.nomNaissance),
     nomUsageRecherche: d.nomUsage === null ? null : normaliserPourRecherche(d.nomUsage),
@@ -605,6 +619,9 @@ export function versSaisie(fiche: PatientDetail): PatientSaisie {
     consentementSms: fiche.consentementSms,
     consentementEmail: fiche.consentementEmail,
     consentementCourrier: fiche.consentementCourrier,
+    consentementSmsCommercial: fiche.consentementSmsCommercial,
+    consentementEmailCommercial: fiche.consentementEmailCommercial,
+    consentementCourrierCommercial: fiche.consentementCourrierCommercial,
     notes: fiche.notes,
     amo: fiche.amo && {
       nir: nirSchema.parse(fiche.amo.nir),
@@ -679,12 +696,14 @@ export async function ecrirePatient(
   tx: ClientTransaction,
   acteur: UtilisateurConnecte,
   { donnees, provenance }: PreparationPatient,
+  origine: 'FICHE' | 'AGENDA' = 'FICHE',
 ): Promise<string> {
   const cree = await tx.patient.create({
     data: { organisationId: acteur.organisationId, ...donneesPatient(donnees) },
     select: { id: true },
   });
   await ecrireCouvertures(tx, cree.id, donnees.amo, provenance, donnees.amc);
+  await tracerConsentements(tx, acteur, cree.id, AUCUN_CONSENTEMENT, donnees, origine);
   return cree.id;
 }
 
@@ -762,6 +781,7 @@ export async function modifierPatient(
     async (tx) => {
       await tx.patient.update({ where: { id: patientId }, data: donneesPatient(donnees) });
       await ecrireCouvertures(tx, patientId, donnees.amo, provenance, donnees.amc);
+      await tracerConsentements(tx, acteur, patientId, avant, donnees, 'FICHE');
     },
     {
       action: 'UPDATE',
@@ -909,6 +929,13 @@ export async function fusionnerPatients(
         adresseLigne2: adresse.ligne2,
         codePostal: adresse.codePostal,
         ville: adresse.ville,
+        // Un accord commercial ne survit pas au refus de l'autre fiche : l'arbitrage reste du côté du refus.
+        consentementSmsCommercial:
+          conservee.consentementSmsCommercial && doublon.consentementSmsCommercial,
+        consentementEmailCommercial:
+          conservee.consentementEmailCommercial && doublon.consentementEmailCommercial,
+        consentementCourrierCommercial:
+          conservee.consentementCourrierCommercial && doublon.consentementCourrierCommercial,
         amo: amo && {
           nir: nirSchema.parse(amo.nir),
           rangNaissance: amo.rangNaissance,
@@ -923,6 +950,11 @@ export async function fusionnerPatients(
       };
       await tx.patient.update({ where: { id: conserveeId }, data: donneesPatient(apres) });
       await ecrireCouvertures(tx, conserveeId, apres.amo, amo ?? SAISIE_MANUELLE, apres.amc);
+      await tracerConsentements(tx, acteur, conserveeId, avant, apres, 'FUSION');
+      await tx.messagePatient.updateMany({
+        where: { patientId: doublonId },
+        data: { patientId: conserveeId },
+      });
       await tx.patient.updateMany({
         where: { fusionneDansId: doublonId },
         data: { fusionneDansId: conserveeId },

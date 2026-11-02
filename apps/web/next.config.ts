@@ -33,6 +33,20 @@ const nextConfig: NextConfig = {
         ],
       },
       {
+        source: '/desinscription/:jeton*',
+        headers: [
+          { key: 'Referrer-Policy', value: 'no-referrer' },
+          { key: 'X-Robots-Tag', value: 'noindex, nofollow' },
+        ],
+      },
+      {
+        source: '/l/:code',
+        headers: [
+          { key: 'Referrer-Policy', value: 'no-referrer' },
+          { key: 'X-Robots-Tag', value: 'noindex, nofollow' },
+        ],
+      },
+      {
         source: '/rdv/lien/:jeton',
         headers: [
           ...INTERDIT_EN_CADRE,
@@ -42,7 +56,7 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-  transpilePackages: ['@ha/domain', '@ha/adapters', '@ha/db'],
+  transpilePackages: ['@ha/domain', '@ha/adapters', '@ha/communication', '@ha/db'],
   serverExternalPackages: [
     '@prisma/client',
     '@prisma/adapter-pg',

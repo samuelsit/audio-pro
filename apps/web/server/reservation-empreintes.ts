@@ -1,9 +1,12 @@
 import { timingSafeEqual } from 'node:crypto';
 
 import {
+  chargerCleEmpreinte,
   chargerCleLienRdv,
+  EmpreinteAdresse,
   EmpreinteHmac,
   SignatureLienCommande,
+  SignatureLienDesinscription,
   SignatureLienDocument,
   SignatureLienRdv,
 } from '@ha/adapters';
@@ -12,6 +15,8 @@ let instanceEmpreinte: EmpreinteHmac | undefined;
 let instanceSignature: SignatureLienRdv | undefined;
 let instanceSignatureDocument: SignatureLienDocument | undefined;
 let instanceSignatureCommande: SignatureLienCommande | undefined;
+let instanceSignatureDesinscription: SignatureLienDesinscription | undefined;
+let instanceEmpreinteAdresse: EmpreinteAdresse | undefined;
 
 function empreinte(): EmpreinteHmac {
   instanceEmpreinte ??= new EmpreinteHmac(chargerCleLienRdv(process.env));
@@ -28,6 +33,20 @@ export function signatureLien(): SignatureLienRdv {
 export function signatureLienCommande(): SignatureLienCommande {
   instanceSignatureCommande ??= new SignatureLienCommande(chargerCleLienRdv(process.env));
   return instanceSignatureCommande;
+}
+
+/** Signature de la page de désinscription. Même clé, contexte distinct. */
+export function signatureLienDesinscription(): SignatureLienDesinscription {
+  instanceSignatureDesinscription ??= new SignatureLienDesinscription(
+    chargerCleLienRdv(process.env),
+  );
+  return instanceSignatureDesinscription;
+}
+
+/** Empreinte d'une adresse de patient : l'ouvrier calcule la même, sur la même clé. */
+export function empreinteAdresse(): EmpreinteAdresse {
+  instanceEmpreinteAdresse ??= new EmpreinteAdresse(chargerCleEmpreinte(process.env));
+  return instanceEmpreinteAdresse;
 }
 
 /** Signature d'un lien vers un document. Même clé, contexte distinct : un jeton ne vaut pas pour l'autre. */

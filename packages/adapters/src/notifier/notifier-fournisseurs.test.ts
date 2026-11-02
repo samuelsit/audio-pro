@@ -74,7 +74,7 @@ describe('NotifierFournisseurs', () => {
   });
 
   it('laisse un courrier à imprimer', async () => {
-    await expect(notifier.envoyerCourrier({ cleDocument: 'c', lettres: 1 })).resolves.toEqual({
+    await expect(notifier.envoyerCourrier()).resolves.toEqual({
       idFournisseur: null,
       credits: null,
     });

@@ -698,6 +698,16 @@ export interface DocumentEssai {
   nomFichier: string;
 }
 
+function adressePrescripteur(p: {
+  adresseLigne1: string | null;
+  adresseLigne2: string | null;
+  codePostal: string | null;
+  ville: string | null;
+}): string[] {
+  const commune = [p.codePostal, p.ville].filter(Boolean).join(' ');
+  return [p.adresseLigne1, p.adresseLigne2, commune].filter((l): l is string => Boolean(l));
+}
+
 async function vueCompteRendu(
   acteur: UtilisateurConnecte,
   dossier: DossierLu,
@@ -732,7 +742,19 @@ async function vueCompteRendu(
     client.prescription.findFirstOrThrow({
       where: { dossierId: dossier.id },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-      select: { prescripteur: { select: { prenom: true, nom: true, cabinet: true } } },
+      select: {
+        prescripteur: {
+          select: {
+            prenom: true,
+            nom: true,
+            cabinet: true,
+            adresseLigne1: true,
+            adresseLigne2: true,
+            codePostal: true,
+            ville: true,
+          },
+        },
+      },
     }),
   ]);
   return {
@@ -755,6 +777,7 @@ async function vueCompteRendu(
       prescripteur: {
         prenomNom: `${prescription.prescripteur.prenom} ${prescription.prescripteur.nom}`,
         cabinet: prescription.prescripteur.cabinet,
+        adresse: adressePrescripteur(prescription.prescripteur),
       },
       patient: {
         prenomNom: `${patient.prenoms} ${patient.nomUsage ?? patient.nomNaissance}`,

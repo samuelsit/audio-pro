@@ -24,6 +24,10 @@ function saisie(formData: FormData) {
     formationOtologie: texte(formData, 'formationOtologie'),
     cabinet: texte(formData, 'cabinet'),
     contact: texte(formData, 'contact'),
+    adresseLigne1: texte(formData, 'adresseLigne1'),
+    adresseLigne2: texte(formData, 'adresseLigne2'),
+    codePostal: texte(formData, 'codePostal'),
+    ville: texte(formData, 'ville'),
   };
 }
 

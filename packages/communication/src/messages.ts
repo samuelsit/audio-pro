@@ -4,6 +4,7 @@ import type { EmpreinteAdresse } from '@ha/adapters';
 import {
   adresseMessage,
   choisirCanal,
+  mobileCanonique,
   rendreTexte,
   valeursMessage,
   variablesDuTexte,
@@ -173,4 +174,40 @@ export async function ecrireMessage(
     });
   }
   return 'ECRIT';
+}
+
+export interface EntreeHistorique {
+  readonly organisationId: string;
+  readonly centreId: string;
+  readonly patientId: string;
+  readonly canal: 'SMS' | 'EMAIL';
+  readonly adresse: string;
+  readonly finalite: FinaliteMessage;
+  readonly sujet: string;
+  readonly cleIdempotence: string;
+}
+
+function adresseCanonique(canal: 'SMS' | 'EMAIL', adresse: string): string {
+  return canal === 'SMS' ? (mobileCanonique(adresse) ?? adresse) : adresse.trim().toLowerCase();
+}
+
+/**
+ * Inscrit à l'historique un message qui a sa propre source : réservation, lien vers un document. Son texte se
+ * rend à l'envoi, seul son sujet reste. Sans cette ligne, un STOP à ce numéro ne retrouverait pas le client.
+ */
+export async function historiserMessage(
+  tx: TxCommunication,
+  entree: EntreeHistorique,
+  empreinte: EmpreinteAdresse,
+): Promise<string> {
+  const { adresse, ...ligne } = entree;
+  const id = randomUUID();
+  await tx.messagePatient.create({
+    data: {
+      ...ligne,
+      id,
+      empreinteAdresse: empreinte.calculer(entree.canal, adresseCanonique(entree.canal, adresse)),
+    },
+  });
+  return id;
 }

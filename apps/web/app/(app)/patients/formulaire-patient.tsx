@@ -226,6 +226,29 @@ export function FormulairePatient({
               defaut={patient?.consentementCourrier ?? false}
             />
           </div>
+          <p className="text-sm font-medium">
+            Il accepte aussi les messages commerciaux (campagnes, renouvellement) par :
+          </p>
+          <div className="flex flex-wrap gap-6">
+            <CaseACocher
+              etat={etat}
+              nom="consentementSmsCommercial"
+              libelle="SMS"
+              defaut={patient?.consentementSmsCommercial ?? false}
+            />
+            <CaseACocher
+              etat={etat}
+              nom="consentementEmailCommercial"
+              libelle="E-mail"
+              defaut={patient?.consentementEmailCommercial ?? false}
+            />
+            <CaseACocher
+              etat={etat}
+              nom="consentementCourrierCommercial"
+              libelle="Courrier"
+              defaut={patient?.consentementCourrierCommercial ?? false}
+            />
+          </div>
         </div>
       </Section>
 

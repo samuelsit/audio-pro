@@ -10,7 +10,7 @@ import {
 } from '@ha/adapters';
 import { prisma, viderBaseJetable } from '@ha/db/admin';
 import { MODELES_DEFAUT, type ScenarioCommunication } from '@ha/domain';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
 import { abonneMessagesRdv } from '../abonnes';
@@ -192,10 +192,11 @@ beforeEach(async () => {
   await prisma().oppositionAdresse.deleteMany();
   await prisma().$executeRaw`TRUNCATE evenement_consentement`;
   await prisma().delivrance.deleteMany();
+  await prisma().essai.deleteMany();
   await prisma().rendezVous.deleteMany();
   await prisma().reservationEnLigne.deleteMany();
   await prisma().patient.deleteMany({ where: { organisationId: autreOrganisationId } });
-  await prisma().patient.deleteMany();
+  await prisma().patient.deleteMany({ where: { dossiers: { none: {} } } });
 });
 
 afterAll(async () => {
@@ -575,6 +576,128 @@ describe('garde à l’envoi', () => {
     expect(
       signatureDesinscription.lire(email.lienDesinscription.split('/desinscription/')[1] ?? ''),
     ).toEqual({ organisationId, messageId: message.id });
+  });
+});
+
+describe('scénarios sur un dossier', () => {
+  async function creerDossier(patientId: string) {
+    const utilisateur = await prisma().utilisateur.create({
+      data: {
+        organisationId,
+        prenom: 'Audio',
+        nom: 'Test',
+        name: 'Audio Test',
+        email: `audio-${String((compteur += 1))}@exemple.test`,
+        role: 'AUDIO',
+      },
+    });
+    const praticien = await prisma().praticien.create({
+      data: {
+        organisationId,
+        utilisateurId: utilisateur.id,
+        rpps: String(10_000_000_000 + compteur),
+      },
+    });
+    return prisma().dossier.create({
+      data: {
+        organisationId,
+        patientId,
+        centreId,
+        praticienId: praticien.id,
+        oreilles: 'DROITE',
+        typeDroite: 'PRIMO',
+        dateOuverture: new Date('2026-12-01'),
+        surdicecite: 'v1.fictif',
+      },
+    });
+  }
+
+  function creerDevis(dossierId: string) {
+    return prisma().devis.create({
+      data: {
+        organisationId,
+        dossierId,
+        numero: `D-${String((compteur += 1))}`,
+        version: 1,
+        statut: 'EMIS',
+        lieuEmission: 'Paris',
+        validiteMois: 2,
+        tauxAmo: 60,
+        refusOffreC2S: false,
+        contratResponsable: true,
+        bobineTPresentee: false,
+        ficheTechniqueJointe: false,
+        dateEmission: new Date('2027-01-25'),
+        dateFinValidite: new Date('2027-03-25'),
+        pdfCle: 'devis/fictif',
+        emisParId: utilisateurId,
+        createdById: utilisateurId,
+      },
+    });
+  }
+
+  function creerEssai(dossierId: string) {
+    return prisma().essai.create({
+      data: {
+        organisationId,
+        dossierId,
+        dateDebut: new Date('2027-01-08'),
+        createdById: utilisateurId,
+      },
+    });
+  }
+
+  // Un devis émis ne se supprime plus : son patient reste, hors d'atteinte des tests suivants.
+  afterEach(async () => {
+    await prisma().patient.updateMany({
+      where: { dossiers: { some: {} } },
+      data: { telephone: null, email: null, consentementSmsCommercial: false },
+    });
+  });
+
+  it('relance un devis émis, pas un devis signé entre-temps', async () => {
+    await activer('RELANCE_DEVIS');
+    const patient = await creerPatient({ consentementSmsCommercial: true });
+    const dossier = await creerDossier(patient.id);
+    const devis = await creerDevis(dossier.id);
+    await scenarios();
+    await expect(messageSms(patient.id)).resolves.toMatchObject({
+      scenario: 'RELANCE_DEVIS',
+      finalite: 'COMMERCIAL',
+      entiteId: devis.id,
+    });
+    await prisma().$executeRaw`UPDATE devis SET statut = 'SIGNE' WHERE id = ${devis.id}`;
+    await envoyer();
+    expect(notifier.envoyes).toHaveLength(0);
+    await expect(messageSms(patient.id)).resolves.toMatchObject({
+      statut: 'EXPIRE',
+      motif: 'SANS_OBJET',
+    });
+  });
+
+  it('annonce une fin d’essai, sans en rien dire, mais pas un essai conclu', async () => {
+    await activer('FIN_ESSAI');
+    const patient = await creerPatient();
+    const dossier = await creerDossier(patient.id);
+    const essai = await creerEssai(dossier.id);
+    await scenarios();
+    const { corps } = await prisma().messagePatient.findFirstOrThrow();
+    expect(corps).toMatch(/^v1\./);
+    await prisma().essai.update({
+      where: { id: essai.id },
+      data: { issue: 'ACHAT', dateFin: new Date('2027-02-01') },
+    });
+    await envoyer();
+    expect(notifier.envoyes).toHaveLength(0);
+  });
+
+  it('annonce la fin d’un essai encore ouvert', async () => {
+    await activer('FIN_ESSAI');
+    const patient = await creerPatient();
+    await creerEssai((await creerDossier(patient.id)).id);
+    await scenarios();
+    await envoyer();
+    expect((notifier.envoyes[0] as { texte: string }).texte).not.toMatch(/essai/i);
   });
 });
 

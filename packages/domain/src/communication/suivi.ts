@@ -21,6 +21,42 @@ export const LIBELLES_STATUTS_MESSAGE: Readonly<Record<StatutMessage, string>> =
   IMPRIME: 'Imprimé',
 };
 
+export const STATUTS_CAMPAGNE = ['PROGRAMMEE', 'EN_COURS', 'TERMINEE', 'ANNULEE'] as const;
+export type StatutCampagne = (typeof STATUTS_CAMPAGNE)[number];
+
+export const LIBELLES_STATUTS_CAMPAGNE: Readonly<Record<StatutCampagne, string>> = {
+  PROGRAMMEE: 'Programmée',
+  EN_COURS: 'En cours',
+  TERMINEE: 'Terminée',
+  ANNULEE: 'Annulée',
+};
+
+export type StatutLotCourrier = 'A_GENERER' | 'PRET' | 'IMPRIME';
+export type TypeLotCourrier = 'LETTRES' | 'COMPTES_RENDUS';
+
+export const LIBELLES_STATUTS_LOT: Readonly<Record<StatutLotCourrier, string>> = {
+  A_GENERER: 'En préparation',
+  PRET: 'À imprimer',
+  IMPRIME: 'Imprimé',
+};
+
+export const LIBELLES_TYPES_LOT: Readonly<Record<TypeLotCourrier, string>> = {
+  LETTRES: 'Lettres aux patients',
+  COMPTES_RENDUS: 'Comptes rendus aux prescripteurs',
+};
+
+export const LIBELLES_ORIGINES_CONSENTEMENT = {
+  FICHE: 'Fiche patient',
+  AGENDA: 'Agenda',
+  RESERVATION: 'Réservation en ligne',
+  VITALE: 'Lecture Vitale',
+  FUSION: 'Fusion de fiches',
+  RECUEIL: 'Nouveau consentement noté',
+  DESINSCRIPTION: 'Lien de désinscription',
+  STOP_SMS: 'Réponse STOP',
+} as const;
+export type OrigineConsentementMessage = keyof typeof LIBELLES_ORIGINES_CONSENTEMENT;
+
 export const ETATS_FOURNISSEUR = ['EN_COURS', 'DELIVRE', 'ECHEC'] as const;
 export type EtatFournisseur = (typeof ETATS_FOURNISSEUR)[number];
 

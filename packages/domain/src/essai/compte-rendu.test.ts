@@ -11,7 +11,11 @@ const VUE: VueCompteRenduEssai = {
     email: 'nord@exemple.test',
   },
   audioprothesiste: { prenomNom: 'Camille Audio', identifiant: '10000000001' },
-  prescripteur: { prenomNom: 'Alex Martin', cabinet: 'Cabinet ORL' },
+  prescripteur: {
+    prenomNom: 'Alex Martin',
+    cabinet: 'Cabinet ORL',
+    adresse: ['3 place du Marché', '69002 Lyon'],
+  },
   patient: { prenomNom: 'Jeanne Fictive', dateNaissance: '1950-03-12' },
   lieu: 'Lille',
   dateCourrier: '2026-11-02',
@@ -56,7 +60,7 @@ describe('rendreCompteRenduEssaiHtml', () => {
       issue: 'ACHAT',
       fin: '2026-11-02',
       prolongation: null,
-      prescripteur: { prenomNom: 'Alex Martin', cabinet: null },
+      prescripteur: { prenomNom: 'Alex Martin', cabinet: null, adresse: [] },
     });
     expect(html).toContain('Issue de l’essai : achat, le 02/11/2026.');
     expect(html).not.toContain('Prolongation');

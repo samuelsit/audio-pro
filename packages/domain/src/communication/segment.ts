@@ -64,3 +64,11 @@ export const campagneSaisieSchema = z.object({
     .transform((v) => v ?? null),
 });
 export type CampagneSaisie = z.output<typeof campagneSaisieSchema>;
+
+export const comptesRendusSaisieSchema = z
+  .object({
+    centreId: z.uuid('Choisir un centre.'),
+    du: dateCalendaireSchema,
+    au: dateCalendaireSchema,
+  })
+  .refine((s) => s.du <= s.au, { error: 'La période est inversée.', path: ['au'] });

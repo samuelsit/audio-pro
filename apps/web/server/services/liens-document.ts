@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { SystemClock } from '@ha/adapters';
+import { historiserMessage } from '@ha/communication';
 import { clientPlateforme, type Prisma } from '@ha/db';
 import {
   adresseDuCanal,
@@ -24,7 +25,8 @@ import { base, enTransaction, type ClientTransaction } from '../chiffrement';
 import { documents } from '../documents';
 import { ErreurSaisie, valider } from '../erreurs';
 import { notifierDisponible } from '../notifier';
-import { signatureLienDocument } from '../reservation-empreintes';
+import { empreinteAdresse, signatureLienDocument } from '../reservation-empreintes';
+import { exigerSansOpposition } from './consentements';
 import { lireDevis, type DocumentDevis } from './devis';
 import { depuisDate, lireDossier, type DossierLu } from './dossiers';
 import { rendreCompteRendu } from './essais';
@@ -96,18 +98,36 @@ async function creerLien(
   });
   const centre = await tx.centre.findUniqueOrThrow({
     where: { id: centreId },
-    select: { nom: true },
+    select: { nom: true, organisationId: true },
   });
+  const cleIdempotence = `lien:${lien.id}:${canal}`;
   await tx.notification.create({
     data: {
       lienDocumentId: lien.id,
+      messagePatientId:
+        destinataire === 'PATIENT'
+          ? await historiserMessage(
+              tx as unknown as Prisma.TransactionClient,
+              {
+                organisationId: centre.organisationId,
+                centreId,
+                patientId,
+                canal,
+                adresse,
+                finalite: 'SUIVI',
+                sujet: 'Un document est à votre disposition',
+                cleIdempotence,
+              },
+              empreinteAdresse(),
+            )
+          : null,
       canal,
       destinataire: adresse,
       gabarit: 'DOCUMENT_A_CONSULTER',
       parametres: parametresDocumentSchema.parse({
         centre: centre.nom,
       }) as Prisma.InputJsonValue,
-      cleIdempotence: `lien:${lien.id}:${canal}`,
+      cleIdempotence,
     },
   });
   return lien.id;
@@ -162,6 +182,7 @@ export async function envoyerDevisAuPatient(
           'Le patient n’a pas cette coordonnée, ou n’y a pas consenti.',
         );
       }
+      await exigerSansOpposition(tx, canal, adresse);
       const lienId = await creerLien(tx, acteur, {
         rattachement: rattachementDossier(dossier),
         cible: 'DEVIS',

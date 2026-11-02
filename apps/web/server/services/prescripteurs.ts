@@ -28,6 +28,10 @@ export interface PrescripteurResume {
   formationOtologie: boolean | null;
   cabinet: string | null;
   contact: string | null;
+  adresseLigne1: string | null;
+  adresseLigne2: string | null;
+  codePostal: string | null;
+  ville: string | null;
   actif: boolean;
 }
 
@@ -40,6 +44,10 @@ const selection = {
   formationOtologie: true,
   cabinet: true,
   contact: true,
+  adresseLigne1: true,
+  adresseLigne2: true,
+  codePostal: true,
+  ville: true,
   actif: true,
 } as const;
 
@@ -180,6 +188,10 @@ export async function modifierPrescripteur(
             formationOtologie: actuel.formationOtologie,
             cabinet: actuel.cabinet,
             contact: actuel.contact,
+            adresseLigne1: actuel.adresseLigne1,
+            adresseLigne2: actuel.adresseLigne2,
+            codePostal: actuel.codePostal,
+            ville: actuel.ville,
           },
           donnees,
         ),

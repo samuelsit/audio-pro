@@ -92,6 +92,27 @@ export function ChampsPrescripteur({
         type="email"
         defaut={prescripteur?.contact}
       />
+      <ChampTexte
+        etat={etat}
+        nom="adresseLigne1"
+        libelle="Adresse postale"
+        defaut={prescripteur?.adresseLigne1}
+      />
+      <ChampTexte
+        etat={etat}
+        nom="adresseLigne2"
+        libelle="Complément d’adresse"
+        defaut={prescripteur?.adresseLigne2}
+      />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <ChampTexte
+          etat={etat}
+          nom="codePostal"
+          libelle="Code postal"
+          defaut={prescripteur?.codePostal}
+        />
+        <ChampTexte etat={etat} nom="ville" libelle="Ville" defaut={prescripteur?.ville} />
+      </div>
     </>
   );
 }

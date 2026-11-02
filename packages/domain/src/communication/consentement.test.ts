@@ -3,10 +3,13 @@ import { describe, expect, it } from 'vitest';
 import {
   adresseCanonique,
   adresseMessage,
+  AUCUN_CONSENTEMENT,
   champConsentement,
+  changementsConsentement,
   choisirCanal,
   decisionEnvoi,
   mobileCanonique,
+  recueilConsentementSchema,
   type PatientMessage,
 } from './consentement';
 
@@ -134,5 +137,34 @@ describe('choisirCanal', () => {
       canal: 'EMAIL',
       motif: 'SANS_CONSENTEMENT',
     });
+  });
+});
+
+describe('changementsConsentement', () => {
+  it('ne relève rien sans changement', () => {
+    expect(changementsConsentement(AUCUN_CONSENTEMENT, AUCUN_CONSENTEMENT)).toEqual([]);
+  });
+
+  it('relève chaque canal et chaque finalité', () => {
+    const apres = {
+      ...AUCUN_CONSENTEMENT,
+      consentementSms: true,
+      consentementEmailCommercial: true,
+    };
+    expect(changementsConsentement(AUCUN_CONSENTEMENT, apres)).toEqual([
+      { canal: 'SMS', finalite: 'SUIVI', accorde: true },
+      { canal: 'EMAIL', finalite: 'COMMERCIAL', accorde: true },
+    ]);
+    expect(changementsConsentement(apres, AUCUN_CONSENTEMENT)).toHaveLength(2);
+  });
+});
+
+describe('recueilConsentementSchema', () => {
+  it.each([
+    [{ canal: 'SMS', finalites: ['SUIVI'] }, true],
+    [{ canal: 'SMS', finalites: [] }, false],
+    [{ canal: 'FAX', finalites: ['SUIVI'] }, false],
+  ])('%j', (saisie, attendu) => {
+    expect(recueilConsentementSchema.safeParse(saisie).success).toBe(attendu);
   });
 });

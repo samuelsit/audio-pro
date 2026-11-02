@@ -1,5 +1,12 @@
+import { z } from 'zod';
+
 import { telephoneCanonique } from '../patient/telephone';
-import type { CanalMessage, FinaliteMessage } from './catalogue';
+import {
+  CANAUX_MESSAGE,
+  FINALITES_MESSAGE,
+  type CanalMessage,
+  type FinaliteMessage,
+} from './catalogue';
 
 export interface ConsentementsPatient {
   readonly consentementSms: boolean;
@@ -38,6 +45,34 @@ export function champConsentement(
   const suffixe = finalite === 'COMMERCIAL' ? 'Commercial' : '';
   return `consentement${racine[canal]}${suffixe}` as keyof ConsentementsPatient;
 }
+
+export interface ChangementConsentement {
+  readonly canal: CanalMessage;
+  readonly finalite: FinaliteMessage;
+  readonly accorde: boolean;
+}
+
+/** Ce qui change entre deux états : une ligne de journal par canal et par finalité. */
+export function changementsConsentement(
+  avant: ConsentementsPatient,
+  apres: ConsentementsPatient,
+): ChangementConsentement[] {
+  return CANAUX_MESSAGE.flatMap((canal) =>
+    FINALITES_MESSAGE.flatMap((finalite) => {
+      const champ = champConsentement(canal, finalite);
+      return avant[champ] === apres[champ] ? [] : [{ canal, finalite, accorde: apres[champ] }];
+    }),
+  );
+}
+
+export const AUCUN_CONSENTEMENT: ConsentementsPatient = {
+  consentementSms: false,
+  consentementEmail: false,
+  consentementCourrier: false,
+  consentementSmsCommercial: false,
+  consentementEmailCommercial: false,
+  consentementCourrierCommercial: false,
+};
 
 /** Un SMS ne part que vers un mobile français, sous sa forme unique : un fixe ne le recevrait jamais. */
 export function mobileCanonique(telephone: string | null): string | null {
@@ -106,3 +141,8 @@ export function choisirCanal(
   );
   return decisions.find((d) => d.autorise) ?? (decisions[0] as DecisionEnvoi);
 }
+
+export const recueilConsentementSchema = z.object({
+  canal: z.enum(CANAUX_MESSAGE, { error: 'Choisir un canal.' }),
+  finalites: z.array(z.enum(FINALITES_MESSAGE)).min(1, 'Choisir au moins une finalité.'),
+});

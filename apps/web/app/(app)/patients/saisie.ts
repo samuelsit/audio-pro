@@ -35,6 +35,9 @@ const CHAMPS_TEXTE = [
 
 const CHAMPS_COCHES = [
   'consentementSms',
+  'consentementSmsCommercial',
+  'consentementEmailCommercial',
+  'consentementCourrierCommercial',
   'consentementEmail',
   'consentementCourrier',
   'amoC2s',
