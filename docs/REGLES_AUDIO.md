@@ -765,80 +765,134 @@ Le lettrage n'écrit rien. Une contre-passation retourne l'écriture.
 
 **Écart** : la télétransmission `SUI` (art. 20 ; ameli p. 3) n'est pas envoyée, étape 26.
 
+## R58 – Relance d'un devis non signé (`rangRelanceDevis`)
+
+**Statut : À VÉRIFIER.**
+
+**Règle** : un devis émis se relance tous les 7 jours, deux fois au plus, tant qu'il est valide. Délais paramétrables par client.
+
+**Source** : `modele-devis-audio.pdf` p. 1 pour la validité (au moins 2 mois). Aucun texte de `docs/ref` sur la relance d'un devis.
+
+**Choix** : message commercial, sous consentement commercial. Le texte ne dit pas « devis » : c'est une invitation à contacter le centre. Trois jours de tolérance après l'échéance, pour qu'un dimanche ne fasse pas perdre le message sans envoyer l'arriéré.
+
+## R59 – Invitation au renouvellement (`renouvellementsPossibles`)
+
+**Statut : À VÉRIFIER.**
+
+**Règle** : quand une oreille appareillée atteint le délai de 4 ans, le patient est invité à contacter le centre.
+
+**Source** : `convention-audioprothesistes.pdf`, art. 22 § 1, p. 22, pour le délai, qui vise la prise en charge. Art. 15 § 1, p. 16 : communication loyale et objective, sans incitation à une consommation excessive. Aucun texte sur le droit d'informer ou de relancer le patient avant ou après l'échéance.
+
+**Choix** : message commercial. Une oreille jamais appareillée ne déclenche rien. Le téléservice fait foi (R8) : la lettre dit « selon votre situation ». Fenêtre de 30 jours, sans arriéré.
+
+## R60 – Segmentation par classe d'appareil (`conditionsSegment`)
+
+**Statut : À VÉRIFIER.**
+
+**Règle** : la classe se lit sur le modèle de l'appareil porté (`VENDU`, `SAV`, `RETOUR_FABRICANT`, hors parc de prêt).
+
+**Source** : aucun texte de `docs/ref` sur l'usage commercial de la classe d'un appareil, donnée issue d'un acte de santé. Une reprise sans appareil connu sort du segment sans alerte.
+
+## R61 – Autres rappels au patient (`rappelRdvDu`, `echeanceEssaiProche`, `controlesAAnnoncer`, `finGarantieProche`, `anniversaireAppareillage`)
+
+**Statut : À VÉRIFIER.**
+
+**Règle** : J-2 et J-1 d'un rendez-vous, 7 jours avant la fin d'essai, à l'approche d'un contrôle ou de la fin de garantie, à l'anniversaire de l'appareillage.
+
+**Source** : les échéances sont sourcées (R9, R19, R57). Le fait d'écrire au patient à ces dates ne l'est pas : c'est un choix applicatif, activé par chaque client. L'anniversaire est classé commercial.
+
+## R62 – Consentement, opposition et horaires d'envoi
+
+**Statut : À VÉRIFIER.**
+
+**Règle** : consentement par canal et par finalité, suivi ou commercial. Une opposition coupe tout le canal, rappels compris, jusqu'à un nouveau consentement noté sur la fiche. Envois de 9 h à 19 h, du lundi au samedi, hors jours fériés, modifiable par client.
+
+**Source** : aucune dans `docs/ref`. Ni le code des postes et communications électroniques, ni la CNIL, ni la charte des opérateurs n'y figurent. La seule phrase est la note 4 du devis, p. 2 : droit d'accès, de rectification et d'opposition, sur le traitement du devis. Art. 15, p. 15-16 : secret professionnel dans toute communication, sans application à un SMS.
+
+**Choix** : le plus prudent à chaque fois. Les modèles ne nomment ni essai, ni garantie, ni appareil, ni devis : « Fin d'essai » dans un SMS serait déjà une donnée de santé.
+
 ## Points À VÉRIFIER
 
-| Point                                                    | Règle | Document qui trancherait                      |
-| -------------------------------------------------------- | ----- | --------------------------------------------- |
-| Borne de 20 ans                                          | R1    | Nomenclature LPP                              |
-| Date de référence de l'âge                               | R2    | Nomenclature LPP                              |
-| Prix limite TTC                                          | R3    | Nomenclature LPP                              |
-| Base en cas de cécité                                    | R4    | Nomenclature LPP                              |
-| Taux ALD, AT, maternité, SNCF, Alsace-Moselle            | R5    | Cahier des charges SESAM-Vitale ou AreaFSE    |
-| Arrondi à ,5 centime                                     | R5    | Cahier des charges SESAM-Vitale               |
-| AMC C2S à 20 ans et plus                                 | R6    | Texte C2S                                     |
-| Code LPP à facturer, sens de `RJT`                       | R7    | Dictionnaire LPP ou caisse                    |
-| Jour anniversaire, conditions de R.165-24                | R8    | Nomenclature LPP, code de la sécurité sociale |
-| Date de comparaison du délai avant la délivrance         | R8    | Nomenclature LPP                              |
-| Décompte des jours d'essai, durée sans prolongation      | R9    | Nomenclature LPP                              |
-| Plusieurs prolongations, demande après l'échéance        | R9    | Nomenclature LPP                              |
-| Autre modèle en cours d'essai : les 30 jours repartent ? | R9    | Nomenclature LPP                              |
-| Contenu et délai du compte rendu au prescripteur         | R20   | Nomenclature LPP                              |
-| Qualité du prescripteur                                  | R10   | Nomenclature LPP                              |
-| RPPS du prescripteur exigé, sens du « N° prescripteur »  | R10   | Cahier des charges SESAM-Vitale ou AreaFSE    |
-| Validité de l'ordonnance                                 | R11   | Nomenclature LPP                              |
-| Effet de la mention de renouvellement                    | R11   | Nomenclature LPP                              |
-| Prix inférieur à la base                                 | R13   | Nomenclature LPP ou cahier des charges        |
-| 1 700 €                                                  | R14   | Texte sur les contrats responsables           |
-| Taux de TVA des aides, piles et accessoires              | R18   | Code général des impôts ou comptable          |
-| Sens de « code de regroupement » (P1D… PIL, APA retenus) | R12   | Arrêté du devis normalisé                     |
-| Identifiants d'entreprise obligatoires                   | R12   | Arrêté du devis normalisé                     |
-| Point de départ de la garantie de 4 ans                  | R19   | Nomenclature LPP                              |
-| Mentions « CMU-c », « Dès 2020 », « votre opticien »     | R12   | Version à jour du devis normalisé             |
-| « Date de Naissance », cachée dans le modèle PDF         | R12   | Version à jour du devis normalisé             |
-| Quotas de piles et d'embouts, sens de `QTE_MAX`          | R15   | Nomenclature LPP, dictionnaire LPP            |
-| Part AMC C2S sur piles et accessoires                    | R21   | Texte C2S                                     |
-| Délai de la lecture Vitale, confirmation manuelle        | R22   | Convention, cahier des charges SESAM-Vitale   |
-| Procédure de PEC, répartition d'un montant global        | R23   | Conventions des complémentaires               |
-| C2S gérée par un organisme complémentaire                | R23   | Texte C2S                                     |
-| Mentions obligatoires de la facture                      | R27   | Code de commerce, CGI ou comptable            |
-| TVA de l'entretien, fait générateur                      | R18   | Code général des impôts ou comptable          |
-| Série commune aux factures et aux avoirs                 | R28   | Code général des impôts ou comptable          |
-| Avoir partiel : ventilation, effet sur la part AMO       | R29   | Comptable, cahier des charges SESAM-Vitale    |
-| Prescription et taux AMO d'une vente directe             | R30   | Nomenclature LPP, cahier des charges          |
-| Contrat `BillingEngine`, champs de `FseDraft`            | R31   | Documentation AreaFSE                         |
-| Correction d'une FSE après un avoir                      | R31   | Documentation AreaFSE                         |
-| Plafond d'encaissement selon le tiers payant             | R34   | Comptable                                     |
-| Délai de paiement des complémentaires                    | R42   | Conventions des complémentaires               |
-| Jours fériés, échéance en B2D, papier et AME             | R42   | Convention, documentation AreaFSE             |
-| Tiers payant obligatoire hors C2S, à la facturation      | R43   | Documentation AreaFSE                         |
-| Pièce rectificative après un transfert au patient        | R44   | Code général des impôts ou comptable          |
-| Limites du lettrage, ordre d'imputation d'un avoir       | R44   | Expert-comptable                              |
-| Écritures du tiers payant, TVA irrécouvrable             | R45   | Expert-comptable                              |
-| Virements d'organismes et paiements reçus                | R46   | Conseil fiscal                                |
-| TVA sur acomptes, facture d'acompte                      | R36   | Code général des impôts ou comptable          |
-| Plafond légal des espèces                                | R34   | Code monétaire et financier ou comptable      |
-| Jour sans opération sans clôture                         | R37   | Conseil fiscal                                |
-| Format de restitution des archives (art. 286 I 3° bis)   | R38   | Art. 286 du CGI, normes de l'administration   |
-| Transfert au CIBS, référence de l'attestation            | R38   | Art. L. 216-48 du CIBS, ordonnance 2025-1247  |
-| Plan de comptes et écritures d'écart                     | R39   | Expert-comptable                              |
-| Format du FEC, description                               | R40   | Art. A47 A-1 du LPF, expert-comptable         |
-| Durée de l'article L. 332-1 CSS                          | R17   | Code de la sécurité sociale                   |
-| Factures d'achat hors chaîne de caisse                   | R47   | Conseil fiscal                                |
-| Conservation des bons et factures d'achat                | R48   | Code de commerce, code de la sécurité sociale |
-| Facturation électronique : calendrier, factures, formats | R49   | Expert-comptable, textes de la réforme        |
-| Oreille sur le bon de commande                           | R50   | Délégué à la protection des données           |
-| Format réel d'un relevé de centrale                      | R51   | Centrale d'achat                              |
-| Numéro de lot à conserver                                | R17   | Vigilance ANSM                                |
-| Format des numéros et codes lus à la douchette           | R17   | Étiquettes réelles des fabricants             |
-| Consignation                                             | R17   | Contrats fabricants                           |
-| Intitulés français des grades BIAP                       | R24   | Version française de la Rec 02/2              |
-| Grille des trois fréquences consécutives                 | R24   | BIAP, commission TC 02                        |
-| Pas de saisie et symboles de l'audiogramme               | R25   | Norme d'audiométrie, ISO 8253-1               |
-| Contenu de l'anamnèse par défaut                         | R26   | Audioprothésiste référent                     |
-| Questionnaires validés, droits d'usage et cotation       | R26   | Auteurs ou éditeurs de chaque questionnaire   |
-| Étendue d'une assurance perte, vol, casse                | R52   | Contrats des assureurs                        |
-| Garantie et renouvellement après un échange              | R52   | Nomenclature LPP, conditions des fabricants   |
-| Appareil vendu ailleurs, garantie mise en œuvre          | R52   | Nomenclature LPP                              |
-| Ce qui se facture hors garantie                          | R53   | Nomenclature LPP, version à jour du devis     |
-| Série et date de délivrance sur le bon de retour         | R54   | Délégué à la protection des données           |
-| Quota de piles : valeur, unité, période                  | R56   | Nomenclature LPP, dictionnaire LPP            |
+| Point                                                      | Règle | Document qui trancherait                      |
+| ---------------------------------------------------------- | ----- | --------------------------------------------- |
+| Borne de 20 ans                                            | R1    | Nomenclature LPP                              |
+| Date de référence de l'âge                                 | R2    | Nomenclature LPP                              |
+| Prix limite TTC                                            | R3    | Nomenclature LPP                              |
+| Base en cas de cécité                                      | R4    | Nomenclature LPP                              |
+| Taux ALD, AT, maternité, SNCF, Alsace-Moselle              | R5    | Cahier des charges SESAM-Vitale ou AreaFSE    |
+| Arrondi à ,5 centime                                       | R5    | Cahier des charges SESAM-Vitale               |
+| AMC C2S à 20 ans et plus                                   | R6    | Texte C2S                                     |
+| Code LPP à facturer, sens de `RJT`                         | R7    | Dictionnaire LPP ou caisse                    |
+| Jour anniversaire, conditions de R.165-24                  | R8    | Nomenclature LPP, code de la sécurité sociale |
+| Date de comparaison du délai avant la délivrance           | R8    | Nomenclature LPP                              |
+| Décompte des jours d'essai, durée sans prolongation        | R9    | Nomenclature LPP                              |
+| Plusieurs prolongations, demande après l'échéance          | R9    | Nomenclature LPP                              |
+| Autre modèle en cours d'essai : les 30 jours repartent ?   | R9    | Nomenclature LPP                              |
+| Contenu et délai du compte rendu au prescripteur           | R20   | Nomenclature LPP                              |
+| Qualité du prescripteur                                    | R10   | Nomenclature LPP                              |
+| RPPS du prescripteur exigé, sens du « N° prescripteur »    | R10   | Cahier des charges SESAM-Vitale ou AreaFSE    |
+| Validité de l'ordonnance                                   | R11   | Nomenclature LPP                              |
+| Effet de la mention de renouvellement                      | R11   | Nomenclature LPP                              |
+| Prix inférieur à la base                                   | R13   | Nomenclature LPP ou cahier des charges        |
+| 1 700 €                                                    | R14   | Texte sur les contrats responsables           |
+| Taux de TVA des aides, piles et accessoires                | R18   | Code général des impôts ou comptable          |
+| Sens de « code de regroupement » (P1D… PIL, APA retenus)   | R12   | Arrêté du devis normalisé                     |
+| Identifiants d'entreprise obligatoires                     | R12   | Arrêté du devis normalisé                     |
+| Point de départ de la garantie de 4 ans                    | R19   | Nomenclature LPP                              |
+| Mentions « CMU-c », « Dès 2020 », « votre opticien »       | R12   | Version à jour du devis normalisé             |
+| « Date de Naissance », cachée dans le modèle PDF           | R12   | Version à jour du devis normalisé             |
+| Quotas de piles et d'embouts, sens de `QTE_MAX`            | R15   | Nomenclature LPP, dictionnaire LPP            |
+| Part AMC C2S sur piles et accessoires                      | R21   | Texte C2S                                     |
+| Délai de la lecture Vitale, confirmation manuelle          | R22   | Convention, cahier des charges SESAM-Vitale   |
+| Procédure de PEC, répartition d'un montant global          | R23   | Conventions des complémentaires               |
+| C2S gérée par un organisme complémentaire                  | R23   | Texte C2S                                     |
+| Mentions obligatoires de la facture                        | R27   | Code de commerce, CGI ou comptable            |
+| TVA de l'entretien, fait générateur                        | R18   | Code général des impôts ou comptable          |
+| Série commune aux factures et aux avoirs                   | R28   | Code général des impôts ou comptable          |
+| Avoir partiel : ventilation, effet sur la part AMO         | R29   | Comptable, cahier des charges SESAM-Vitale    |
+| Prescription et taux AMO d'une vente directe               | R30   | Nomenclature LPP, cahier des charges          |
+| Contrat `BillingEngine`, champs de `FseDraft`              | R31   | Documentation AreaFSE                         |
+| Correction d'une FSE après un avoir                        | R31   | Documentation AreaFSE                         |
+| Plafond d'encaissement selon le tiers payant               | R34   | Comptable                                     |
+| Délai de paiement des complémentaires                      | R42   | Conventions des complémentaires               |
+| Jours fériés, échéance en B2D, papier et AME               | R42   | Convention, documentation AreaFSE             |
+| Tiers payant obligatoire hors C2S, à la facturation        | R43   | Documentation AreaFSE                         |
+| Pièce rectificative après un transfert au patient          | R44   | Code général des impôts ou comptable          |
+| Limites du lettrage, ordre d'imputation d'un avoir         | R44   | Expert-comptable                              |
+| Écritures du tiers payant, TVA irrécouvrable               | R45   | Expert-comptable                              |
+| Virements d'organismes et paiements reçus                  | R46   | Conseil fiscal                                |
+| TVA sur acomptes, facture d'acompte                        | R36   | Code général des impôts ou comptable          |
+| Plafond légal des espèces                                  | R34   | Code monétaire et financier ou comptable      |
+| Jour sans opération sans clôture                           | R37   | Conseil fiscal                                |
+| Format de restitution des archives (art. 286 I 3° bis)     | R38   | Art. 286 du CGI, normes de l'administration   |
+| Transfert au CIBS, référence de l'attestation              | R38   | Art. L. 216-48 du CIBS, ordonnance 2025-1247  |
+| Plan de comptes et écritures d'écart                       | R39   | Expert-comptable                              |
+| Format du FEC, description                                 | R40   | Art. A47 A-1 du LPF, expert-comptable         |
+| Durée de l'article L. 332-1 CSS                            | R17   | Code de la sécurité sociale                   |
+| Factures d'achat hors chaîne de caisse                     | R47   | Conseil fiscal                                |
+| Conservation des bons et factures d'achat                  | R48   | Code de commerce, code de la sécurité sociale |
+| Facturation électronique : calendrier, factures, formats   | R49   | Expert-comptable, textes de la réforme        |
+| Oreille sur le bon de commande                             | R50   | Délégué à la protection des données           |
+| Format réel d'un relevé de centrale                        | R51   | Centrale d'achat                              |
+| Numéro de lot à conserver                                  | R17   | Vigilance ANSM                                |
+| Format des numéros et codes lus à la douchette             | R17   | Étiquettes réelles des fabricants             |
+| Consignation                                               | R17   | Contrats fabricants                           |
+| Intitulés français des grades BIAP                         | R24   | Version française de la Rec 02/2              |
+| Grille des trois fréquences consécutives                   | R24   | BIAP, commission TC 02                        |
+| Pas de saisie et symboles de l'audiogramme                 | R25   | Norme d'audiométrie, ISO 8253-1               |
+| Contenu de l'anamnèse par défaut                           | R26   | Audioprothésiste référent                     |
+| Questionnaires validés, droits d'usage et cotation         | R26   | Auteurs ou éditeurs de chaque questionnaire   |
+| Étendue d'une assurance perte, vol, casse                  | R52   | Contrats des assureurs                        |
+| Garantie et renouvellement après un échange                | R52   | Nomenclature LPP, conditions des fabricants   |
+| Appareil vendu ailleurs, garantie mise en œuvre            | R52   | Nomenclature LPP                              |
+| Ce qui se facture hors garantie                            | R53   | Nomenclature LPP, version à jour du devis     |
+| Série et date de délivrance sur le bon de retour           | R54   | Délégué à la protection des données           |
+| Quota de piles : valeur, unité, période                    | R56   | Nomenclature LPP, dictionnaire LPP            |
+| Relance d'un devis non signé                               | R58   | Code de la consommation, CNIL                 |
+| Droit d'inviter au renouvellement                          | R59   | Code de la santé publique, conseil juridique  |
+| Usage commercial de la classe d'un appareil                | R60   | Délégué à la protection des données           |
+| Écrire au patient aux échéances de son suivi               | R61   | CNIL, délégué à la protection des données     |
+| Base légale des SMS et e-mails, frontière suivi/commercial | R62   | CNIL, code des postes et communications       |
+| Plages horaires d'envoi                                    | R62   | CNIL, charte des opérateurs                   |
+| Nom du centre dans un SMS                                  | R62   | Délégué à la protection des données           |
+| Suivi de clic d'un lien court                              | R62   | CNIL                                          |

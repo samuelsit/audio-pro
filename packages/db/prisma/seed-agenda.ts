@@ -47,6 +47,7 @@ export async function seedAgenda(
 ): Promise<void> {
   await seedTypesRdv(db, organisationId);
   await db.notification.deleteMany({ where: { organisationId } });
+  await db.messagePatient.deleteMany({ where: { organisationId, rendezVousId: { not: null } } });
   await db.reservationEnLigne.deleteMany({ where: { organisationId } });
   // Un rendez-vous d'essai tenu porte un compte rendu en ajout seul (seed-dossiers.ts) : il reste.
   await db.rendezVous.deleteMany({ where: { organisationId, essaiRdv: { is: null } } });

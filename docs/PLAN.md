@@ -141,7 +141,18 @@ Numérotation du plan SaaS (ADR-015). Les références aux étapes dans `docs/DE
 
 ## Phase H – Relances
 
-- [ ] **19** – Relances et communication
+- [x] **19** – Relances et communication (ADR-033, ADR-034)
+  - fait : port `Notifier` à trois canaux, avec reçus ; adaptateurs Fake, OVHcloud SMS et Scaleway e-mail, par variables d'environnement ; modèles par client avec variables, aperçu, compteur de segments et version SMS, termes de santé refusés ; consentement par canal et par finalité, journal horodaté, opposition par adresse, lien de désinscription, STOP relevé chez OVH, plages d'envoi ; scénarios idempotents (rappels J-2 et J-1, confirmation, déplacement, annulation, devis non signé, fin d'essai, contrôle, renouvellement, fin de garantie, anniversaire) ; campagnes par segment, compteur avant envoi, envoi programmé ; suivi envoyé, délivré, échec, clic, désinscription, historique sur la fiche, coût des SMS par centre ; publipostage PDF, lettres et comptes rendus au prescripteur, en-tête du centre
+  - corrigé en passant : les liens vers un document et les messages de réservation partaient sans regarder aucune opposition
+  - changé par rapport au plan : pas de webhook, ni OVH ni Scaleway ne documentent de quoi les authentifier ; statuts et STOP se relisent par l'API (ADR-034). `journaliser` reste dans `apps/web` : `@ha/communication` écrit ses lignes système, car `@ha/db` ne dépend pas du domaine
+  - bloquant avant toute mise en service : essai des deux adaptateurs sur de vrais comptes, ils n'ont vu que des réponses simulées (`docs/vendor`, sections À VÉRIFIER)
+  - bloquant avant toute campagne réelle : recueillir les consentements commerciaux, faire valider leurs textes et `FINALITE_SCENARIO`
+  - À VÉRIFIER : base légale, frontière suivi et commercial, horaires, nom du centre dans un SMS, suivi de clic, usage commercial de la classe, relance de devis, invitation au renouvellement (voir `docs/REGLES_AUDIO.md`, R58 à R62) ; en-têtes `List-Unsubscribe` chez Scaleway, conservation et liste noire chez OVH
+  - à déposer dans `docs/ref` : code de la santé publique (L. 5213, L. 4361), recommandations CNIL sur la prospection, charte des opérateurs
+  - à arbitrer : rappels aux prospects sans fiche, compte OVH par client, logo sur l'en-tête des courriers (`Centre` n'a pas de champ image)
+  - reporté à l'étape 22 : conservation de `MessagePatient`, sous-traitants au registre
+  - à surveiller : entre minuit et 1 h à Paris, `statistiques-achats` échoue et des E2E aussi (`caisse`, `agenda`, `essai`, `admin-2fa`, `isolation`, selon les passes) : dates UTC et dates de Paris diffèrent alors d'un jour. Rien à voir avec cette étape : tous passent après 1 h, à corriger à part
+  - reste des reports vers cette étape, hors de sa commande : prévenir l'approbateur d'une demande en attente, messages pour un prêt en retard ou un appareil à récupérer, courriers de relance du tiers payant
 
 ## Phase I – Pilotage
 

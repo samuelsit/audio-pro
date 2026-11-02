@@ -17,11 +17,12 @@ import { seedAchats } from './seed-achats';
 import { NOMBRE_COMPLEMENTAIRES_DEMO, seedComplementaires } from './seed-complementaires';
 import { NOMBRE_PATIENTS_DEMO, PATIENTS_INDEPENDANT, seedPatients } from './seed-patients';
 import { seedSav } from './seed-sav';
+import { seedCommunication } from './seed-communication';
 import { nombreAppareilsDemo, seedStock } from './seed-stock';
 
 // Seed idempotent de démonstration. Toutes les données sont fictives (domaine exemple.test,
 // RPPS et NIR inventés). Les patients de démonstration sont dans seed-patients.ts.
-const SCHEMA_VERSION = '11';
+const SCHEMA_VERSION = '12';
 
 // Deux clients fictifs : un réseau de 3 centres et un centre indépendant (ADR-016).
 const ORGANISATION_ID = '019a3000-0000-7000-8000-000000000001';
@@ -394,6 +395,7 @@ async function main(): Promise<void> {
       creePar: ADMIN_ID,
     });
     await seedReservationEnLigne(db, ORGANISATION_ID, NORD);
+    await seedCommunication(db, ORGANISATION_ID);
 
     const seededAt = new Date().toISOString();
     for (const [key, value] of [

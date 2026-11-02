@@ -1043,3 +1043,63 @@ Les statuts `SAV`, `PRET` et `RETOUR_FABRICANT` existaient, sans ticket ni garan
 - Un ticket reste dans le centre de l'appareil : un patient reçu dans un autre centre du réseau demande un compte qui voit les deux.
 - La liste de suivi se calcule en mémoire, patient par patient : à revoir si un client dépasse quelques milliers de patients appareillés.
 - Un ticket hors garantie ne se facture pas au bout tant que le taux de TVA de l'entretien n'est pas saisi (R18).
+
+## ADR-033 – Communication avec les patients
+
+- **Date** : 2026-11-02
+- **Statut** : acceptée. Remplace la règle « ni nom » de l'ADR-021 pour les messages des scénarios et campagnes, et lève la limite des gabarits en dur pour ces messages.
+
+### Contexte
+
+`Notification` est une file : purgée à 30 jours, sans patient ni centre, elle ne peut pas tenir un historique. Le consentement n'était qu'un booléen par canal, sans date, et le seul texte recueilli visait les « rappels de rendez-vous par SMS ». `docs/ref` ne dit rien de la base légale de ces envois.
+
+### Décision
+
+- **Deux tables, deux rôles** : `Notification` reste la file d'envoi, `MessagePatient` l'historique durable. La source d'une notification peut être un `MessagePatient` seul. Les réservations et les liens vers un document y inscrivent aussi leurs messages, dès qu'un patient est connu.
+- **Deux finalités par canal** : les booléens existants valent pour le suivi ; trois consentements commerciaux, décochés, couvrent campagnes, renouvellement, anniversaire et relance de devis. Le classement est `FINALITE_SCENARIO`, à faire valider.
+- **Opposition par adresse** : `OppositionAdresse`, indépendante de la fiche, par empreinte HMAC, avec l'adresse chiffrée pour la rotation de clé. Elle coupe tout le canal, rappels compris, et elle l'emporte sur les cases de la fiche. Seule l'action « nouveau consentement noté » la lève ; une case recochée, une réservation ne le peuvent pas.
+- **Journal en ajout seul** : `EvenementConsentement`. Pas de reprise de l'existant : une date inventée serait pire qu'une date inconnue.
+- **Garde à l'envoi** : tout se relit au dernier moment, indépendamment de l'écriture. L'opposition vaut pour toute ligne sans commande, y compris une réservation ou un lien déjà en file. Pour un message de scénario ou de campagne : consentement, échéance, pertinence (RDV inchangé, essai ouvert, devis non signé), plage. Hors plage, la ligne attend sans compter de tentative.
+- **Scénarios inactifs par défaut**, activés client par client, sans rattrapage de l'arriéré : les fenêtres sont bornées. Un jour fermé n'écrit rien ; un rappel n'est pas reporté, le reste part le jour ouvert suivant.
+- **Un événement, un message** : premier canal disponible dans l'ordre du scénario. Sans canal, une ligne `BLOQUE` dit pourquoi.
+- **Modèles neutres** : aucune nature de rendez-vous, de document ou d'équipement dans un SMS ou un e-mail. Liste de termes refusés à l'enregistrement. Le prénom est admis. Une lettre fermée peut nommer son objet.
+- **Lien de désinscription** : un jeton signé par message, sans expiration, qui reste valable même si le client est suspendu. GET sans effet : les passerelles ouvrent les liens. POST en un clic pour `List-Unsubscribe`.
+- **Lien court** : `/l/<code>`, 72 bits, unique tous clients confondus, résolu par `ha_plateforme` sur une seule colonne, en SQL : Prisma lirait aussi l'identifiant, hors de son droit. La cible est écrite par le serveur, chiffrée car elle peut porter un jeton.
+- **Paquet `@ha/communication`** : les règles qui écrivent (message, opposition, segment) servent à l'application et à l'ouvrier. Le compteur de l'écran et le lancement passent par le même résolveur.
+- **Audit des travaux** : une ligne `SEND` par message, une ligne `UPDATE` par opposition, auteur « Envoi automatique ». C'est le déplacement annoncé par l'ADR-019.
+- **Courrier** : une lettre attend son lot, hors de la file d'envoi. `generer-courriers` assemble un PDF par centre ; le centre imprime et le dit. Le prestataire postal viendra derrière `envoyerCourrier`.
+- **Fusion** : un accord commercial ne survit pas au refus de l'autre fiche. Le journal, immuable, suit `fusionneDansId` à l'affichage.
+
+### Conséquences
+
+- Tout client doit valider ses textes de consentement : ceux recueillis jusqu'ici ne couvrent pas les campagnes, qui partent donc à zéro destinataire.
+- Un prospect sans fiche ne reçoit aucun rappel, et son STOP ne se rattache à aucun client : seule la liste noire d'OVH le protège.
+- `MessagePatient` ne se purge pas : sa durée de conservation est à fixer à l'étape 22.
+- Un lot de courrier exige le stockage S3 : la mémoire de l'application n'est pas celle de l'ouvrier.
+- Un segment se résout en mémoire pour les oppositions, l'empreinte exigeant la clé : à surveiller au-delà de quelques dizaines de milliers de patients.
+
+## ADR-034 – Fournisseurs de messages et relevés par API
+
+- **Date** : 2026-11-02
+- **Statut** : acceptée. Remplace « aucun fournisseur retenu » de l'ADR-021.
+
+### Contexte
+
+SMS et e-mails devaient partir par des fournisseurs hébergés dans l'UE. Un retour de livraison ou un STOP arrive d'ordinaire par un webhook. OVH ne documente aucune signature pour ses callbacks. Scaleway impose Topics & Events, sous quota bêta, et ne décrit pas ce qui est signé. CLAUDE.md interdit d'inventer un format.
+
+### Décision
+
+- **OVHcloud SMS et Scaleway Transactional Email**, derrière le port `Notifier`. Formats consignés dans `docs/vendor/`. `NOTIFIER=reel` les branche, la simulation reste hors production.
+- **Pas de webhook** : `relever-envois` (toutes les 10 minutes) relit `GET outgoing/{id}` et `GET emails/{id}`, sur 72 heures. `relever-oppositions` (toutes les 5 minutes) relit `GET blacklists`. Aucune route publique à authentifier, aucun STOP forgeable.
+- **STOP multi-clients** : le compte OVH est unique et un numéro ne dit pas quel client il vise. Le STOP s'applique à chaque client qui a écrit à ce numéro, ce qui est le sens prudent. `ha_plateforme` ne voit que l'empreinte et l'organisation.
+- **La mention STOP est celle d'OVH** : `noStopClause` n'est jamais levé, y compris sur un rappel. Le domaine compte les longueurs avec elle.
+- **Lever une opposition** retire d'abord le numéro chez OVH : l'inverse laisserait le relevé suivant reposer l'opposition.
+- **`List-Unsubscribe`** derrière `SCW_TEM_LIST_UNSUBSCRIBE` : la documentation ne dit pas si Scaleway admet ces en-têtes.
+- **`NOTIFIER=reel` n'ouvre pas la réservation publique** : `RESERVATION_PUBLIQUE=active` s'y ajoute, une fois `PROXIES_DE_CONFIANCE` réglé.
+
+### Conséquences
+
+- Les adaptateurs n'ont été essayés que sur des réponses HTTP simulées, conformes à la documentation relevée : un essai sur un vrai compte reste à faire avant toute mise en service.
+- Un STOP met jusqu'à 5 minutes à être pris en compte chez nous. Si la liste noire d'OVH ne bloque pas les envois du compte, un message peut partir entre-temps.
+- Un patient suivi par deux clients qui dit STOP à l'un est coupé chez les deux. Un compte OVH par client serait plus net, à revoir si le pilote le justifie.
+- OVH et Scaleway sont des sous-traitants à inscrire au registre (étape 22). Aucune donnée de santé ne leur est confiée, sauf le nom du centre (R62).
